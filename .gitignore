@@ -1,0 +1,18 @@
+# Node
+node_modules/
+
+*.zip
+# Angular build output
+dist/
+.angular/
+
+# Environment files
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
