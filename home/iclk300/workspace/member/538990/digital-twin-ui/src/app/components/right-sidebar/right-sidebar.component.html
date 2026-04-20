@@ -1,0 +1,33 @@
+<div *ngSwitchCase="'result'" class="result-layout">
+  <div class="result-header">
+    <div class="filter-capsule">
+      <button (click)="setFilter('all')" [class.active]="currentFilter() === 'all'">全部</button>
+      <button (click)="setFilter('passed')" [class.active]="currentFilter() === 'passed'">達標</button>
+      <button (click)="setFilter('failed')" [class.active]="currentFilter() === 'failed'">未達標</button>
+    </div>
+  </div>
+
+  <div class="result-body">
+    <div class="card-list">
+      <div class="bs-result-card" 
+           *ngFor="let bs of pagedBsRows()" 
+           [class.is-pass]="bs.txPower >= BS_POWER_THRESHOLD"
+           [class.is-fail]="bs.txPower < BS_POWER_THRESHOLD">
+        <div class="card-left">
+          <div class="bs-title">#{{ bs.id }} <span class="type-text">{{ bs.typeLabel }}</span></div>
+          <div class="bs-info">發射功率: {{ bs.txPower }} dBm</div>
+        </div>
+        <div class="card-right">
+          <span class="status-badge">{{ bs.txPower >= BS_POWER_THRESHOLD ? '達標' : '未達標' }}</span>
+        </div>
+      </div>
+      <div class="empty-hint" *ngIf="allFilteredRows().length === 0">無相關數據</div>
+    </div>
+  </div>
+
+  <div class="result-footer">
+    <button class="page-btn" (click)="changePage(-1)" [disabled]="currentPage() === 1">〈</button>
+    <span class="page-info">{{ currentPage() }} / {{ totalPages() }}</span>
+    <button class="page-btn" (click)="changePage(1)" [disabled]="currentPage() === totalPages()">〉</button>
+  </div>
+</div>

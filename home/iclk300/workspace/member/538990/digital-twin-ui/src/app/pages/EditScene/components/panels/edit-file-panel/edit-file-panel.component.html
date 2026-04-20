@@ -1,0 +1,40 @@
+<!-- src/app/panels/edit-file-panel/edit-file-panel.component.html -->
+<div class="file-panel">
+  <!-- Panel Header -->
+  <div class="panel-header">
+    <h3 class="panel-title">檔案</h3>
+  </div>
+
+  <!-- Panel Body -->
+  <div class="panel-body file-panel">
+
+    <!-- 儲存 / 匯出 -->
+    <div class="file-actions">
+      <!-- 【新增】click 綁定 + disabled 狀態（好 debug） -->
+      <button
+        class="primary-btn btn"
+        (click)="saveProject()"
+        [disabled]="isSaving"
+      >
+        {{ isSaving ? '儲存中...' : '儲存專案' }}
+      </button>
+
+      <button
+        class="secondary-btn btn"
+        (click)="exportProject()"
+        [disabled]="isExporting"
+      >
+        {{ isExporting ? '匯出中...' : '匯出專案' }}
+      </button>
+    </div>
+    <div class="export-debug" *ngIf="lastExportFileName">
+      匯出成功：{{ lastExportFileName }}
+    </div>
+    
+    <!-- 【新增】最後一次儲存的 requestId 顯示，方便你確認流程真的有跑 -->
+    <div class="save-debug" *ngIf="lastSaveRequestId">
+      已儲存（RequestId: {{ lastSaveRequestId }}）
+    </div>
+
+  </div>
+</div>

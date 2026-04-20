@@ -1,0 +1,110 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <div class="modal-header">
+      <div class="modal-title">[{{ risName }}] 智慧反射面板配置管理</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <!-- custom toolbar -->
+    <div class="modal-toolbar" *ngIf="isCustom">
+      <button class="primary-btn" type="button" (click)="onAdd()">新增</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="error-message" *ngIf="errorMsg">
+        {{ errorMsg }}
+      </div>
+
+      <!-- <div class="table-loading-overlay" *ngIf="isLoading">
+        <div class="list-loading">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="text">讀取中...</span>
+        </div>
+      </div> -->
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-name">配置名稱</th>
+            <th>入射水平角範圍</th>
+            <th>入射垂直角範圍</th>
+            <th>反射水平角</th>
+            <th>反射垂直角</th>
+            <th>反射係數大小(dB)</th>
+            <th class="col-action">場型圖</th>
+            <th class="col-edit" *ngIf="isCustom">編輯/刪除</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let r of rows">
+            <td class="col-name">{{ r.name }}</td>
+            <td>{{ r.incAzRange }}</td>
+            <td>{{ r.incElRange }}</td>
+            <td>{{ r.refAz }}</td>
+            <td>{{ r.refEl }}</td>
+            <td>{{ r.reflGainDb }}</td>
+            <td class="col-action">
+              <button class="view-btn" type="button" (click)="onView(r)">查看</button>
+            </td>
+            <td class="col-edit" *ngIf="isCustom">
+              <button class="view-btn" type="button" (click)="onEdit(r)">編輯</button>
+              <button class="danger-btn" type="button" (click)="onDelete(r)">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- List loading indicator -->
+      <div class="list-loading" *ngIf="isLoading">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="text">讀取中...</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="pager-btn" type="button" disabled>&lt;</button>
+      <span class="pager-current">1</span>
+      <button class="pager-btn" type="button" disabled>&gt;</button>
+    </div>
+  </div>
+</div>
+
+<!-- 第三層：場型圖 -->
+ <!-- <app-ris-config-manage-modal
+  *ngIf="configOpen && configTarget"
+  [zIndexBase]="3010"
+  [ris]="configTarget"
+  [isCustom]="isCustom"
+  (close)="closeConfigManage()"
+></app-ris-config-manage-modal> -->
+
+<app-ris-config-pattern-modal
+  *ngIf="patternOpen && patternTarget"
+  [visible]="patternOpen"
+  [zIndexBase]="zIndexBase + 10"
+  [risID]="patternTarget.risID"
+  [profileID]="patternTarget.profileID"
+  [configName]="patternTarget.name"
+  (close)="closePattern()"
+></app-ris-config-pattern-modal>
+
+<app-ris-config-add-modal
+  *ngIf="configAddOpen"
+  [zIndexBase]="zIndexBase + 20"
+  [risID]="risID"
+  [existingProfileNames]="existingProfileNames"
+  (close)="closeConfigAdd()"
+  (confirm)="onConfigAddConfirm($event)"
+></app-ris-config-add-modal>
+
+<app-ris-config-edit-modal
+  *ngIf="configEditOpen && configEditTarget"
+  [visible]="configEditOpen"
+  [zIndexBase]="zIndexBase + 30"
+  [row]="configEditTarget"
+  [risID]="risID"
+  [existingProfileNames]="existingProfileNames"
+  (close)="closeConfigEdit()"
+  (confirm)="onConfigEditConfirm($event)"
+></app-ris-config-edit-modal>

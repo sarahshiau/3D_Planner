@@ -1,0 +1,38 @@
+<!-- src/app/pages/EditScene/components/map-scene/map-scene.component.html -->
+<div class="map-scene-root">
+  <!-- 左側 / 底層：Leaflet 地圖 -->
+  <div #leafletMap class="leaflet-pane"></div>
+
+  <!-- 右側 / 上層：Babylon Canvas（貼地面與建築） -->
+  <canvas #renderCanvas class="render-canvas"></canvas>
+
+  <!-- （可選）Debug / 資訊區：僅保留必要顯示，不含任何外殼 UI -->
+  <div class="debug-panel">
+    <div class="row">
+      <span class="label">BBox</span>
+      <span class="value">{{ bboxText }}</span>
+    </div>
+    <div class="row">
+      <span class="label">Buildings</span>
+      <span class="value">{{ buildingCount }}</span>
+    </div>
+
+    <!-- 高度縮放（若 MapTest 原本有，保留最小版本） -->
+    <div class="row" *ngIf="selectedBuilding">
+      <label for="heightScale">Height</label>
+      <input
+        id="heightScale"
+        type="range"
+        min="0.1"
+        max="5"
+        step="0.1"
+        [(ngModel)]="heightScale"
+        (input)="onHeightScaleChange()"
+      />
+    </div>
+
+    <div class="row error" *ngIf="errorMsg">
+      {{ errorMsg }}
+    </div>
+  </div>
+</div>

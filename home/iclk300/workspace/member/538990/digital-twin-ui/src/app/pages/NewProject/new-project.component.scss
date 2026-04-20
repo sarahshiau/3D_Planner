@@ -1,0 +1,389 @@
+.page {
+  padding: 16px;
+  background: #0b1020;
+  min-height: calc(100vh - 56px); // 若 top-bar 佔高，可自行調
+  color: #fff;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.card {
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  margin-bottom: 12px;
+}
+
+.label {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+}
+
+.seg {
+  display: flex;
+  gap: 16px;
+  margin: 8px 0 12px;
+}
+
+.seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.picker .hint {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: 8px;
+}
+
+.picked {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.primary {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.gis-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.gis-placeholder {
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 14px;
+  line-height: 1.6;
+}
+
+.page {
+  padding: 16px;
+  color: #eaeaea;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+  }
+}
+
+.primary, .secondary {
+  padding: 8px 14px;
+  border-radius: 25px;
+  border: 1px solid rgba(255,255,255,0.25);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+  }
+
+  .primary:hover, .secondary:hover {
+      background: rgba(76, 125, 194, 0.8);  /* 背景變亮 */
+      border-color: rgba(120, 180, 255, 0.9);    /* 邊框發亮 */
+      box-shadow: 0 0 6px rgba(120, 180, 255, 0.45); /* 邊框光暈 */
+  }
+
+.primary {
+  border-color: rgba(120,180,255,0.55);
+  background: rgba(80,140,220,0.22);
+}
+
+.list-card {
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.18);
+}
+
+.list-header, .list-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.6fr 0.8fr 0.2fr 0.2fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.list-header-one{
+  padding: 20px;
+}
+
+.list-header {
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+
+.list-row {
+    background-color: #292929;
+    border-radius: 10px;
+    margin: 10px;
+}
+
+.project-group {
+  display: block;
+}
+
+.parent-row {
+  margin-bottom: 6px;
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expand-btn {
+  width: 15px;
+  height: 15px;
+  vertical-align: middle;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  display: inline-block;
+  transition: transform 0.18s ease;
+}
+
+.expand-btn.expanded {
+  transform: rotate(90deg);
+}
+
+.child-list {
+  margin: 0 10px 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  padding-left: 10px;
+}
+
+.child-row {
+  margin: 6px 0;
+  background-color: #22242a;
+}
+
+.child-name {
+  opacity: 0.92;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* ===== modal base ===== */
+.modal-backdrop {
+  // full-screen modal backdrop
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  // stretch instead of center (fix height collapse)
+  align-items: stretch;
+  background: rgba(0,0,0,0.55);
+  padding: 16px;
+  box-sizing: border-box;
+  z-index: 999;
+}
+
+.modal-card {
+  width: 720px;
+  max-width: calc(100vw - 40px);
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(10,14,22,0.96);
+  overflow: hidden;
+}
+
+.modal-title {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close-btn {
+  width: 34px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 14px;
+}
+
+.row {
+  margin-bottom: 12px;
+  padding: 12px;
+  background-color: #1e1f23;
+  border-radius: 10px;
+
+  .label {
+    font-size: 15px;
+    opacity: 0.9;
+    padding-bottom: 10px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+}
+
+.radio-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.radio {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sub {
+  margin-top: 8px;
+}
+
+.hint {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 6px;
+}
+
+.size-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+
+  .size-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tag {
+    opacity: 0.85;
+  }
+  .mini {
+    width: 90px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+  }
+  .unit {
+    opacity: 0.8;
+    font-size: 12px;
+  }
+}
+
+.modal-footer {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ===== GIS bbox / preview host（單一 modal 內第二、三步） ===== */
+.gis-modal-host {
+  // modal host height context
+  width: min(1280px, 90vw);
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  background: rgba(10, 14, 22, 0.96);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.gis-modal-host > app-map-picker {
+  // map-picker fill container
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.edit-btn{
+  border-color: rgba(120, 180, 255, 0.55);
+  background: rgba(80, 140, 220, 0.22);
+}
+
+.edit-btn:hover{
+  background: rgba(76, 125, 194, 0.8);  /* 背景變亮 */
+  border-color: rgba(120, 180, 255, 0.9);    /* 邊框發亮 */
+  box-shadow: 0 0 6px rgba(120, 180, 255, 0.45); /* 邊框光暈 */
+}
+
+.delete-btn{
+  border: 1px solid rgb(255 0 0 / 35%);
+  background: rgb(221 20 20 / 12%);
+}

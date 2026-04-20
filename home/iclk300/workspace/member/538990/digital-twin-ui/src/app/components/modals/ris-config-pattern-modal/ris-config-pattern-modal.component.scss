@@ -1,0 +1,132 @@
+.modal-card.modal-card--pattern {
+    position: relative;
+
+    .modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      pointer-events: auto;
+    }
+
+    .pattern-3d {
+      position: relative;
+      z-index: 1;
+    }
+
+    canvas {
+      position: relative;
+      z-index: 1;
+      display: block;
+    }
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-card {
+    width: 720px;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 80px);
+
+    background: rgba(15, 19, 35, 0.55);
+    border: 1px solid rgba(205, 219, 232, 0.45);
+    border-radius: 6px;
+    overflow: hidden;
+
+    color: #ffffff;
+    font-size: 13px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: rgb(0 61 144 / 60%);
+    border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+  }
+
+  .modal-title {
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .close-btn {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    line-height: 1;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  .view-btn {
+    min-width: 64px;
+    height: 30px;
+    padding: 0 12px;
+
+    border-radius: 3px;
+    border: 1px solid rgba(205, 219, 232, 0.7);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+  }
+
+  .modal-body {
+    padding: 14px 16px 18px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .placeholder {
+    height: 360px;
+    border: 1px dashed rgba(205, 219, 232, 0.5);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .pattern-loading, .pattern-error {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 12px;
+  }
+
+  .pattern-error {
+    color: #ff7f7f;
+  }

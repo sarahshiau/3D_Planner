@@ -1,0 +1,121 @@
+<div
+  class="modal-overlay"
+  *ngIf="visible"
+  [style.zIndex]="zIndexBase"
+  (click)="onBackdropClick()"
+>
+  <div
+    class="modal-card"
+    [style.zIndex]="zIndexBase + 1"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div class="modal-title">{{ title }}</div>
+      <button
+        class="close-btn"
+        type="button"
+        (click)="onCancel()"
+        aria-label="close"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form class="form-grid" [formGroup]="form">
+        <div class="form-row" *ngIf="isBuildingMode">
+          <div class="label-cell">建築物高度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="obstacleHeight" />
+            <span class="unit">公尺</span>
+          </div>
+        </div>
+
+        <ng-container *ngIf="!isBuildingMode">
+        <div class="form-row">
+          <div class="label-cell">起始高度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="startHeight" />
+            <span class="unit">公尺</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">障礙物高度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="obstacleHeight" />
+            <span class="unit">公尺</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">寬度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="width" />
+            <span class="unit">公尺</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">長度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="length" />
+            <span class="unit">公尺</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">角度</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input" type="number" formControlName="angle" />
+            <span class="unit">度</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">形狀</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" formControlName="shape" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">顏色</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" formControlName="color" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質設定</div>
+          <div class="field-cell">
+            <select
+              class="select-input"
+              formControlName="materialId"
+              (change)="onMaterialChange($any($event.target).value)"
+            >
+              <option [ngValue]="null">未選擇</option>
+              <option *ngFor="let opt of materialOptions" [ngValue]="opt.id">
+                {{ opt.chineseName || opt.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質衰減係數</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedMaterialDecay ?? '-' }}
+          </div>
+        </div>
+        </ng-container>
+      </form>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+

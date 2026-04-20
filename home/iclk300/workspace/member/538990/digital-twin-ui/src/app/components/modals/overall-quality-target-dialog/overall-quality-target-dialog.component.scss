@@ -1,0 +1,59 @@
+@use '../_modal-dialog-base.scss';
+
+.dt-modal-card {
+  width: 820px;
+}
+
+.dt-grid-head,
+.dt-grid-row {
+  grid-template-columns: 1.1fr 120px 1fr 90px; /* areaPct | op | qualityDb | actions */
+  gap: 14px;
+}
+
+.dt-grid-head > div:nth-child(2),
+.dt-grid-head > div:nth-child(4) {
+  text-align: center;
+}
+
+.dt-input,
+.dt-select {
+  height: 36px;
+  border-radius: 2px;
+}
+
+.dt-input {
+  width: 100%;
+  font-size: 14px;
+}
+
+.dt-grid-row .dt-select {
+  width: 120px;
+  justify-self: center;
+  text-align: center;
+  text-align-last: center;
+}
+
+.dt-grid-row > :last-child {
+  justify-self: end;
+}
+
+.dt-toolbar {
+  padding: 0 0 6px 0;
+}
+
+.dt-toolbar .dt-btn {
+  height: 34px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.dt-modal-footer .dt-btn {
+  height: 36px;
+  min-width: 84px;
+  font-size: 14px;
+}
+
+.dt-select option {
+  color: #000;
+  background: #fff;
+}

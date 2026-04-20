@@ -1,0 +1,157 @@
+// [Step3][SettingsModal] UE Settings Modal Styles
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  width: 560px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+
+  background: rgba(15, 19, 35, 0.55);
+  border: 1px solid rgba(205, 219, 232, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.modal-body {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+}
+
+.meta-id {
+  word-break: break-all;
+}
+
+.muted {
+  opacity: 0.65;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: rgba(205, 219, 232, 0.9);
+}
+
+.field-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(205, 219, 232, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-size: 13px;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(205, 219, 232, 0.35);
+}
+
+.modal-footer--right {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cancel-btn,
+.primary-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.cancel-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(205, 219, 232, 0.35);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #0066cc 0%, #004a99 100%);
+  color: #ffffff;
+  border: 1px solid rgba(205, 219, 232, 0.25);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #0077ee 0%, #0055bb 100%);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}

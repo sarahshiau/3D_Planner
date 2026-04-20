@@ -1,0 +1,103 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <div class="modal-header">
+      <div class="modal-title">新增配置</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">配置名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射水平角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射水平角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.incAzRange" placeholder="例：0 ~ 360" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射垂直角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射垂直角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.incElRange" placeholder="例：0 ~ 90" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射水平角
+            <button class="mini-link" type="button" (click)="openHelp('反射水平角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.refAz" placeholder="例：0" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射垂直角
+            <button class="mini-link" type="button" (click)="openHelp('反射垂直角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.refEl" placeholder="例：90" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">反射係數大小(dB)</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.reflGainDb" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            場型數據
+            <a class="link-btn" href="javascript:void(0)" (click)="downloadTemplate()">
+              (範例檔案下載)
+            </a>
+          </div>
+
+          <div class="field-cell field-cell--file">
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+            />
+
+            <button class="view-btn" type="button" (click)="fileInput.click()">上傳檔案</button>
+            <span class="file-name">{{ selectedFileName || '未選擇檔案' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isParsing" style="color: #666; margin-top: 10px;">Excel 解析中...</div>
+      <div *ngIf="parseError" style="color: #d32f2f; margin-top: 10px;">{{ parseError }}</div>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+
+<app-ris-angle-help-modal
+  *ngIf="helpOpen"
+  [zIndexBase]="zIndexBase + 10"
+  [title]="helpTitle"
+  (close)="closeHelp()"
+></app-ris-angle-help-modal>

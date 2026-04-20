@@ -1,0 +1,102 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div
+    class="modal-card modal-card--narrow"
+    (click)="$event.stopPropagation()"
+    [style.zIndex]="zIndexBase + 1"
+  >
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">編輯智慧反射面板</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Form only (no stepbar, no step 2) -->
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">類型</div>
+          <div class="field-cell">
+            <select class="select-input" [(ngModel)]="draft.type">
+              <option value="主動">主動</option>
+              <option value="被動">被動</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">運作頻段(MHz)</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqStartMHz" />
+            <span class="range-sep">~</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqEndMHz" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">製造商</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.vendor" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質</div>
+          <div class="field-cell">
+            <select class="text-input" [(ngModel)]="draft.material">
+              <option value="" disabled>請選擇材質</option>
+              <option *ngFor="let opt of materialOptions" [value]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">元件數量</div>
+          <div class="field-cell field-cell--pair">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemCountX" />
+            <span class="range-sep">X</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemCountY" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">元件尺寸(mm)</div>
+          <div class="field-cell field-cell--pair">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemSizeX" />
+            <span class="range-sep">X</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemSizeY" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">平均功耗</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.avgPower" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">價格</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.price" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>

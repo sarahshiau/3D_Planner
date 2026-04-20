@@ -1,0 +1,826 @@
+/* src/app/pages/EditScene/panels/edit-task-panel/edit-task-panel.component.scss */
+
+@use '../../../../../../styles/panel-shared' as shared;
+
+/* 讓右側 panel 本體吃到共用 panel 外觀 */
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+
+  /* ===== [RS][TOKENS] baseline = Result panel ===== */
+  --rs-panel-bg: rgba(20, 20, 24, 0.92);
+  --rs-layout-bg: rgb(29 29 35 / 70%);
+
+  --rs-surface-soft: rgba(255, 255, 255, 0.03);
+  --rs-surface-hover: rgba(255, 255, 255, 0.06);
+  --rs-surface-active: rgba(255, 255, 255, 0.14);
+
+  --rs-border-panel: rgba(255, 255, 255, 0.08);
+  --rs-border-card: rgba(255, 255, 255, 0.05);
+  --rs-border-divider: rgba(255, 255, 255, 0.10);
+  --rs-border-hover: rgba(255, 255, 255, 0.20);
+  --rs-border-active: rgba(255, 255, 255, 0.25);
+
+  --rs-r-panel: 12px;
+  --rs-r-card: 8px;
+
+  --rs-pad-panel: 12px 14px;
+  --rs-pad-section: 16px;
+  --rs-pad-card: 12px;
+
+  --rs-text-primary: #fff;
+  --rs-text-weak: rgba(255,255,255,0.6);
+}
+
+/* ============================
+   右側 Task Panel（規劃目標）
+   ============================ */
+
+.task-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  background: var(--rs-panel-bg);
+}
+
+.task-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.task-section-header {
+  height: 56px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 40px;
+
+  background: var(--rs-panel-bg);
+  border-bottom: 1px solid var(--rs-border-panel);
+}
+
+.task-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rs-text-primary);
+}
+
+.task-section-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  margin-top: 0;
+  padding: var(--rs-pad-panel);
+  background: var(--rs-layout-bg);
+}
+
+/* 規劃目標 radio 列表 */
+
+.planning-radio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planning-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+
+  padding: 10px 12px;
+  border-radius: var(--rs-r-card);
+
+  background: var(--rs-surface-soft);
+  border: 1px solid transparent; /* prevent hover shift */
+
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.planning-radio-item:hover {
+  background: var(--rs-surface-active);
+  border-color: var(--rs-border-hover);
+}
+
+.planning-radio-item input[type='radio']:checked ~ .label-text {
+  color: var(--rs-text-primary);
+  font-weight: 600;
+}
+
+.planning-radio-item input[type='radio']:checked ~ .custom-radio {
+  border-color: var(--rs-border-active);
+}
+
+/* 隱藏原生 radio */
+.planning-radio-item input[type='radio'] {
+  display: none;
+}
+
+/* 自訂外框 */
+.custom-radio {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.75);
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+}
+
+/* 被選時加上內點 */
+.planning-radio-item input[type='radio']:checked + .custom-radio::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #1ecb7b;
+  border-radius: 50%;
+  position: absolute;
+  top: 1px;
+  left: 1px;
+}
+
+.label-text {
+  font-size: 14px;
+}
+
+.inline-input{
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 13px;
+}
+/* UE 上限 */
+
+.planning-inline-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.planning-inline-input .hint {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.planning-inline-input input[type='number'] {
+  width: 80px;
+  padding: 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* 「以整體/UE/觀測區域為主」詳細設定 */
+
+.overall-planning-section {
+  margin-top: 16px;
+  padding: 10px;
+  border-top: 1px solid var(--rs-border-divider);
+  border-radius: 16px;
+  background: var(--rs-surface-soft);
+}
+
+.overall-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* 通用表單樣式 */
+
+.form-row {
+  margin-top: 8px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  opacity: 1;
+  color: var(--rs-text-weak);
+  margin-bottom: 4px;
+}
+
+.form-field {
+  font-size: 13px;
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+/* 5G TDD 區塊 */
+
+.tdd-section {
+  margin-top: 16px;
+  margin-bottom: 35px;
+  padding: var(--rs-pad-section);
+  border-radius: var(--rs-r-panel);
+
+  background: var(--rs-surface-soft);
+  border: 1px solid var(--rs-border-divider);
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tdd-section .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-label {
+  width: 120px;
+  font-size: 12px;
+  opacity: 1;
+  color: var(--rs-text-weak);
+  flex-shrink: 0;
+}
+
+/* 數字輸入 / 下拉選單 */
+.field-line input[type='number'],
+.field-line select {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 13px;
+}
+
+/* 單行 radio group */
+.radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+  font-size: 13px;
+}
+
+.small-btn{
+  padding: 0.1,5rem 0.5rem;
+  white-space: nowrap;
+  border-radius: 0.5rem;
+
+  background: rgba(174, 183, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: rgba(174, 183, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.dt-select {
+  color: #111;            // 文字顏色改深色
+  background-color: #fff; // 背景白底
+}
+
+.dt-select option {
+  color: #111;
+  background-color: #fff;
+}
+
+/* ================================
+   Planning Panel Revamp
+   ================================ */
+
+.overall-planning-section {
+  margin-top: 16px;
+}
+
+.planning-context-title {
+  margin: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.sub-filter-section {
+  margin-bottom: 14px;
+}
+
+.filter-capsule.secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.filter-capsule.secondary button {
+  appearance: none;
+  border: 0;
+  outline: none;
+  cursor: pointer;
+
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.filter-capsule.secondary button:hover {
+  color: #ffffff;
+}
+
+.filter-capsule.secondary button.active {
+  background: rgba(90, 165, 255, 0.24);
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(90, 165, 255, 0.18) inset;
+}
+
+.planning-tab-panel {
+  padding: 18px;
+  margin-bottom: 50px;
+  border-radius: 16px;
+  background: rgba(13, 18, 30, 0.72);
+  border: 2px solid rgba(90, 165, 255, 0.24);
+}
+
+.planning-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.form-label {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding-top: 8px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 36px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+}
+
+.small-btn {
+  min-width: 56px;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(90, 165, 255, 0.18);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.small-btn:hover {
+  background: rgba(90, 165, 255, 0.28);
+}
+
+.inline-input,
+.dt-select {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.inline-input.small {
+  width: 92px;
+}
+
+.field-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 36px;
+}
+
+.field-label {
+  min-width: 130px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-title {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.unit {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .form-label {
+    padding-top: 0;
+  }
+
+  .field-label {
+    min-width: 110px;
+  }
+
+  .filter-capsule.secondary {
+    width: 100%;
+    display: flex;
+  }
+
+  .filter-capsule.secondary button {
+    flex: 1 1 0;
+    padding: 0 10px;
+  }
+}
+
+/* ================================
+   Planning/RADIO Layout Split
+   ================================ */
+
+.planning-context-title {
+  text-align: center;
+}
+
+.sub-filter-section {
+  display: flex;
+  justify-content: center;
+}
+
+.planning-tab-content.planning-layout {
+  gap: 14px;
+}
+
+.planning-tab-content.planning-layout .form-row {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.planning-tab-content.planning-layout .checkbox-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+}
+
+.planning-tab-content.planning-layout .checkbox-line input[type='checkbox'] {
+  margin: 0;
+}
+
+.checkbox-text {
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.planning-tab-content.planning-layout .checkbox-line .small-btn {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.planning-tab-content.radio-layout {
+  gap: 14px;
+}
+
+.radio-settings-panel .form-row {
+  grid-template-columns: 190px minmax(260px, 1fr);
+  align-items: start;
+}
+
+.radio-settings-panel .form-field {
+  min-width: 0;
+}
+
+.radio-layout .field-line {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.radio-layout .field-label {
+  min-width: 160px;
+}
+
+.radio-layout .field-line input[type='number'],
+.radio-layout .field-line .inline-input,
+.radio-layout .field-line select,
+.radio-layout .field-line .dt-select {
+  min-width: 120px;
+}
+
+.radio-layout .radio-inline {
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .planning-tab-content.planning-layout .form-row,
+  .radio-settings-panel .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .radio-layout .field-line {
+    flex-wrap: wrap;
+  }
+
+  .radio-layout .field-label {
+    min-width: 110px;
+  }
+
+  .planning-tab-content.planning-layout .checkbox-line {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+
+  .planning-tab-content.planning-layout .checkbox-line .small-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* ===== radio tab 專屬 layout ===== */
+
+.planning-tab-content.radio-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.radio-settings-title {
+  margin-bottom: 18px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  align-items: center;
+}
+
+.radio-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.radio-settings-body .form-row {
+  display: grid;
+  grid-template-columns: 190px minmax(260px, 1fr);
+  gap: 18px;
+}
+
+.radio-settings-body .form-label {
+  padding-top: 0;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.radio-settings-body .form-field {
+  min-width: 0;
+}
+
+.radio-settings-body .field-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.radio-settings-body .inline-input,
+.radio-settings-body .dt-select {
+  min-width: 96px;
+  max-width: 100%;
+}
+
+.radio-settings-body .dt-select {
+  width: 100%;
+}
+
+.radio-settings-body .field-line .dt-select {
+  flex: 1 1 auto;
+}
+
+.radio-settings-body .field-line .inline-input {
+  flex: 0 0 auto;
+}
+
+.radio-settings-body .unit {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.radio-settings-body .radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* 避免舊的 tdd-section 規則干擾 */
+.form-row.tdd-section {
+  display: block;
+}
+
+.form-row.tdd-section > .form-label {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .radio-settings-body .form-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: start;
+  }
+
+  .radio-settings-body .field-line {
+    flex-wrap: wrap;
+  }
+}
+
+/* ===== planning tab 專屬 layout ===== */
+
+.planning-tab-content.planning-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.planning-row {
+  display: grid;
+  grid-template-columns: 150px minmax(320px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.planning-row-label {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding-top: 8px;
+}
+
+.planning-row-content {
+  min-width: 0;
+}
+
+/* 限制欲強化項目區塊寬度，不要撐滿右側 */
+.planning-row-content.objective-list {
+  max-width: 520px;
+}
+
+/* 欲強化項目列表 */
+.objective-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.objective-item {
+  display: grid;
+  grid-template-columns: 20px 190px auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 8px;
+  min-height: 36px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+}
+
+.objective-item input[type='checkbox'] {
+  margin: 0;
+}
+
+.objective-text {
+  max-width: 260px;
+  display: inline-block;
+  line-height: 1.5;
+}
+
+.objective-item .small-btn {
+  justify-self: start;
+  white-space: nowrap;
+}
+
+/* 發射源 / RIS 數量控制列 */
+.mode-control-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.mode-control-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+}
+
+.mode-text {
+  white-space: nowrap;
+}
+
+.mode-number {
+  width: 88px;
+  min-width: 88px;
+}
+
+/* 小尺寸時才允許往下疊 */
+@media (max-width: 900px) {
+  .planning-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .planning-row-label {
+    padding-top: 0;
+  }
+
+  .objective-item {
+    grid-template-columns: 20px minmax(180px, 1fr) auto;
+  }
+
+  .mode-control-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* 避免舊通用規則干擾 planning-layout */
+.planning-tab-content.planning-layout .mode-control-item {
+  display: inline-flex;
+}
+
+.planning-tab-content.planning-layout .objective-item {
+  display: grid;
+}

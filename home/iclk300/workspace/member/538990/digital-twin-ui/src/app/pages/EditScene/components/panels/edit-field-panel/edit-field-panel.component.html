@@ -1,0 +1,630 @@
+<div class="panel-header">
+    <h3 class="panel-title">場域設定</h3>
+</div>
+
+<div class="panel-body">
+    <!-- 場域設定：外層可展開列表 -->
+    <div class="field-accordion">
+    <div
+        class="field-accordion-item"
+        *ngFor="let section of fieldSettingSections">
+        <!-- 可點擊的標題列：
+            一般項目 = 展開 / 收合
+            pathloss  = 打開衰減模型視窗 -->
+        <button
+        type="button"
+        class="field-accordion-header"
+        (click)="
+            section.mode === 'dialog'
+            ? openPathlossDialog()
+            : toggleFieldSettingSection(section)
+        ">
+        <span class="field-accordion-title">
+            {{ section.title }}
+        </span>
+
+        <!-- 右側數量 badge -->
+        <span class="field-accordion-count" *ngIf="showSectionCount(section)">
+            {{ section.count }}
+        </span>
+
+        <!-- 展開箭頭：只有一般 accordion 類型才顯示 -->
+        <span
+            class="field-accordion-chevron"
+            *ngIf="section.mode !== 'dialog'"
+            [class.open]="section.opened">
+            ▾
+        </span>
+        </button>
+
+        <!-- 內層內容：basic 有實際表單，其它先 placeholder -->
+        <div
+        class="field-accordion-body"
+        *ngIf="section.opened && section.id !== 'pathloss'">
+        <ng-container [ngSwitch]="section.id">
+            <!-- 場域基本資訊 -->
+            <div *ngSwitchCase="'basic'" class="basic-field-form">
+            <div class="field-line">
+                <span class="field-label">專案名稱</span>
+                <input
+                type="text"
+                [(ngModel)]="fieldSettingsState.projectName" />
+            </div>
+
+            <div class="field-line">
+                <span class="field-label">場域尺寸</span>
+                <span class="field-setting-value--triple">{{ basicFieldSizeText }}</span>
+                <span class="unit-text">公尺</span>
+            </div>
+            <div class="field-line field-line--readonly-hint">
+              <span class="field-label"></span>
+              <span class="unit-text">（由地圖框選範圍自動計算，無法手動修改）</span>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label">網路種類</span>
+                <select [(ngModel)]="fieldSettingsState.networkType">
+                <option
+                    *ngFor="let opt of networkTypeOptions"
+                    [value]="opt.value">
+                    {{ opt.label }}
+                </option>
+                </select>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label">頻段</span>
+                <select [(ngModel)]="fieldSettingsState.band">
+                <option
+                    *ngFor="let opt of bandOptions"
+                    [value]="opt.value">
+                    {{ opt.label }}
+                </option>
+                </select>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label"
+                >以 RSRP 計算覆蓋率閾值</span
+                >
+                <input
+                type="number"
+                class="inline-input small"
+                [(ngModel)]="fieldSettingsState.rsrpThreshold" />
+                <span class="unit">dBm</span>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label"
+                >以 SINR 計算覆蓋率閾值</span
+                >
+                <input
+                type="number"
+                class="inline-input small"
+                [(ngModel)]="fieldSettingsState.sinrThreshold" />
+                <span class="unit">dB</span>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label">
+                切面高度（單位：公尺）
+                </span>
+                <input
+                  type="text"
+                  class="inline-input small"
+                  placeholder="—"
+                  [(ngModel)]="fieldSettingsState.cutHeights[0]" />
+                <input
+                  type="text"
+                  class="inline-input small"
+                  placeholder="—"
+                  [(ngModel)]="fieldSettingsState.cutHeights[1]" />
+                <input
+                  type="text"
+                  class="inline-input small"
+                  placeholder="—"
+                  [(ngModel)]="fieldSettingsState.cutHeights[2]" />
+                <span class="unit-text">公尺</span>
+            </div>
+
+            <div class="field-line">
+                <span class="field-label">熱點圖網格大小</span>
+                <select [(ngModel)]="fieldSettingsState.heatmapGrid">
+                <option
+                    *ngFor="let opt of heatmapGridOptions"
+                    [value]="opt.value">
+                    {{ opt.label }}
+                </option>
+                </select>
+            </div>
+
+            </div>
+            
+            <!-- 場域障礙物資訊 -->
+            <div *ngSwitchCase="'obstacle'" class="obstacle-list">
+            <ng-container *ngIf="obstacles.length > 0; else emptyObstacle">
+            <div
+                class="obstacle-item"
+                *ngFor="let obs of obstacles"
+                [class.is-selected]="selectedContextRowId === obs.id"
+                (click)="emitFieldCardSelect('obstacle', obs.id, 'obstacle')">
+
+                <!-- 每一個障礙物的標題列（編碼 + 刪除按鈕） -->
+                <div class="obstacle-header">
+                <span>障礙物 {{ obs.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearObstacle(obs)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <!-- 位置 -->
+                <div class="field-line">
+                <span class="field-label">位置</span>
+                <span>X</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.x"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'x', $event)" />
+                <span>Y</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.y"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'y', $event)" />
+                </div>
+
+                <!-- 起始高度 / 障礙物高度 -->
+                <div class="field-line">
+                <span class="field-label">起始高度</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.startHeight"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'startHeight', $event)" />
+                <span class="unit">公尺</span>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">障礙物高度</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.height"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'height', $event)" />
+                <span class="unit">公尺</span>
+                </div>
+
+                <!-- 長 / 寬 / 角度 -->
+                <div class="field-line">
+                <span class="field-label">尺寸</span>
+                <span>長</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.length"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'length', $event)" />
+                <span>寬</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.width"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'width', $event)" />
+                <span>角度</span>
+                <input
+                    type="number"
+                    class="inline-input small"
+                    (click)="stopCardClickPropagation($event)"
+                    [(ngModel)]="obs.angle"
+                    (ngModelChange)="onObstacleFieldChange(obs, 'angle', $event)" />
+                <span class="unit">度</span>
+                </div>
+
+                <!-- 材質 下拉 -->
+                <div class="field-line">
+                <span class="field-label">材質</span>
+                <select [(ngModel)]="obs.material" (click)="stopCardClickPropagation($event)" (ngModelChange)="onObstacleMaterialChange(obs, $event)">
+                    <option
+                    *ngFor="let m of obstacleMaterialOptions"
+                    [value]="m.value">
+                    {{ m.label }}
+                    </option>
+                </select>
+                </div>
+
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyObstacle>
+              <p class="field-empty-state">場域內無障礙物</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'existingBs'" class="simple-item-list">
+            <ng-container *ngIf="existingBsList.length > 0; else emptyExistingBs">
+            <div class="simple-item" *ngFor="let item of existingBsList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('existingBs', item.id, 'existingBs')">
+                <div class="simple-item-header">
+                <span>基地台 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn settings-btn"
+                    (click)="stopCardClickPropagation($event); onOpenExistingBsSettings(item)"
+                    title="設定">
+                    <span class="material-symbols-outlined">settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearExistingBs(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onExistingBsFieldChange(item, 'x', $event)" />
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onExistingBsFieldChange(item, 'y', $event)" />
+                <span>Z</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.z" (ngModelChange)="onExistingBsFieldChange(item, 'z', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyExistingBs>
+              <p class="field-empty-state">場域內無基地台與天線</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'availableBs'" class="simple-item-list">
+            <ng-container *ngIf="availableBsList.length > 0; else emptyAvailableBs">
+            <div class="simple-item" *ngFor="let item of availableBsList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('candidateBs', item.id, 'availableBs')">
+                <div class="simple-item-header">
+                <span>可放置基站位置 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearAvailableBs(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onCandidateBsFieldChange(item, 'x', $event)" />
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onCandidateBsFieldChange(item, 'y', $event)" />
+                <span>Z</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.z" (ngModelChange)="onCandidateBsFieldChange(item, 'z', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyAvailableBs>
+              <p class="field-empty-state">場域內無可安裝無線基地台位置</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'intelligentPanel'" class="simple-item-list">
+            <ng-container *ngIf="intelligentPanelList.length > 0; else emptyIntelligentPanel">
+            <div class="simple-item" *ngFor="let item of intelligentPanelList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('intelligentPanel', item.id, 'intelligentPanel')">
+                <div class="simple-item-header">
+                <span>智慧反射面板 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn settings-btn"
+                    (click)="stopCardClickPropagation($event); onOpenIntelligentPanelSettings(item)"
+                    title="設定">
+                    <span class="material-symbols-outlined">settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearIntelligentPanel(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onRisFieldChange(item, 'x', $event)" />
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onRisFieldChange(item, 'y', $event)" />
+                <span>Z</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.z" (ngModelChange)="onRisFieldChange(item, 'z', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyIntelligentPanel>
+              <p class="field-empty-state">場域內無智慧反射面板</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'availablePanel'" class="simple-item-list">
+            <ng-container *ngIf="availablePanelList.length > 0; else emptyAvailablePanel">
+            <div class="simple-item" *ngFor="let item of availablePanelList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('candidateRis', item.id, 'availablePanel')">
+                <div class="simple-item-header">
+                <span>可放置RIS位置 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearAvailablePanel(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onCandidateRisFieldChange(item, 'x', $event)" />
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onCandidateRisFieldChange(item, 'y', $event)" />
+                <span>Z</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.z" (ngModelChange)="onCandidateRisFieldChange(item, 'z', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyAvailablePanel>
+              <p class="field-empty-state">場域內無可安裝智慧反射面板位置</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'ueDistribution'" class="simple-item-list">
+            <ng-container *ngIf="ueDistributionList.length > 0; else emptyUeDistribution">
+            <div class="simple-item" *ngFor="let item of ueDistributionList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('ue', item.id, 'ueDistribution')">
+                <div class="simple-item-header">
+                <span>行動終端 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn settings-btn"
+                    (click)="stopCardClickPropagation($event); onOpenUeSettings(item)">
+                    settings
+                  </button>
+
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearUe(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onUeFieldChange(item, 'x', $event)" />
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onUeFieldChange(item, 'y', $event)" />
+                <span>Z</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.z" (ngModelChange)="onUeFieldChange(item, 'z', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyUeDistribution>
+              <p class="field-empty-state">場域內無行動終端</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'zone'" class="simple-item-list">
+            <ng-container *ngIf="zoneList.length > 0; else emptyZone">
+            <div class="simple-item" *ngFor="let item of zoneList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('zone', item.id, 'zone')">
+                <div class="simple-item-header">
+                <span>分區 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn settings-btn"
+                    title="編輯衰減模型"
+                    (click)="stopCardClickPropagation($event); openZonePathLossDialog(item.id)">
+                    <span class="material-symbols-outlined">settings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearZone(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <!-- 位置 -->
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onZoneFieldChange(item, 'x', $event)" />
+
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onZoneFieldChange(item, 'y', $event)" />
+                </div>
+
+                <!-- 尺寸 -->
+                <div class="field-line">
+                <span class="field-label">長</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.length" (ngModelChange)="onZoneFieldChange(item, 'length', $event)" />
+
+                <span>寬</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.width" (ngModelChange)="onZoneFieldChange(item, 'width', $event)" />
+
+                <span>角度</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.angle" (ngModelChange)="onZoneFieldChange(item, 'angle', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyZone>
+              <p class="field-empty-state">場域內無自訂分區</p>
+            </ng-template>
+            </div>
+
+            <div *ngSwitchCase="'observe'" class="simple-item-list">
+            <ng-container *ngIf="observeList.length > 0; else emptyObserve">
+            <div class="simple-item" *ngFor="let item of observeList" [class.is-selected]="selectedContextRowId === item.id" (click)="emitFieldCardSelect('observe', item.id, 'observe')">
+                <div class="simple-item-header">
+                <span>觀測區 {{ item.seq }}</span>
+
+                <div class="row-actions">
+                  <button
+                    type="button"
+                    class="icon-btn clear-btn"
+                    (click)="stopCardClickPropagation($event); onClearObserve(item)">
+                    ✕
+                  </button>
+                </div>
+                </div>
+
+                <!-- 位置 -->
+                <div class="field-line">
+                <span class="field-label">X</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.x" (ngModelChange)="onObserveFieldChange(item, 'x', $event)" />
+
+                <span>Y</span>
+                <input type="number" class="inline-input small" (click)="stopCardClickPropagation($event)" [(ngModel)]="item.y" (ngModelChange)="onObserveFieldChange(item, 'y', $event)" />
+                </div>
+            </div>
+            </ng-container>
+            
+            <ng-template #emptyObserve>
+              <p class="field-empty-state">場域內無觀測區域</p>
+            </ng-template>
+            </div>
+
+
+            <!-- 其它尚未實作的區塊：先放 placeholder -->
+            <p
+            *ngSwitchDefault
+            class="field-accordion-placeholder">
+            {{ section.title }} 的表單內容之後放在這裡。
+            </p>
+        </ng-container>
+        </div>
+    </div>
+    </div>
+
+    <!-- ⭐ 衰減模型設定視窗（Pathloss Modal） -->
+    <div
+    class="pathloss-modal-backdrop"
+    *ngIf="pathlossDialogOpen">
+    <div class="pathloss-modal">
+        <!-- 上方藍色抬頭列 -->
+        <div class="pathloss-modal-title-bar">
+        <span class="pathloss-modal-title">
+            場域內無線訊號衰減模型
+        </span>
+        <button
+            type="button"
+            class="modal-close-btn"
+            (click)="closePathlossDialog()">
+            ✕
+        </button>
+        </div>
+
+        <!-- 標題列：衰減模型名稱 / 衰減模型公式 -->
+        <div class="pathloss-modal-header-row">
+        <div class="ph-col-name">衰減模型名稱</div>
+        <div class="ph-col-formula">衰減模型公式</div>
+        </div>
+
+        <!-- 內容列：左邊下拉 + 右邊公式 -->
+        <div class="pathloss-modal-body-row">
+        <div class="ph-col-name">
+            <div class="ph-inline-label">預設無線模型</div>
+            <select
+            class="ph-select"
+            [(ngModel)]="selectedPathlossId">
+            <option
+                *ngFor="let m of pathlossPresets"
+                [value]="m.id">
+                {{ m.name }}
+            </option>
+            </select>
+        </div>
+
+        <div class="ph-col-formula">
+            <div class="ph-formula-text">
+            {{ selectedPathlossPreset?.formula }}
+            </div>
+        </div>
+        </div>
+
+        <!-- 底部按鈕列 -->
+        <div class="modal-footer">
+        <button
+            type="button"
+            class="small-btn"
+            (click)="closePathlossDialog()">
+            取消
+        </button>
+        <button
+            type="button"
+            class="primary-btn"
+            (click)="savePathlossModel()">
+            確定
+        </button>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- [Step3][ExistingBsSettingsConfirm] Existing BS Settings Modal -->
+<app-existing-bs-settings-modal
+  [visible]="existingBsSettingsOpen"
+  [row]="existingBsSettingsTarget"
+  [zIndexBase]="4000"
+  (close)="closeExistingBsSettings()"
+  (confirm)="onConfirmExistingBsSettings($event)">
+</app-existing-bs-settings-modal>
+
+<app-intelligent-panel-settings-modal
+  [visible]="intelligentPanelSettingsOpen"
+  [row]="intelligentPanelSettingsTarget"
+  [zIndexBase]="4100"
+  (close)="closeIntelligentPanelSettings()"
+  (confirm)="onConfirmIntelligentPanelSettings($event)">
+</app-intelligent-panel-settings-modal>
+
+<app-ue-settings-modal
+  [visible]="ueSettingsOpen"
+  [row]="ueSettingsTarget"
+  [zIndexBase]="4200"
+  (close)="closeUeSettings()"
+  (confirm)="onConfirmUeSettings($event)">
+</app-ue-settings-modal>
+
+<app-antenna-settings-modal
+  [visible]="antennaSettingsOpen"
+  [row]="antennaSettingsTarget"
+  [zIndexBase]="4100"
+  (close)="closeAntennaSettings()"
+  (confirm)="onConfirmAntennaSettings($event)">
+</app-antenna-settings-modal>

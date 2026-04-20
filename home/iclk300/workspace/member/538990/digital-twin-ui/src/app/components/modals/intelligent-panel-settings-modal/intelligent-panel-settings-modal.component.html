@@ -1,0 +1,165 @@
+<div
+  class="modal-overlay"
+  *ngIf="visible"
+  [style.zIndex]="zIndexBase"
+  (click)="onBackdropClick()"
+>
+  <div
+    class="modal-card"
+    [style.zIndex]="zIndexBase + 1"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div class="modal-title">{{ title }}</div>
+      <button
+        class="close-btn"
+        type="button"
+        (click)="onCancel()"
+        aria-label="close"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form class="form-grid" [formGroup]="form">
+        <div class="form-row">
+          <div class="label-cell">智慧反射面板</div>
+          <div class="field-cell">
+            <select
+              class="select-input"
+              formControlName="risId"
+              [disabled]="loadingRisOptions"
+            >
+              <option [ngValue]="null" disabled>
+                {{ loadingRisOptions ? '載入中...' : '請選擇智慧反射面板' }}
+              </option>
+              <option *ngFor="let opt of risOptions" [ngValue]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">配置</div>
+          <div class="field-cell">
+            <select
+              class="select-input"
+              formControlName="profileId"
+              [disabled]="loadingProfileOptions || !form.get('risId')?.value"
+            >
+              <option [ngValue]="null" disabled>
+                {{ loadingProfileOptions ? '載入中...' : '請選擇配置' }}
+              </option>
+              <option *ngFor="let opt of profileOptions" [ngValue]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">安裝水平角</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="installHorizontalAngle"
+            />
+            <span class="unit">deg</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">安裝垂直角</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="installVerticalAngle"
+            />
+            <span class="unit">deg</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">運作頻段</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisFrequencyText || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">製造商</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisManufacturer || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisMaterial || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">元件數量</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisElementNumberText || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">平均功耗</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisEnergy !== null ? selectedRisEnergy : '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">價格</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedRisCost !== null ? selectedRisCost : '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">入射水平角範圍</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedProfileIncHorizontalText || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">入射垂直角範圍</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedProfileIncVerticalText || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">反射水平角</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedProfileRefHorizontal !== null ? selectedProfileRefHorizontal : '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">反射垂直角</div>
+          <div class="field-cell field-cell--readonly">
+            {{ selectedProfileRefVertical !== null ? selectedProfileRefVertical : '-' }}
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">
+        確定
+      </button>
+    </div>
+  </div>
+</div>

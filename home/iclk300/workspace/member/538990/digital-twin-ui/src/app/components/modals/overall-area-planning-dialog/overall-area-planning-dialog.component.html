@@ -1,0 +1,18 @@
+<div class="dt-modal-card">
+  <div class="dt-modal-header">
+    <div class="dt-modal-title">整體場域訊號覆蓋目標函數設定</div>
+    <button type="button" class="dt-close-btn" (click)="onCancel()">×</button>
+  </div>
+
+  <div class="dt-modal-body">
+    <div class="dt-field-line">
+      <span class="dt-field-label">覆蓋率(%) &gt;=</span>
+      <input class="dt-input" type="number" [(ngModel)]="coveragePct" />
+    </div>
+  </div>
+
+  <div class="dt-modal-footer">
+    <button type="button" class="dt-btn" (click)="onCancel()">取消</button>
+    <button type="button" class="dt-btn dt-btn-primary" (click)="onConfirm()">確定</button>
+  </div>
+</div>

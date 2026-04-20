@@ -1,0 +1,32 @@
+<div class="planner-modal-card" [ngClass]="'type-' + mode" role="dialog" aria-modal="true">
+  <!-- Header -->
+  <div class="planner-modal-header">
+    <div class="title">{{ data.title }}</div>
+
+    <!-- 右上角關閉（符合你們 modal 常見模式） -->
+    <button
+      class="close-btn"
+      type="button"
+      aria-label="close"
+      (click)="close(false)"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="planner-modal-body">
+    <div class="message">{{ data.message }}</div>
+  </div>
+
+  <!-- Footer -->
+  <div class="planner-modal-footer">
+    <button *ngIf="isQuestionMode" class="danger-btn" type="button" (click)="close(false)">
+      {{ data.cancelText || 'Cancel' }}
+    </button>
+
+    <button class="view-btn" type="button" (click)="close(true)">
+      {{ data.confirmText || 'OK' }}
+    </button>
+  </div>
+</div>

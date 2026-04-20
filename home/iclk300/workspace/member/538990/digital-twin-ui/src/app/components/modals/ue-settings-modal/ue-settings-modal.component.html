@@ -1,0 +1,44 @@
+<div
+  *ngIf="visible"
+  class="modal-overlay"
+  (click)="onBackdropClick()"
+  [style.zIndex]="zIndexBase">
+  <div
+    class="modal-card"
+    (click)="$event.stopPropagation()"
+    [style.zIndex]="zIndexBase + 1">
+    <div class="modal-header">
+      <div class="modal-title">行動終端參數</div>
+      <button class="close-btn" type="button" (click)="onCancel()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="meta-row" *ngIf="row">
+        <span>序號：{{ row.seq }}</span>
+        <span class="meta-id">ID：{{ row.id }}</span>
+      </div>
+      <div class="meta-row" *ngIf="!row">
+        <span class="muted">（無列資料）</span>
+      </div>
+
+      <label class="field-label" for="ue-rx-gain">rxGain</label>
+      <input
+        id="ue-rx-gain"
+        class="field-input"
+        type="text"
+        name="rxGain"
+        [(ngModel)]="rxGainInput"
+        autocomplete="off"
+        [disabled]="!row" />
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="cancel-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()" [disabled]="!row">
+        確定
+      </button>
+    </div>
+  </div>
+</div>

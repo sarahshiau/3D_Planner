@@ -1,0 +1,37 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">編輯材質</div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">材質名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質衰減係數</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.decay" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,224 @@
+<div
+  class="modal-overlay"
+  *ngIf="visible"
+  [style.zIndex]="zIndexBase"
+  (click)="onBackdropClick()"
+>
+  <div
+    class="modal-card"
+    [style.zIndex]="zIndexBase + 1"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div class="modal-title">{{ title }}</div>
+      <button
+        class="close-btn"
+        type="button"
+        (click)="onCancel()"
+        aria-label="close"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form class="form-grid" [formGroup]="form">
+        <div class="form-row">
+          <div class="label-cell">發射功率</div>
+          <div class="field-cell">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="txPower"
+            />
+            <label class="radio-inline">
+              <input type="radio" formControlName="txPowerUnit" value="dBm" />
+              <span>dBm</span>
+            </label>
+            <label class="radio-inline">
+              <input type="radio" formControlName="txPowerUnit" value="mW" />
+              <span>mW</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">中心頻率</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="centerFrequency"
+            />
+            <span class="unit">MHz</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">子載波間距</div>
+          <div class="field-cell field-cell--range">
+            <select
+              class="select-input text-input--sm"
+              formControlName="subcarrierSpacing"
+            >
+              <option
+                *ngFor="let opt of subcarrierSpacingOptions"
+                [ngValue]="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+            <span class="unit">kHz</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">頻寬</div>
+          <div class="field-cell field-cell--range">
+            <select
+              class="select-input text-input--sm"
+              formControlName="bandwidth"
+            >
+              <option
+                *ngFor="let opt of filteredBandwidthOptions"
+                [ngValue]="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+            <span class="unit">MHz</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">上行資料串流層數</div>
+          <div class="field-cell">
+            <select
+              class="select-input text-input--sm"
+              formControlName="ulLayers"
+            >
+              <option *ngFor="let opt of layerOptions" [ngValue]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">下行資料串流層數</div>
+          <div class="field-cell">
+            <select
+              class="select-input text-input--sm"
+              formControlName="dlLayers"
+            >
+              <option *ngFor="let opt of layerOptions" [ngValue]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">上行調變能力</div>
+          <div class="field-cell">
+            <select class="select-input" formControlName="ulModulation">
+              <option
+                *ngFor="let opt of modulationOptions"
+                [ngValue]="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">下行調變能力</div>
+          <div class="field-cell">
+            <select class="select-input" formControlName="dlModulation">
+              <option
+                *ngFor="let opt of modulationOptions"
+                [ngValue]="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">雜訊指數</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="noiseFigure"
+            />
+            <span class="unit">dB</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">天線種類</div>
+          <div class="field-cell">
+            <label class="radio-inline">
+              <input
+                type="radio"
+                formControlName="antennaMode"
+                value="default"
+              />
+              <span>系統預設</span>
+            </label>
+            <label class="radio-inline">
+              <input
+                type="radio"
+                formControlName="antennaMode"
+                value="custom"
+              />
+              <span>自訂</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">天線</div>
+          <div class="field-cell">
+            <select
+              class="select-input"
+              formControlName="antennaId"
+              [disabled]="loadingAntennaOptions"
+            >
+              <option [ngValue]="null" disabled>
+                {{ loadingAntennaOptions ? '載入中...' : '請選擇天線' }}
+              </option>
+              <option *ngFor="let opt of antennaOptions" [ngValue]="opt.id">
+                {{ opt.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">天線類型</div>
+          <div class="field-cell field-cell--readonly">
+            {{ form.get('antennaTypeLabel')?.value || '-' }}
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">製造商</div>
+          <div class="field-cell field-cell--readonly">
+            {{ form.get('manufacturer')?.value || '-' }}
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">
+        確定
+      </button>
+    </div>
+  </div>
+</div>

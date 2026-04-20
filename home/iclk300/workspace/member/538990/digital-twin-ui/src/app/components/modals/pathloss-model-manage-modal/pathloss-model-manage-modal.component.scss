@@ -1,0 +1,301 @@
+/* ===== Backdrop / Overlay ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Modal Card ===== */
+.modal-card {
+  width: 95%;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+
+  background: rgba(15, 19, 35, 0.55);
+  border: 1px solid rgba(205, 219, 232, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  color: #ffffff;
+  font-size: 13px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Header ===== */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ===== Tabs ===== */
+.modal-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+
+  flex-wrap: nowrap;
+}
+
+.modal-tabs .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  margin: 0;
+  padding: 6px 8px;
+
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.modal-tabs .tab input[type='radio'] {
+  display: inline-block;
+  position: static;
+  margin: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.modal-tabs .tab span {
+  display: inline-block;
+  line-height: 1;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ===== Toolbar ===== */
+.modal-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px 0;
+}
+
+.primary-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ===== Table ===== */
+.table-wrap {
+  padding: 10px 16px 0;
+  overflow: auto;
+  flex: 1;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(10, 14, 28, 0.18);
+  min-width: 1100px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(205, 219, 232, 0.28);
+  vertical-align: middle;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+
+.data-table th {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(205, 219, 232, 0.12);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.45);
+}
+
+.col-name {
+  text-align: center;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.col-formula {
+  text-align: center;
+  min-width: 320px;
+  white-space: nowrap;
+}
+
+.col-edit {
+  width: 180px;
+  text-align: right;
+
+  button + button {
+    margin-left: 8px;
+  }
+}
+
+.col-chineseName {
+  text-align: center;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.col-distancePowerLoss {
+  min-width: 140px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.col-fieldLoss {
+  min-width: 140px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ===== Buttons ===== */
+.view-btn {
+  height: 30px;
+  padding: 0 12px;
+
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.danger-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 120, 120, 0.9);
+  background: rgba(255, 0, 0, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 0, 0, 0.12);
+  }
+}
+
+/* ===== Footer / Pager ===== */
+.modal-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(205, 219, 232, 0.35);
+}
+
+.pager-btn {
+  min-width: 34px;
+  height: 28px;
+
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.pager-current {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.pager-spacer {
+  height: 28px;
+}
+
+/* ===== List Loading Indicator ===== */
+.list-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  padding: 18px 0;
+  margin-top: 8px;
+
+  font-size: 15px;
+  font-weight: 500;
+  color: #ffffff;
+
+  animation: fadeIn 0.25s ease-out;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  animation: listSpin 0.8s linear infinite;
+}
+
+@keyframes listSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

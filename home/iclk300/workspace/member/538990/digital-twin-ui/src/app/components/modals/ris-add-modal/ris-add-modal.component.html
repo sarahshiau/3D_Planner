@@ -1,0 +1,215 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div
+    class="modal-card modal-card--narrow"
+    (click)="$event.stopPropagation()"
+    [style.zIndex]="zIndexBase + 1"
+  >
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">新增智慧反射面板</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Stepbar -->
+      <div class="stepbar">
+        <div class="step" [class.active]="step === 1">1. 表單</div>
+        <div class="step" [class.active]="step === 2">2. 上傳檔案</div>
+      </div>
+
+      <!-- Step 1: Form -->
+      <div *ngIf="step === 1" class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">類型</div>
+          <div class="field-cell">
+            <select class="select-input" [(ngModel)]="draft.type">
+              <option value="主動">主動</option>
+              <option value="被動">被動</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">運作頻段(MHz)</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqStartMHz" />
+            <span class="range-sep">~</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqEndMHz" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">製造商</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.vendor" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">材質</div>
+          <div class="field-cell">
+            <select class="text-input" [(ngModel)]="draft.material">
+              <option value="" disabled>請選擇材質</option>
+              <option *ngFor="let opt of materialOptions" [value]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">元件數量</div>
+          <div class="field-cell field-cell--pair">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemCountX" />
+            <span class="range-sep">X</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemCountY" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">元件尺寸(mm)</div>
+          <div class="field-cell field-cell--pair">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemSizeX" />
+            <span class="range-sep">X</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.elemSizeY" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">平均功耗</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.avgPower" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">價格</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.price" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Upload -->
+      <!-- <div *ngIf="step === 2" class="upload-panel form-grid"> -->
+      <div *ngIf="step === 2" class="upload-panel form-grid">
+        <div class="form-row">
+          <div class="label-cell">配置名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.profileName" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射水平角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射水平角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.incAzRange" placeholder="例：0 ~ 360" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射垂直角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射垂直角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.incElRange" placeholder="例：0 ~ 90" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射水平角
+            <button class="mini-link" type="button" (click)="openHelp('反射水平角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.refAz" placeholder="例：0" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射垂直角
+            <button class="mini-link" type="button" (click)="openHelp('反射垂直角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.refEl" placeholder="例：90" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">反射係數大小(dB)</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.reflGainDb" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            場型數據
+            <a class="link-btn" href="javascript:void(0)" (click)="downloadTemplate()">
+              (範例檔案下載)
+            </a>
+          </div>
+
+          <div class="field-cell field-cell--file">
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+            />
+
+            <button class="view-btn" type="button" (click)="fileInput.click()">上傳檔案</button>
+            <span class="file-name">{{ selectedFileName || '未選擇檔案' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+
+      <button *ngIf="step === 2" class="view-btn" type="button" (click)="goPrev()">上一步</button>
+      <button *ngIf="step === 1" class="primary-btn" type="button" (click)="goNext()">下一步</button>
+
+      <button *ngIf="step === 2" class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 角度說明圖（詳） -->
+<div
+  class="angle-help-overlay"
+  *ngIf="angleHelpOpen"
+  (click)="closeAngleHelp()"
+  [style.zIndex]="zIndexBase + 50"
+>
+  <div class="angle-help-card" (click)="$event.stopPropagation()">
+    <div class="angle-help-header">
+      <div class="angle-help-title">RIS 角度說明</div>
+      <button class="close-btn" type="button" (click)="closeAngleHelp()">✕</button>
+    </div>
+
+    <div class="angle-help-body">
+      <img
+        class="angle-help-img"
+        src="assets/templates/RIS.png"
+        alt="RIS angle help"
+      />
+    </div>
+  </div>
+</div>

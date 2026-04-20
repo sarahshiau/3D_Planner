@@ -1,0 +1,221 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  width: 760px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+
+  background: rgba(15, 19, 35, 0.55);
+  border: 1px solid rgba(205, 219, 232, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card--narrow {
+  width: 620px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.modal-body {
+  padding: 12px 16px;
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.label-cell {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(205, 219, 232, 0.10);
+  border: 1px solid rgba(205, 219, 232, 0.25);
+  padding: 8px 10px;
+}
+
+.field-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-cell--range {
+  gap: 8px;
+}
+
+.range-sep {
+  opacity: 0.8;
+}
+
+.text-input,
+.select-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  outline: none;
+}
+
+.text-input--sm {
+  width: 120px;
+}
+
+.radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 14px;
+  user-select: none;
+
+  input[type='radio'] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+  }
+
+  span {
+    opacity: 0.95;
+  }
+}
+
+.link-btn {
+  margin-left: 6px;
+  color: rgba(160, 210, 255, 0.95);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.field-cell--file {
+  gap: 12px;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-name {
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(205, 219, 232, 0.35);
+}
+
+.modal-footer--right {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.view-btn,
+.primary-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.primary-btn {
+  border-color: rgba(205, 219, 232, 0.9);
+}
+
+/* ===== Fix select dropdown option color in dark modal ===== */
+select {
+  color: #ffffff;        // 已選中的顯示顏色（深色背景用白字）
+  background-color: #1e1e1e;
+}
+
+/* 下拉展開後的選單內容 */
+select option {
+  color: #000000;        // 白底 → 黑字
+  background-color: #ffffff;
+}
+
+.remote-xlsx-link {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.remote-xlsx-link.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+  cursor: default;
+}

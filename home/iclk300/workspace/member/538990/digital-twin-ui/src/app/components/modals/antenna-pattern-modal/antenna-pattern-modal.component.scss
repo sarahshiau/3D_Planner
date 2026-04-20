@@ -1,0 +1,107 @@
+.pattern-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80; // 要比 antenna-manage-modal 更高
+}
+
+.pattern-card {
+  width: 920px;
+  max-width: 96%;
+  background: rgba(15, 19, 35, 0.55);
+  border-radius: 6px;
+  overflow: hidden;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+.pattern-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pattern-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.pattern-body {
+  padding: 12px 16px 16px;
+}
+
+.gain-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gain-label {
+  opacity: 0.9;
+  font-size: 13px;
+}
+
+.gain-input {
+  width: 120px;
+  padding: 4px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+}
+
+.gain-unit {
+  opacity: 0.9;
+  font-size: 13px;
+}
+
+.pattern-charts {
+  display: flex;
+  justify-content: center;
+}
+
+.chart-placeholder {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.ph-title {
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.95;
+  margin-bottom: 8px;
+}
+
+.ph-box {
+  width: 35rem;
+  height: 320px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.pattern-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

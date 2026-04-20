@@ -1,0 +1,248 @@
+/* ===== Backdrop / Overlay ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Modal Card ===== */
+.modal-card {
+  width: 760px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+
+  background: rgba(15, 19, 35, 0.55);
+  border: 1px solid rgba(205, 219, 232, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  color: #ffffff;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-card--narrow {
+  width: 760px;
+}
+
+/* ===== Header ===== */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ===== Body ===== */
+.modal-body {
+  padding: 14px 16px;
+}
+
+/* 表單：左 label / 右 input */
+.form-grid {
+  border: 1px solid rgba(205, 219, 232, 0.35);
+  background: rgba(10, 14, 28, 0.12);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  min-height: 44px;
+
+  & + & {
+    border-top: 1px solid rgba(205, 219, 232, 0.25);
+  }
+}
+
+.label-cell {
+  padding: 10px 12px;
+  background: rgba(205, 219, 232, 0.10);
+  border-right: 1px solid rgba(205, 219, 232, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+}
+
+.field-cell {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-cell--range {
+  gap: 8px;
+}
+
+.range-sep {
+  opacity: 0.85;
+}
+
+.text-input,
+.select-input {
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  outline: none;
+}
+
+.select-input {
+  padding-right: 28px;
+}
+
+.text-input--sm {
+  width: 90px;
+}
+
+.radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+
+  input[type='radio'] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+  }
+
+  span {
+    white-space: nowrap;
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* 場型檔案 */
+.file-input {
+  display: none;
+}
+
+.field-cell--file {
+  gap: 12px;
+}
+
+.file-name {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.link-btn {
+  margin-left: 6px;
+  color: #9fd0ff;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ===== Footer ===== */
+.modal-footer {
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(205, 219, 232, 0.35);
+  display: flex;
+  gap: 10px;
+}
+
+.modal-footer--right {
+  justify-content: flex-end;
+}
+
+/* Buttons：沿用你現有 modal 的按鈕語氣 */
+.view-btn {
+  height: 30px;
+  padding: 0 12px;
+
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+.primary-btn {
+  min-width: 72px;
+  height: 30px;
+  padding: 0 12px;
+
+  border-radius: 3px;
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+
+.file-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-name {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px; // 視你的欄位寬度可調
+}

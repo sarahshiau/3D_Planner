@@ -1,0 +1,84 @@
+:host {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 60px); /* 扣掉 header 高度 */
+}
+
+.main-layout {
+  display: flex;
+  height: calc(100vh - 56px); // 扣掉 top-bar 高度
+  background: #1b1d2b;
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 外層容器 */
+.osm-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ✅ Leaflet 地圖層（底層） */
+.osm-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none; /* 讓 Babylon 操作可穿透地圖層 */
+}
+
+/* ✅ Babylon 畫布層（上層） */
+.babylon-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent; /* ✅ 透明背景，顯示底層地圖 */
+  z-index: 1;
+  pointer-events: auto; /* 可接收滑鼠事件 */
+}
+
+/* 匯出按鈕 */
+.export-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: #0078d4;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 9999;
+  transition: background 0.3s;
+
+  &:hover {
+    background: #005ea2;
+  }
+}
+
+/* 載入中遮罩 */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  color: #333;
+  z-index: 10000;
+}

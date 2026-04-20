@@ -1,0 +1,71 @@
+<header class="topbar">
+  <div class="left-section">
+    <button mat-icon-button aria-label="menu" (click)="toggleTopbarPanel()">
+      <mat-icon>menu</mat-icon>
+    </button>
+    <span class="brand">{{ 'app.title' | translate }}</span>
+  </div>
+
+  <div class="right-section">
+    <!-- 語言切換 -->
+    <div class="lang-switch">
+      <span class="lang-option" [class.active]="translation.currentLang === 'zh'" (click)="switchLang('zh')">中</span>
+      <span class="divider">/</span>
+      <span class="lang-option" [class.active]="translation.currentLang === 'en'" (click)="switchLang('en')">EN</span>
+    </div>
+
+    <!-- 使用者資訊 -->
+    <div class="user-info">
+      <mat-icon>person</mat-icon>
+      <span class="greeting">
+        {{ 'app.hello' | translate }}, {{ username }}
+      </span>
+    </div>
+
+    <!-- 登出按鈕 -->
+    <button mat-icon-button [attr.aria-label]="'app.logout' | translate" (click)="onLogoutClick()">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </div>
+</header>
+
+<app-topbar-panel
+  *ngIf="isTopbarPanelOpen"
+  (close)="closeTopbarPanel()"
+  (openAntennaManage)="openAntennaManage()"
+  (openPathlossManage)="openPathlossManage()"
+  (materialManage)="openMaterialManage()"
+  (openRisManage)="openRisManage()"
+></app-topbar-panel>
+
+<app-antenna-manage-modal
+  *ngIf="isAntennaManageOpen"
+  [zIndexBase]="3000"
+  (close)="closeAntennaManage()"
+  (viewPattern)="openAntennaPattern($event)"
+></app-antenna-manage-modal>
+
+<app-antenna-pattern-modal
+  *ngIf="isAntennaPatternOpen && patternAntennaName"
+  [zIndexBase]="3010"
+  [antennaName]="patternAntennaName"
+  (close)="closeAntennaPattern()"
+></app-antenna-pattern-modal>
+
+<app-pathloss-model-manage-modal
+  *ngIf="isPathlossManageOpen"
+  [zIndexBase]="3000"
+  (close)="closePathlossManage()"
+></app-pathloss-model-manage-modal>
+
+<app-material-manage-modal
+  *ngIf="isMaterialManageOpen"
+  [zIndexBase]="3000"
+  (close)="closeMaterialManage()"
+></app-material-manage-modal>
+
+<app-ris-manage-modal
+  *ngIf="isRisManageOpen"
+  [zIndexBase]="3000"
+  (close)="closeRisManage()"
+></app-ris-manage-modal>

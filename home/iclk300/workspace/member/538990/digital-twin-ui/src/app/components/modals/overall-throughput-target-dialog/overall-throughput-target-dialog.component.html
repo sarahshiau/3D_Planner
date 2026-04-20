@@ -1,0 +1,47 @@
+<div class="dt-modal-card">
+  <div class="dt-modal-header">
+    <div class="dt-modal-title">整體場域訊號傳輸速率目標函數設定</div>
+    <button type="button" class="dt-close-btn" (click)="onCancel()">×</button>
+  </div>
+
+  <div class="dt-modal-body">
+    <div class="dt-toolbar">
+      <button type="button" class="dt-btn" (click)="onAdd()">新增</button>
+    </div>
+
+    <div class="dt-grid-head dt-grid-head-throughput">
+      <div>目標面積比(%)</div>
+      <div>UL/DL</div>
+      <div>條件</div>
+      <div>速率(Mbps)</div>
+      <div></div>
+    </div>
+
+    <div class="dt-grid-row dt-grid-row-throughput" *ngFor="let fg of rows.controls; let i = index">
+      <input class="dt-input" type="number" [formControl]="fg.controls.areaPct" />
+
+      <select class="dt-select" [formControl]="fg.controls.ulDl">
+        <option *ngFor="let v of ulDlOptions" [value]="v">{{ v }}</option>
+      </select>
+
+      <select class="dt-select" [formControl]="fg.controls.op">
+        <option *ngFor="let op of opOptions" [value]="op">{{ op }}</option>
+      </select>
+
+      <input class="dt-input" type="number" [formControl]="fg.controls.mbps" />
+
+      <button
+        type="button"
+        class="dt-btn"
+        (click)="onRemove(i)"
+        [disabled]="isRemoveDisabled(i)">
+        刪除
+      </button>
+    </div>
+  </div>
+
+  <div class="dt-modal-footer">
+    <button type="button" class="dt-btn" (click)="onCancel()">取消</button>
+    <button type="button" class="dt-btn dt-btn-primary" (click)="onConfirm()">確定</button>
+  </div>
+</div>

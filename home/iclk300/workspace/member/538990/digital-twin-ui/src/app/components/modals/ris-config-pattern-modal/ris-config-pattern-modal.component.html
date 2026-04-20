@@ -1,0 +1,28 @@
+<div class="modal-overlay" *ngIf="visible" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--pattern" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <div class="modal-header">
+      <div class="modal-title">[{{ configName }}] 場型圖</div>
+
+      <div class="header-actions">
+        <button class="view-btn" type="button" (click)="onExport()">匯出</button>
+        <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="isLoading" class="placeholder">
+        讀取中...
+      </div>
+
+      <div *ngIf="errorMsg" class="placeholder" style="color: #d32f2f;">
+        {{ errorMsg }}
+      </div>
+
+      <div *ngIf="!isLoading && !errorMsg" class="pattern-3d" style="position: relative;">
+        <canvas #patternCanvas class="pattern-canvas" style="width: 100%; height: 400px; display: block;"></canvas>
+        <div class="pattern-loading" *ngIf="isLoading">讀取中...</div>
+        <div class="pattern-error" *ngIf="errorMsg">{{ errorMsg }}</div>
+      </div>
+    </div>
+  </div>
+</div>

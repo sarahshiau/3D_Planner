@@ -1,0 +1,72 @@
+<div
+  class="modal-overlay"
+  *ngIf="visible"
+  [style.zIndex]="zIndexBase"
+  (click)="onBackdropClick()"
+>
+  <div
+    class="modal-card modal-card--narrow"
+    [style.zIndex]="zIndexBase + 1"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div class="modal-title">分區衰減模型設定</div>
+      <button
+        class="close-btn"
+        type="button"
+        (click)="onCancel()"
+        aria-label="close"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="table-container">
+        <table class="zone-table">
+          <thead>
+            <tr>
+              <th class="col-model">衰減模型名稱</th>
+              <th class="col-formula">衰減模型公式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of formRows">
+              <td class="cell-model">
+                <select
+                  class="select-input"
+                  [ngModel]="row.model"
+                  (ngModelChange)="onModelChange(row, $event)"
+                  [disabled]="isLoadingModels"
+                >
+                  <option *ngFor="let model of models" [ngValue]="model">
+                    {{ model.chineseName }}
+                  </option>
+                </select>
+                <div class="formula-text" *ngIf="modelLoadError">{{ modelLoadError }}</div>
+              </td>
+              <td class="cell-formula">
+                <div class="formula-text">
+                  {{ buildPathLossFormula(row.model) }}
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="formRows.length === 0">
+              <td class="cell-model" colspan="2">
+                <div class="formula-text">目前沒有可設定的分區資料</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">
+        確定
+      </button>
+    </div>
+  </div>
+</div>
+

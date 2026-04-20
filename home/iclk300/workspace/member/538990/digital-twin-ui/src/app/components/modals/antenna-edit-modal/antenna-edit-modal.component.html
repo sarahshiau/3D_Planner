@@ -1,0 +1,135 @@
+<!-- overlay -->
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">編輯天線</div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <div class="form-grid">
+        <!-- 名稱 -->
+        <div class="form-row">
+          <div class="label-cell">名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <!-- 類型 -->
+        <div class="form-row">
+          <div class="label-cell">類型</div>
+          <div class="field-cell">
+            <select class="select-input" [(ngModel)]="draft.type">
+              <option value="全向">全向</option>
+              <option value="指向">指向</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 網路種類 -->
+        <div class="form-row">
+          <div class="label-cell">網路種類</div>
+          <div class="field-cell">
+            <label class="radio-inline">
+              <input type="radio" name="network_edit" [ngModel]="draft.network" (ngModelChange)="draft.network = $event" value="5G" />
+              <span>5G</span>
+            </label>
+
+            <label class="radio-inline">
+              <input type="radio" name="network_edit" [ngModel]="draft.network" (ngModelChange)="draft.network = $event" value="Wi-Fi" />
+              <span>Wi-Fi</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 運作頻段 -->
+        <div class="form-row">
+          <div class="label-cell">運作頻段(MHz)</div>
+          <div class="field-cell field-cell--range">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqStartMHz" />
+            <span class="range-sep">~</span>
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.freqEndMHz" />
+          </div>
+        </div>
+
+        <!-- 塊數 -->
+        <div class="form-row">
+          <div class="label-cell">埠數</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.count" />
+          </div>
+        </div>
+
+        <!-- 製造商 -->
+        <div class="form-row">
+          <div class="label-cell">製造商</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.vendor" />
+          </div>
+        </div>
+
+        <!-- 型號 -->
+        <div class="form-row">
+          <div class="label-cell">型號</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.model" />
+          </div>
+        </div>
+
+        <!-- 場型數據 -->
+        <div class="form-row">
+          <div class="label-cell">
+            場型數據
+            <a class="link-btn" href="javascript:void(0)" (click)="downloadTemplate()">
+              (範例檔案下載)
+            </a>
+          </div>
+
+          <div class="field-cell field-cell--file">
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+            />
+
+            <button class="view-btn" type="button" (click)="fileInput.click()">
+              更換檔案
+            </button>
+
+            <span class="file-name">
+              <ng-container *ngIf="selectedFileName; else remoteLink">
+                {{ selectedFileName }}
+              </ng-container>
+
+              <ng-template #remoteLink>
+                <a
+                  class="remote-xlsx-link"
+                  href="javascript:void(0)"
+                  (click)="onDownloadRemoteXlsx()"
+                  [class.is-loading]="downloadingRemoteXlsx"
+                  [attr.aria-disabled]="downloadingRemoteXlsx ? 'true' : null"
+                >
+                  {{ remoteXlsxName }}
+                </a>
+              </ng-template>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>

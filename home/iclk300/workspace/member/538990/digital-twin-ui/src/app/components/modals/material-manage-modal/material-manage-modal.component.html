@@ -1,0 +1,98 @@
+<!-- overlay：只隔離與阻擋，不允許點擊關閉 -->
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">材質管理</div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="system"
+        />
+        <span>系統預設</span>
+      </label>
+
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="custom"
+        />
+        <span>自訂</span>
+      </label>
+    </div>
+
+    <!-- 自訂模式工具列 -->
+    <div class="modal-toolbar" *ngIf="isCustom">
+      <button class="primary-btn" type="button" (click)="onAdd()">
+        新增
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-name">材質名稱</th>
+            <th class="col-decay">材質衰減係數</th>
+            <th class="col-edit" *ngIf="isCustom">編輯/刪除</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let r of currentRowsPage">
+            <td class="col-name">{{ r.name }}</td>
+            <td class="col-decay">{{ r.decay }}</td>
+
+            <td class="col-edit" *ngIf="isCustom">
+              <button class="view-btn" type="button" (click)="onEdit(r)">編輯</button>
+              <button class="danger-btn" type="button" (click)="onDelete(r)">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- List loading indicator -->
+      <div class="list-loading" *ngIf="loadingList">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="text">讀取中...</span>
+      </div>
+    </div>
+
+    <!-- Footer / Pager -->
+    <div class="modal-footer">
+      <button class="pager-btn" type="button" (click)="prevPage()" [disabled]="page <= 1">&lt;</button>
+      <span class="pager-current">{{ page }}</span>
+      <button class="pager-btn" type="button" (click)="nextPage()" [disabled]="page >= totalPages">&gt;</button>
+    </div>
+  </div>
+</div>
+
+<app-material-add-modal
+  *ngIf="addOpen"
+  [zIndexBase]="3020"
+  (close)="closeAdd()"
+  (confirm)="onAddConfirm($event)"
+></app-material-add-modal>
+
+<app-material-edit-modal
+  *ngIf="editOpen && editTarget"
+  [zIndexBase]="3030"
+  [row]="editTarget"
+  (close)="closeEdit()"
+  (confirm)="onEditConfirm($event)"
+></app-material-edit-modal>

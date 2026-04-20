@@ -1,0 +1,252 @@
+/* =========================================================
+   Digital-Twin UI - Modal Dialog Base Styles
+   Match existing "Manage Modal" look:
+   - dark translucent card + blur
+   - blue translucent header
+   - thin light border
+   - white text
+   ========================================================= */
+
+/* Optional: if you want all MatDialog panels to have no default padding */
+:host {
+  display: block;
+}
+
+/* ------------- Card container ------------- */
+.dt-modal-card {
+  width: 760px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 80px);
+
+  background: rgba(15, 19, 35, 0.55);
+  border: 1px solid rgba(205, 219, 232, 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------- Header ------------- */
+.dt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 16px;
+  background: rgb(0 61 144 / 60%);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+}
+
+.dt-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.dt-close-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ------------- Body ------------- */
+.dt-modal-body {
+  padding: 14px 16px 10px;
+  overflow: auto;
+  flex: 1;
+
+  /* inner panel feeling */
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ------------- Footer ------------- */
+.dt-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(205, 219, 232, 0.35);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ------------- Toolbar ------------- */
+.dt-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 10px 0;
+}
+
+/* ------------- Buttons ------------- */
+.dt-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 3px;
+
+  border: 1px solid rgba(205, 219, 232, 0.7);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.dt-btn-primary {
+  /* keep same shape; slightly stronger emphasis */
+  border-color: rgba(205, 219, 232, 0.85);
+  font-weight: 600;
+}
+
+.dt-btn-danger {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 3px;
+
+  border: 1px solid rgba(255, 120, 120, 0.9);
+  background: rgba(255, 0, 0, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 0, 0, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+/* ------------- Inputs / Selects ------------- */
+.dt-input,
+.dt-select {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 3px;
+
+  border: 1px solid rgba(205, 219, 232, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+
+  outline: none;
+
+  &:focus {
+    border-color: rgba(205, 219, 232, 0.9);
+    box-shadow: 0 0 0 2px rgba(205, 219, 232, 0.18);
+  }
+}
+
+.dt-select {
+  cursor: pointer;
+
+  option {
+    /* dropdown list uses browser UI; this helps on some browsers */
+    color: #000;
+  }
+}
+
+/* ------------- Grid layout for "rows" dialogs ------------- */
+/* default 3-col + action */
+.dt-grid-head {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 1fr 90px;
+  gap: 10px;
+  align-items: center;
+
+  padding: 8px 10px;
+  margin-bottom: 10px;
+
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(205, 219, 232, 0.12);
+  border: 1px solid rgba(205, 219, 232, 0.28);
+}
+
+.dt-grid-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 1fr 90px;
+  gap: 10px;
+  align-items: center;
+
+  padding: 6px 10px;
+  margin-bottom: 10px;
+
+  background: rgba(10, 14, 28, 0.18);
+  border: 1px solid rgba(205, 219, 232, 0.18);
+}
+
+/* ------------- Utility: field line (if you use single row) ------------- */
+.dt-field-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.dt-field-label {
+  min-width: 140px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ------------- MatDialog container tweak (optional but recommended) ------------- */
+/* If you see extra padding around your dialog, add panelClass to dialog.open and target it here.
+   Example:
+   this.dialog.open(..., { panelClass: 'dt-mat-dialog-panel' })
+*/
+/* MatDialog container tweak */
+.dt-mat-dialog-panel {
+  /* 讓 overlay 內容不要被白底包住 */
+  .mat-mdc-dialog-container {
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* 真正的白底來源（surface） */
+  .mat-mdc-dialog-surface {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important; /* 讓卡片陰影不被裁切 */
+  }
+}
+
+/* ------------- 下拉選單------------- */
+.dt-grid-head,
+.dt-grid-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 1fr 90px; // 中間條件欄位窄一點
+  gap: 12px;
+  align-items: center;
+}
+
+.dt-select {
+  width: 80px;          // 下拉窄
+  height: 36px;
+  padding: 0 8px;
+}

@@ -1,0 +1,89 @@
+<div
+  class="modal-overlay"
+  *ngIf="visible"
+  [style.zIndex]="zIndexBase"
+  (click)="onBackdropClick()"
+>
+  <div
+    class="modal-card"
+    [style.zIndex]="zIndexBase + 1"
+    (click)="$event.stopPropagation()"
+  >
+    <div class="modal-header">
+      <div class="modal-title">{{ title }}</div>
+      <button
+        class="close-btn"
+        type="button"
+        (click)="onCancel()"
+        aria-label="close"
+      >
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form class="form-grid" [formGroup]="form">
+        <div class="form-row">
+          <div class="label-cell">安裝方式</div>
+          <div class="field-cell">
+            <select
+              class="select-input"
+              formControlName="installation"
+            >
+              <option
+                *ngFor="let opt of installationOptions"
+                [ngValue]="opt.value"
+              >
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">垂直面角度 θ</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="theta"
+            />
+            <span class="unit">deg</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">水平面角度 φ</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="phi"
+            />
+            <span class="unit">deg</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">發射增益</div>
+          <div class="field-cell field-cell--range">
+            <input
+              class="text-input text-input--sm"
+              type="number"
+              formControlName="gain"
+            />
+            <span class="unit">dB</span>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">
+        確定
+      </button>
+    </div>
+  </div>
+</div>
+

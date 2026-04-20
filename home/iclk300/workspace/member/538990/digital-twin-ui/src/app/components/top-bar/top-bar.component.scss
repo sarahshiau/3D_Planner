@@ -1,0 +1,99 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 5px;
+  background-color: #16243f;
+  color: #fff;
+  font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  overflow: hidden;          /* ✅ 防止 hover scale 超出造成 scroll */
+  box-sizing: border-box;    /* ✅ 確保 padding 不撐大 */
+}
+
+.left-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .brand {
+    font-size: 1.2rem;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+}
+
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+button[mat-icon-button] {
+  display: flex;                /* ✅ 強制使用 flex 對齊 */
+  align-items: center;          /* ✅ 垂直置中 */
+  justify-content: center;      /* ✅ 水平置中 */
+  color: white;
+  border-radius: 50%;
+  width: 32px;                  /* ✅ 控制圓圈大小 */
+  height: 32px;
+  padding: 0;                   /* ✅ 移除多餘內距，否則會偏移 */
+  line-height: 1;               /* ✅ 防止 icon 被字型高度撐開 */
+  flex-shrink: 0;    
+  transition: background 0.2s, transform 0.15s ease;
+
+  mat-icon {
+    font-size: 20px;            /* ✅ icon 大小 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    transform: scale(1.05);
+  }
+}
+
+.lang-switch {
+  display: flex;
+  align-items: center;
+  color: #ccc;
+  font-size: 0.85rem;
+  user-select: none;
+
+  .divider {
+    color: #888;
+  }
+
+  .lang-option {
+    cursor: pointer;
+    padding: 2px 4px;
+    transition: color 0.2s, text-shadow 0.2s;
+
+    &:hover {
+      color: #fff;
+      text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+    }
+
+    &.active {
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  mat-icon {
+    font-size: 22px;
+  }
+
+  .greeting {
+    opacity: 0.9;
+    font-size: 0.8rem; // ✅ 字體調小一點
+  }
+}

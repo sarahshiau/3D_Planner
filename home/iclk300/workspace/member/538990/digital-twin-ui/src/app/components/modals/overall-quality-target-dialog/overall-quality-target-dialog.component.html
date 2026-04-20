@@ -1,0 +1,37 @@
+<div class="dt-modal-card">
+  <div class="dt-modal-header">
+    <div class="dt-modal-title">整體場域訊號品質目標函數設定</div>
+    <button type="button" class="dt-close-btn" (click)="onCancel()">×</button>
+  </div>
+
+  <div class="dt-modal-body">
+    <div class="dt-toolbar">
+      <button type="button" class="dt-btn" (click)="onAdd()">新增</button>
+    </div>
+
+    <div class="dt-grid-head">
+      <div>目標面積比(%)</div>
+      <div>條件</div>
+      <div>訊號品質(dB)</div>
+      <div></div>
+    </div>
+
+    <div formArrayName="rows">
+      <div class="dt-grid-row" *ngFor="let fg of rows.controls; let i = index">
+        <input class="dt-input" type="number" [formControl]="fg.controls.areaPct" />
+
+        <select class="dt-select" [formControl]="fg.controls.op">
+          <option *ngFor="let op of opOptions" [value]="op">{{ op }}</option>
+        </select>
+
+        <input class="dt-input" type="number" [formControl]="fg.controls.qualityDb" />
+
+        <button type="button" class="dt-btn" (click)="onRemove(i)" [disabled]="rows.length <= 1">刪除</button>
+      </div>
+    </div>
+  </div>
+  <div class="dt-modal-footer">
+    <button type="button" class="dt-btn" (click)="onCancel()">取消</button>
+    <button type="button" class="dt-btn dt-btn-primary" (click)="onConfirm()">確定</button>
+  </div>
+</div>

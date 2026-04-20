@@ -1,0 +1,504 @@
+<!-- src/app/pages/EditScene/components/right-sidebar/right-sidebar.component.html -->
+
+<ng-container *ngIf="viewMode() === 'edit'; else resultTpl">
+  <!-- ========== EDIT MODE ========== -->
+  <div class="rs rs--result-rail planner-rail planner-rail--right">
+    <div class="rs-icons">
+      <button
+        class="rs-icon-btn planner-rail__btn"
+        *ngFor="let btn of buttons"
+        [class.active]="active === btn.id"
+        (click)="select(btn.id)"
+        [title]="btn.title"
+      >
+        <img [src]="btn.icon" [alt]="btn.title" />
+        <span class="rs-icon-label planner-rail__label">{{ btn.title }}</span>
+      </button>
+    </div>
+  </div>
+</ng-container>
+
+<ng-template #resultTpl>
+  <div class="rs-result-shell">
+    <div class="rs-result-panel" *ngIf="activeResult() as rid">
+      <div class="rs-panel-header">
+        <div class="rs-panel-title" style="flex: 1; text-align: center;">{{ getResultPanelTitle(rid) }}</div>
+        <button class="rs-panel-close" type="button" (click)="closeResultPanel()">×</button>
+      </div>
+      <div class="rs-panel-body" [ngSwitch]="rid">
+        <div *ngSwitchCase="'result'" class="full-layout">
+          <ng-container *ngIf="resultPanelVm as vm">
+            <div class="result-header">
+              <div class="filter-capsule">
+                <button (click)="currentFilter.set('all')" [class.active]="currentFilter() === 'all'">
+                  全部 ({{ resultPanelVm.counts.all }})
+                </button>
+                <button (click)="currentFilter.set('failed')" [class.active]="currentFilter() === 'failed'">
+                  未達標 ({{ resultPanelVm.counts.failed }})
+                </button>
+                <button (click)="currentFilter.set('passed')" [class.active]="currentFilter() === 'passed'">
+                  達標 ({{ resultPanelVm.counts.passed }})
+                </button>
+              </div>
+            </div>
+
+            <div class="result-scroll-area">
+              <ng-container *ngIf="resultPanelVm.groups.length > 0; else resultEmptyState">
+                <div class="signal-quality-group" *ngFor="let group of resultPanelVm.groups">
+                  <div class="bs-group-title">{{ group.title }}</div>
+
+                  <div class="group-content">
+                    <div
+                      class="bs-card"
+                      *ngFor="let card of group.cards"
+                      [ngClass]="{
+                        'fail': card.status === 'failed',
+                        'pass': card.status === 'passed',
+                        'unknown': card.status === 'unknown'
+                      }">
+                      <div class="card-content">
+                        <div class="card-header-row">
+                          <span class="target-title">設定目標 {{ card.order }}：{{ card.targetText }}</span>
+                        </div>
+                        <div class="divider"></div>
+                        <div class="status-data-row">
+                          <span
+                            class="status-badge"
+                            [ngClass]="{
+                              'fail': card.status === 'failed',
+                              'pass': card.status === 'passed',
+                              'unknown': card.status === 'unknown'
+                            }">{{ card.statusText }}</span>
+                          <div class="data-text">
+                            {{ card.messagePrefix }} <span class="highlight-value">{{ card.actualValueText }}</span> {{ card.messageSuffix }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+
+              <ng-template #resultEmptyState>
+                <div class="empty-state">{{ resultPanelVm.emptyText || '尚未設定規劃目標' }}</div>
+              </ng-template>
+            </div>
+          </ng-container>
+
+          <div class="pagination-footer">
+            <button [disabled]="true">〈</button>
+            <span class="page-num">1 / 1</span>
+            <button [disabled]="true">〉</button>
+          </div>
+        </div>
+
+        <div *ngSwitchCase="'analysis'" class="full-layout">
+
+          <div class="result-header">
+            <div class="filter-capsule analysis-capsule" role="tablist" aria-label="深入分析切換">
+              <button
+                class="capsule-btn"
+                [class.active]="activeAnalysisItem() === 'field'"
+                (click)="onAnalysisItemClick('field')">
+                場域分析
+              </button>
+
+              <button
+                class="capsule-btn"
+                [class.active]="activeAnalysisItem() === 'bs'"
+                (click)="onAnalysisItemClick('bs')">
+                基站分析
+              </button>
+
+              <button
+                class="capsule-btn"
+                [class.active]="activeAnalysisItem() === 'ue'"
+                (click)="onAnalysisItemClick('ue')">
+                終端分析
+              </button>
+
+              <button
+                class="capsule-btn"
+                [class.active]="activeAnalysisItem() === 'stats'"
+                (click)="onAnalysisItemClick('stats')">
+                統計資訊
+              </button>
+
+              <button
+                class="capsule-btn"
+                [class.active]="activeAnalysisItem() === 'observe'"
+                (click)="onAnalysisItemClick('observe')">
+                觀測區域分析
+              </button>
+            </div>
+          </div>
+
+          <ng-container [ngSwitch]="activeAnalysisItem()">
+
+            <!-- field -->
+            <div *ngSwitchCase="'field'" class="analysis-tab">
+              <div class="scroll-content analysis-scroll-content">
+                <ng-container *ngIf="hasFieldAnalysisData(); else fieldAnalysisEmptyState">
+
+                  <div
+                    class="info-card-container"
+                    *ngFor="let card of fieldSummaryCards()">
+                    <div class="card-header">
+                      <span>{{ card.title }}</span>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-item" *ngFor="let item of card.items">
+                        <span class="label">{{ item.label }}</span>
+                        <span class="value">{{ item.value }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="info-card-container"
+                    *ngFor="let card of fieldDetailCards()">
+                    <div class="card-header detail-card-header">
+                      <span class="detail-card-accent" aria-hidden="true"></span>
+                      <span>{{ card.title }}</span>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-item" *ngFor="let item of card.items">
+                        <span class="label">{{ item.label }}</span>
+                        <span class="value">{{ item.value }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </ng-container>
+
+                <ng-template #fieldAnalysisEmptyState>
+                  <div class="empty-state">
+                    {{ fieldAnalysisEmptyText }}
+                  </div>
+                </ng-template>
+              </div>
+            </div>
+
+            <!-- bs -->
+            <div *ngSwitchCase="'bs'" class="analysis-tab">
+              <div class="scroll-content analysis-scroll-content">
+                <ng-container *ngIf="hasBsAnalysisData(); else bsAnalysisEmptyState">
+
+                  <div
+                    class="info-card-container"
+                    *ngFor="let card of bsSummaryCards()">
+                    <div class="card-header">
+                      <span>{{ card.title }}</span>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-item" *ngFor="let item of card.items">
+                        <span class="label">{{ item.label }}</span>
+                        <span class="value">{{ item.value }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="info-card-container"
+                    *ngFor="let card of bsDetailCards()">
+                    <div class="card-header detail-card-header">
+                      <span class="detail-card-accent" aria-hidden="true"></span>
+                      <span>{{ card.title }}</span>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-item" *ngFor="let item of card.items">
+                        <span class="label">{{ item.label }}</span>
+                        <span class="value">{{ item.value }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </ng-container>
+
+                <ng-template #bsAnalysisEmptyState>
+                  <div class="empty-state">尚無基站分析資料</div>
+                </ng-template>
+              </div>
+            </div>
+
+            <!-- ue -->
+            <div *ngSwitchCase="'ue'" class="analysis-tab">
+              <div class="scroll-content analysis-scroll-content">
+                <ng-container *ngIf="hasUeAnalysisData(); else ueAnalysisEmptyState">
+
+                  <div class="info-card-container">
+                    <div class="card-header">
+                      <span>終端分析</span>
+                    </div>
+
+                    <div class="info-list">
+                      <div class="info-item">
+                        <span class="label">終端覆蓋率</span>
+                        <span class="value">{{ ueCoverageValue() }}</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="label">平均訊號品質</span>
+                        <span class="value">{{ ueAverageSinrValue() }}</span>
+                      </div>
+                      <div class="info-item">
+                        <span class="label">平均訊號強度</span>
+                        <span class="value">{{ ueAverageRsrpValue() }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </ng-container>
+
+                <ng-template #ueAnalysisEmptyState>
+                  <div class="empty-state">尚無終端分析資料</div>
+                </ng-template>
+              </div>
+            </div>
+
+            <!-- stats -->
+            <div *ngSwitchCase="'stats'" class="analysis-tab">
+              <div class="scroll-content analysis-scroll-content">
+
+                <div class="filter-capsule stats-capsule" role="tablist" aria-label="統計類型切換">
+                  <button
+                    class="capsule-btn"
+                    [class.active]="statsMetric() === 'modulation'"
+                    (click)="statsMetric.set('modulation')">
+                    調變統計
+                  </button>
+
+                  <button
+                    class="capsule-btn"
+                    [class.active]="statsMetric() === 'sinr'"
+                    (click)="statsMetric.set('sinr')">
+                    SINR 統計
+                  </button>
+                </div>
+
+                <div class="info-card-container">
+                  <div class="card-header detail-card-header">
+                    <span class="detail-card-accent" aria-hidden="true"></span>
+                    <span>場域分析</span>
+                  </div>
+
+                  <div class="stats-section-title">分佈統計</div>
+                  <div id="field_bar_chart" class="stats-chart-host"></div>
+
+                  <div class="stats-section-title">CDF 圖</div>
+                  <div id="field_cdf_chart" class="stats-chart-host"></div>
+                </div>
+
+                <div
+                  class="info-card-container"
+                  *ngIf="hasUeCoordinate(getActiveStatsSource())">
+                  <div class="card-header detail-card-header">
+                    <span class="detail-card-accent" aria-hidden="true"></span>
+                    <span>終端分析</span>
+                  </div>
+
+                  <div class="stats-section-title">分佈統計</div>
+                  <div id="ue_bar_chart" class="stats-chart-host"></div>
+
+                  <div class="stats-section-title">CDF 圖</div>
+                  <div id="ue_cdf_chart" class="stats-chart-host"></div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- observe：觀測區域分析（summary 在上、detail 在下，與場域分析一致） -->
+            <div *ngSwitchCase="'observe'" class="analysis-tab">
+              <div class="scroll-content analysis-scroll-content">
+                <ng-container *ngIf="observeHasSubfields(); else observeNoSubfieldsState">
+
+                  <div class="observe-analysis-section">
+                    <div
+                      class="info-card-container observe-summary-card"
+                      *ngIf="observationAreaSummaryLine() as sumLine">
+                      <div class="card-header">
+                        <span>觀測區域分析</span>
+                      </div>
+                      <div class="info-list">
+                        <div class="info-item">
+                          <span class="label">摘要</span>
+                          <span class="value">{{ sumLine }}</span>
+                        </div>
+                      </div>
+                      <div class="observe-section-hint observe-section-hint--in-card"
+                        *ngIf="observationAreaSectionHint() as obsHint">
+                        {{ obsHint }}
+                      </div>
+                    </div>
+
+                    <div
+                      class="info-card-container observe-detail-card"
+                      [ngClass]="card.cardClass"
+                      *ngFor="let card of subfieldObservationCards()">
+                      <div class="card-header detail-card-header observe-card-header">
+                        <span class="detail-card-accent" aria-hidden="true"></span>
+                        <span class="observe-card-title">{{ card.title }}</span>
+                        <span
+                          class="observe-status-badge"
+                          [ngClass]="card.badgeClass"
+                          [attr.data-status]="card.status">{{ card.statusLabel }}</span>
+                      </div>
+
+                      <div class="info-list">
+                        <div class="info-item" *ngFor="let item of card.items">
+                          <span class="label">{{ item.label }}</span>
+                          <span class="value">{{ item.value }}</span>
+                        </div>
+                      </div>
+
+                      <div class="observe-card-footer-hint" *ngIf="card.emptyHint as hint">
+                        {{ hint }}
+                      </div>
+                    </div>
+                  </div>
+
+                </ng-container>
+
+                <ng-template #observeNoSubfieldsState>
+                  <div class="empty-state">尚未建立觀測區域</div>
+                </ng-template>
+              </div>
+            </div>
+
+          </ng-container>
+        </div>
+
+        <div *ngSwitchCase="'setting'" class="setting-layout">
+          <div class="setting-group">
+            <div class="group-header">
+              <span>場域設定資訊</span>
+              <i class="info-icon">i</i>
+            </div>
+            <div class="info-list">
+              <div class="info-item" *ngFor="let item of settingSummaryVm().items">
+                <span class="label">{{ item.label }}</span>
+                <span class="value">{{ item.value }}</span>
+              </div>
+
+              <div class="sub-group">
+                <div class="info-item no-bg"><span class="label">場域內無線訊號衰減模型</span></div>
+                <div class="formula-card">
+                  <div class="info-item no-bg"><span class="label">模型名稱</span><span class="value">{{ settingPathLossVm().title }}</span></div>
+                  <div class="info-item no-bg"><span class="label">模型公式</span><span class="value">{{ settingPathLossVm().formulaText }}</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="setting-group mt-20">
+            <div class="group-header">
+              <span>成本/功耗資訊</span>
+              <i class="info-icon">i</i>
+            </div>
+            <div class="info-list">
+              <div class="info-item" *ngFor="let item of settingCostVm().items">
+                <span class="label">{{ item.label }}</span>
+                <span class="value">{{ item.value }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngSwitchCase="'object'" class="full-layout">
+          <div class="result-header">
+            <div class="object-segment-tabs">
+              <button
+                class="object-segment-btn"
+                (click)="activeObjectTab.set('bs')"
+                [class.active]="activeObjectTab() === 'bs'">
+                基站
+              </button>
+              <button
+                class="object-segment-btn"
+                (click)="activeObjectTab.set('ris')"
+                [class.active]="activeObjectTab() === 'ris'">
+                RIS
+              </button>
+              <button
+                class="object-segment-btn"
+                (click)="activeObjectTab.set('ue')"
+                [class.active]="activeObjectTab() === 'ue'">
+                終端
+              </button>
+            </div>
+          </div>
+
+          <div class="scroll-content">
+            <div class="info-card-container summary-card" *ngIf="currentObjectSummaryVm() as summary">
+              <div class="card-header">{{ summary.title }}</div>
+              <div class="info-list">
+                <div class="info-item" *ngFor="let item of summary.items">
+                  <span class="label">{{ item.label }}</span>
+                  <span class="value">{{ item.value }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="object-sub-tabs" *ngIf="activeObjectTab() === 'bs'">
+              <button
+                class="object-sub-btn"
+                (click)="bsViewMode.set('existing')"
+                [class.active]="bsViewMode() === 'existing'">
+                顯示既有基站
+              </button>
+              <button
+                *ngIf="!isSimulationMode()"
+                class="object-sub-btn"
+                (click)="bsViewMode.set('planned')"
+                [class.active]="bsViewMode() === 'planned'">
+                顯示建議規劃基站
+              </button>
+            </div>
+
+            <div class="object-card-list">
+              <ng-container *ngIf="currentObjectCards().length > 0; else objectEmptyState">
+                <div
+                  class="object-card detail-card"
+                  *ngFor="let card of currentObjectCards()"
+                  [class.active]="card.withAccent"
+                  [class.with-accent]="card.withAccent">
+                  <div class="detail-title">{{ card.title }}</div>
+                  <div class="info-list no-bg">
+                    <div class="info-item" *ngFor="let item of card.items">
+                      <span class="label">{{ item.label }}</span>
+                      <span class="value">{{ item.value }}</span>
+                    </div>
+                  </div>
+                </div>
+              </ng-container>
+
+              <ng-template #objectEmptyState>
+                <div class="object-empty-state">
+                  {{ currentObjectEmptyText() }}
+                </div>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rs rs--result-rail planner-rail planner-rail--right">
+      <div class="rs-icons">
+        <button
+          class="rs-icon-btn planner-rail__btn"
+          *ngFor="let btn of visibleResultButtons()"
+          [class.active]="activeResult() === btn.id"
+          (click)="selectResult(btn.id)"
+          [title]="btn.title"
+        >
+          <img [src]="btn.icon" [alt]="btn.title" />
+          <span class="rs-icon-label planner-rail__label">{{ btn.title }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</ng-template>

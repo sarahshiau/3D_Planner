@@ -1,0 +1,257 @@
+/**
+ * Task Payload Mock Defaults
+ */
+
+import { BuilderMockDefaultsInput, BuilderEvaluationFunc } from '../models/task-payload.model';
+
+export const DEFAULT_EVALUATION_FUNC: BuilderEvaluationFunc = {
+  subfield: [],
+  field: {
+    coverage: { activate: true, ratio: 0.95 },
+    rsrp: { activate: true, ratio: [{ areaRatio: 0.95, compliance: 'moreThan', value: -110 }] as any },
+    sinr: { activate: true, ratio: [{ areaRatio: 0.95, compliance: 'moreThan', value: 15 }] as any },
+    throughput: {
+      activate: true,
+      ratio: [{ areaRatio: 0.95, compliance: 'moreThan', ULValue: 150, DLValue: 200 }] as any,
+    },
+    subfield: [],
+  },
+  ue: {
+    coverage: { activate: true, ratio: 0.95 },
+    sinr: { activate: false, ratio: [] },
+    throughput: { activate: false, ratio: [] },
+    throughputByDistance: { activate: false, ratio: [] },
+    throughputByRsrp: { activate: false, ratio: [] },
+  },
+};
+
+// ===== [SIM_API_PHASE3][STORETASK_SUCCESS_TEMPLATE] =====
+// This template is intentionally copied from a known-good /storeTask payload.
+// TODO: replace each section with real data incrementally after /storeTask is stable.
+export const STORETASK_SUCCESS_TEMPLATE = {
+  taskid: '',
+  sessionid: 'son_session_3967d6ec-8304-402b-ab67-06cc9601895a',
+  taskName: '78館304_期末',
+  createTime: '2026-03-10 10:44:48',
+  addFixedBsNumber: 0,
+  altitude: 3,
+  availableNewBsNumber: 2,
+  availableNewRisNumber: 0,
+  bandwidth: '[100,100]',
+  bandwidthList: '[100,100]',
+  beamId: '[0,0,0,0]',
+  beamMaxId: 0,
+  beamMinId: 0,
+  bsList: {
+    defaultBs: [
+      {
+        ID: 1,
+        color: ['hsl(100,98%,68%)', 'hsl(100,98%,48%)'],
+        position: [8.8, 19.6, 3],
+        protocol: '5G',
+        params: {
+          txPower: 24,
+          powerUnit: 'dbm',
+          noiseFigure: 0,
+          band: 'n79',
+          duplex: {
+            isTdd: true,
+            isFdd: false,
+            tddParam: {
+              dl: { frameRatio: 70, frequency: 4850, bandwidth: '100', scs: '30', mcsTable: '256QAM-table', mimo: 1 },
+              ul: { frameRatio: 70, frequency: 4850, bandwidth: '100', scs: '30', mcsTable: '64QAM-table', mimo: 1 },
+            },
+            fddParam: {},
+          },
+        },
+        antenna: [
+          {
+            ID: 2,
+            position: { coordinate: [8.8, 19.6, 3], installation: 'Customized' },
+            gain: 0,
+            ulFrequency: 47500,
+            dlFrequency: 47500,
+            angle: { theta: 0, phi: 0, fixed: false },
+          },
+        ],
+      },
+      {
+        ID: 2,
+        color: ['hsl(200,73%,54%)', 'hsl(200,73%,34%)'],
+        position: [25.6, 1.5, 3],
+        protocol: '5G',
+        params: {
+          txPower: 24,
+          powerUnit: 'dbm',
+          noiseFigure: 0,
+          band: 'n79',
+          duplex: {
+            isTdd: true,
+            isFdd: false,
+            tddParam: {
+              dl: { frameRatio: 70, frequency: 4850, bandwidth: '100', scs: '30', mcsTable: '256QAM-table', mimo: 1 },
+              ul: { frameRatio: 70, frequency: 4850, bandwidth: '100', scs: '30', mcsTable: '64QAM-table', mimo: 1 },
+            },
+            fddParam: {},
+          },
+        },
+        antenna: [
+          {
+            ID: 1,
+            position: { coordinate: [25.6, 1.5, 3], installation: 'Customized' },
+            gain: 0,
+            ulFrequency: 3800,
+            dlFrequency: 3800,
+            angle: { theta: 0, phi: 0, fixed: false },
+          },
+        ],
+      },
+    ],
+    candidateBs: [],
+  },
+  bsNoiseFigure: '[0,0]',
+  bsSetting: {
+    isDAS: false,
+    txPowerRange: [10, 24],
+    powerUnit: 'dbm',
+    txGain: 0,
+    bsEnergy: 0,
+    bsCost: 0,
+    noiseFigure: 0,
+    scalingFactor: 1,
+    duplex: {
+      isTdd: true,
+      isFdd: false,
+      tddParam: {
+        frameRatio: 70,
+        dl: { frequency: 4850, bandwidth: 10, scs: 15, mcsTable: '256QAM-table', mimo: 1 },
+        ul: { frequency: 4850, bandwidth: 10, scs: 15, mcsTable: '64QAM-table', mimo: 1 },
+      },
+      fddParam: {
+        dl: { frequency: 4900, bandwidth: 10, scs: 15, mcsTable: '256QAM-table', mimo: 1 },
+        ul: { frequency: 4700, bandwidth: 10, scs: 15, mcsTable: '64QAM-table', mimo: 1 },
+      },
+    },
+  },
+  candidateBs: '',
+  candidateBsAnt: '',
+  candidateRis: null,
+  candidateRisList: [],
+  coverageRatio: 0.95,
+  defaultBs: '[8.8,19.6,3]|[25.6,1.5,3]',
+  defaultBsAnt: '[2,0,0,0]|[1,0,0,0]',
+  defaultRis: null,
+  dlBandwidth: '[]',
+  dlFrequency: '[]',
+  dlMcsTable: '[256QAM-table,256QAM-table]',
+  dlMimoLayer: '[1,1]',
+  dlScs: '[]',
+  duplex: 'tdd',
+  evaluationFunc: DEFAULT_EVALUATION_FUNC,
+  field: {
+    defaultPathLossModel: { '5g': 12, wifi: -1 },
+    regionalDivision: [
+      {
+        regionID: 1,
+        color: 'hsl(55,54%,40%)',
+        pathLossModel: { ID: 1 },
+        shape: {
+          ID: 0,
+          vertices: [[1.6, 18.4], [1.6, 19.4], [2.6, 19.4], [2.6, 18.4]],
+          radius: 0,
+          rotateAngle: 0,
+          rotateCenter: [2.1, 18.9],
+        },
+      },
+    ],
+  },
+  frequency: '[4850,4850]',
+  frequencyList: '[4850,4850]',
+  geographicalNorth: 0,
+  guardInterval: '',
+  height: 21,
+  isAverageSinr: false,
+  isAvgThroughput: false,
+  isCoverage: false,
+  isSimulation: false,
+  isUeAvgSinr: false,
+  isUeAvgThroughput: false,
+  isUeCoverage: false,
+  isUeTpByDistance: false,
+  isUeTpByRsrp: false,
+  lteBand: 'n79',
+  mapImage: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqk',
+  mapName: '78館3F_new.png',
+  mapProtocol: '5G',
+  maxConnectionNum: 75,
+  mctsC: 1.2,
+  mctsMimo: 2,
+  mctsTemperature: 300,
+  mctsTestTime: 300,
+  mctsTime: 30,
+  mctsTotalTime: 500,
+  mimoNumber: '[]',
+  objectiveIndex: 1,
+  obstacleInfo: '',
+  optInfo: {},
+  pathLossModelId: 12,
+  powerMaxRange: 24,
+  powerMinRange: 10,
+  resolution: 1,
+  ris: [],
+  risList: { defaultRis: [], candidateRis: [] },
+  rsrpThreshold: -90,
+  rssiThreshold: -70,
+  scalingFactor: 1,
+  scs: '[30,30]',
+  sinrRatio: 5,
+  sinrThreshold: 15,
+  snrThreshold: 20,
+  subfieldList: [
+    {
+      subfieldID: 1,
+      shape: {
+        ID: 2,
+        radius: 0.5,
+        rotateAngle: 0,
+        rotateCenter: [2.1, 18.9],
+        vertices: [[2.1, 18.9]],
+      },
+    },
+  ],
+  tddFrameRatio: 70,
+  throughputRatio: 5,
+  txPower: '[24,24]',
+  ueAvgSinrRatio: 16,
+  ueAvgThroughputRatio: 100,
+  // ===== [SIM_API_DEMO][FIXED_UE_COORDINATES] =====
+  // Demo-only fixed UE set for stable simulation / completeCalcResult validation.
+  // Format must remain a pipe-separated coordinate string:
+  // "[x,y,z]|[x,y,z]|..."
+  // Keep ueRxGain length aligned with UE count.
+  ueCoordinate: '[2.1,18.9,1.05]|[8.8,19.6,1.05]|[25.6,1.5,1.05]|[12.0,10.5,1.05]|[18.5,6.5,1.05]',
+  ueCoverageRatio: 0.95,
+  ueRsrp: null,
+  ueRxGain: '[0,0,0,0,0]',
+  ueSignallevel: null,
+  ueSinr: null,
+  ueTpByDistanceRatio: 100,
+  ueTpByRsrpRatio: 100,
+  ulBandwidth: '[]',
+  ulFrequency: '[]',
+  ulMcsTable: '[64QAM-table,64QAM-table]',
+  ulMimoLayer: '[1,1]',
+  ulScs: '[]',
+  useUeCoordinate: 1,
+  width: 34,
+  wifiBand: '',
+  wifiMimo: '',
+  wifiProtocol: '',
+  zValue: '[1.05]',
+} as const;
+
+export const TASK_PAYLOAD_MOCK_DEFAULTS: BuilderMockDefaultsInput = {
+  ...STORETASK_SUCCESS_TEMPLATE,
+  isBsNumberOptimization: false,
+  isRisNumberOptimization: false,
+};

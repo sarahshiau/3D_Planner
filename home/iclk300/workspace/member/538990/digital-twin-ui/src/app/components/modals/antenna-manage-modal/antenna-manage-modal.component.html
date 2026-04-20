@@ -1,0 +1,122 @@
+<!-- 全螢幕遮罩：只做隔離與阻擋，不允許點擊關閉 -->
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <!-- Modal 本體：阻止事件冒泡，避免點到內容也被當成點遮罩 -->
+  <div class="modal-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">天線管理</div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="system"
+        />
+        <span>系統預設</span>
+      </label>
+
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="custom"
+        />
+        <span>自訂</span>
+      </label>
+    </div>
+
+    <!-- 自訂模式工具列 -->
+    <div class="modal-toolbar" *ngIf="isCustom">
+      <button class="primary-btn" type="button" (click)="onAdd()" [disabled]="uploading">
+        {{ uploading ? '上傳中…' : '新增' }}
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-name">名稱</th>
+            <th>類型</th>
+            <th>運作頻段(MHz)</th>
+            <th>網路種類</th>
+            <th>塊數</th>
+            <th>型號</th>
+            <th>製造商</th>
+            <th class="col-action">場型數據</th>
+            <th class="col-edit" *ngIf="isCustom">編輯/刪除</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let r of currentRows; trackBy: trackByRow">
+            <td class="col-name">
+              <span *ngIf="r.__uiStatus !== 'uploading'">{{ r.name }}</span>
+              <span *ngIf="r.__uiStatus === 'uploading'">Uploading… {{ r.name }}</span>
+            </td>
+            <td>{{ r.type }}</td>
+            <td>{{ r.freqMHz }}</td>
+            <td>{{ r.network }}</td>
+            <td>{{ r.count }}</td>
+            <td>{{ r.model }}</td>
+            <td>{{ r.vendor }}</td>
+            <td class="col-action">
+              <button class="view-btn" type="button" (click)="onView(r)" [disabled]="r.__uiStatus === 'uploading'">查看</button>
+            </td>
+            <td class="col-edit" *ngIf="isCustom">
+              <button class="view-btn" type="button" (click)="onEdit(r)" [disabled]="r.__uiStatus === 'uploading'">編輯</button>
+              <button class="danger-btn" type="button" (click)="onDelete(r)" [disabled]="r.__uiStatus === 'uploading'">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- List loading indicator (below table) -->
+      <div class="list-loading" *ngIf="loadingList">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="text">讀取中...</span>
+      </div>
+    </div>
+
+    <!-- Footer (先做簡單頁碼，之後接 API 再改) -->
+    <!-- <div class="modal-footer">
+      <button class="pager-btn" type="button" disabled>&lt;</button>
+      <span class="pager-current">1</span>
+      <button class="pager-btn" type="button" disabled>&gt;</button>
+    </div> -->
+  </div>
+</div>
+
+<app-antenna-pattern-modal
+  *ngIf="patternOpen && patternAntenna"
+  [antenna]="patternAntenna"
+  (close)="closePattern()"
+></app-antenna-pattern-modal>
+
+<app-antenna-add-modal
+  *ngIf="addOpen"
+  [zIndexBase]="zIndexBase + 20"
+  (close)="closeAdd()"
+  (confirm)="onAddConfirm($event)"
+></app-antenna-add-modal>
+
+<app-antenna-edit-modal
+  *ngIf="editOpen && editTarget"
+  [zIndexBase]="zIndexBase + 20"
+  [antenna]="editTarget"
+  [patternFileName]="editTargetPatternFileName"
+  (close)="closeEditModal()"
+  (confirm)="onEditConfirm($event)"
+></app-antenna-edit-modal>

@@ -1,0 +1,76 @@
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+@import "leaflet/dist/leaflet.css";
+@import "leaflet-draw/dist/leaflet.draw.css";
+
+:root {
+  --dt-bg: #13233b;
+  --dt-bg-darker: #0e1a2d;
+  --dt-accent: #4aa3ff;
+  --dt-accent-2: #7fd3ff;
+  --dt-border: rgba(255,255,255,0.08);
+  --dt-text: #e6f0ff;
+}
+*{box-sizing:border-box}
+html, body { height: 100%; margin: 0; color: var(--dt-text); background: var(--dt-bg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', Arial, 'Microsoft JhengHei', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+.icon-btn { width: 40px; height: 40px; display: grid; place-items: center;
+  border-radius: 8px; border: 1px solid var(--dt-border);
+  background: rgba(255,255,255,0.04); cursor: pointer;
+  transition: transform .1s ease, background .2s ease, border-color .2s ease;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
+.icon-btn:active { transform: scale(.98); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.06); padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--dt-border); font-size: 12px;
+}
+.small-map {
+  position: absolute; right: 16px; bottom: 16px; width: 180px; height: 120px;
+  border: 1px solid var(--dt-border); border-radius: 8px;
+  background: rgba(0,0,0,0.35); backdrop-filter: blur(2px);
+}
+.shell { display: grid; grid-template-rows: 56px 1fr; height: 100vh; }
+.layout-body { position: relative; height: 100%; }
+.sidebar {
+  position: absolute; top: 0; bottom: 0; width: 56px; display: flex; flex-direction: column;
+  padding: 8px; gap: 8px; background: #1b2e4b; border-right: 1px solid var(--dt-border);
+}
+.sidebar.right { right: 0; border-right: none; border-left: 1px solid var(--dt-border); background: #1a2a45; }
+.canvas {
+  position: absolute; inset: 0 56px 0 56px;
+  background: radial-gradient(1200px 600px at 50% 30%, rgba(113,195,255,.25), rgba(0,0,0,.0)),
+              var(--dt-bg-darker);
+}
+.viewer-canvas { width: 100%; height: 100%; display: block; }
+.loading-overlay {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  background: rgba(10,20,35,0.55); backdrop-filter: blur(2px); z-index: 10;
+  font-weight: 600; letter-spacing: .5px;
+}
+
+/* 只影響 ConfirmDialog */
+.planner-confirm-dialog .mat-mdc-dialog-container {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.planner-confirm-dialog .mdc-dialog__surface {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 只影響你自己的 dialog */
+.dt-mat-dialog-panel .mat-mdc-dialog-surface {
+  --mdc-dialog-container-color: transparent;
+  --mdc-dialog-container-shadow: none;
+
+  background-color: transparent !important;
+  box-shadow: none !important;
+}

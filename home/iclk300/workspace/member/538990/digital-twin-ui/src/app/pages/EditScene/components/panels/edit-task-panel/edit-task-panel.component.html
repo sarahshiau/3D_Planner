@@ -1,0 +1,653 @@
+<!-- 規劃目標（目標規畫） -->
+<div class="task-panel">
+    <div class="task-section">
+        <div class="task-section-header">
+        <span class="task-section-title">規劃目標</span>
+        </div>
+
+        <!-- 內容區：只有 openFieldSections.target 為 true 才顯示 -->
+        <div class="task-section-body" *ngIf="openFieldSections.target">
+        <!-- 目標規畫 radio 清單 -->
+        <div class="planning-radio-list">
+            <label
+            class="planning-radio-item"
+            *ngFor="let m of planningModes">
+            <input
+                type="radio"
+                name="planningMode"
+                [value]="m.id"
+                [(ngModel)]="selectedPlanningMode"
+                (change)="onPlanningModeChange(m.id)" />
+
+            <span class="custom-radio"></span>
+            <span class="label-text">{{ m.label }}</span>
+            </label>
+        </div>
+
+                <div
+                        class="overall-planning-section"
+                        *ngIf="
+                            selectedPlanningMode === 'whole' ||
+                            selectedPlanningMode === 'ue' ||
+                            selectedPlanningMode === 'area'
+                        "
+                >
+                    <div class="planning-context-title">
+                        {{ planningContextTitle }}
+                    </div>
+
+                    <div class="sub-filter-section">
+                        <div class="filter-capsule secondary">
+                            <button
+                                type="button"
+                                (click)="activeConfigTab = 'planning'"
+                                [class.active]="activeConfigTab === 'planning'">
+                                規劃目標與限制
+                            </button>
+
+                            <button
+                                type="button"
+                                (click)="activeConfigTab = 'radio'"
+                                [class.active]="activeConfigTab === 'radio'">
+                                基地台參數設定
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="planning-tab-panel">
+
+                                                <div *ngIf="activeConfigTab === 'planning'" class="planning-tab-content planning-layout">
+
+                                                    <!-- 欲強化項目：whole / ue 有，area 沒有 -->
+                                                    <div
+                                                        class="planning-row"
+                                                        *ngIf="
+                                                            selectedPlanningMode === 'whole' ||
+                                                            selectedPlanningMode === 'ue'
+                                                        ">
+                                                        <label class="planning-row-label">欲強化項目</label>
+
+                                                        <div class="planning-row-content objective-list">
+                                                            <ng-container *ngIf="selectedPlanningMode === 'whole'; else ueTargets">
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="wholeObjectives.coverage.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化整體場域內訊號覆蓋量</span>
+                                                                    <button type="button" class="small-btn" (click)="openOverallAreaPlanningDialog()">設定</button>
+                                                                </label>
+
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="wholeObjectives.sinr.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化整體場域訊號品質</span>
+                                                                    <button type="button" class="small-btn" (click)="openOverallQualityDialog()">設定</button>
+                                                                </label>
+
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="wholeObjectives.rsrp.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化整體場域訊號強度</span>
+                                                                    <button type="button" class="small-btn" (click)="openOverallStrengthDialog()">設定</button>
+                                                                </label>
+
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="wholeObjectives.throughput.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化整體場域訊號穩定度</span>
+                                                                    <button type="button" class="small-btn" (click)="openOverallThroughputDialog()">設定</button>
+                                                                </label>
+                                                            </ng-container>
+
+                                                            <ng-template #ueTargets>
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="ueObjectives.coverage.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化高流量行動終端區域覆蓋</span>
+                                                                    <button type="button" class="small-btn">設定</button>
+                                                                </label>
+
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="ueObjectives.sinr.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">強化邊緣區域行動終端訊號品質</span>
+                                                                    <button type="button" class="small-btn">設定</button>
+                                                                </label>
+
+                                                                <label class="objective-item">
+                                                                    <input
+                                                                      type="checkbox"
+                                                                      [(ngModel)]="ueObjectives.throughput.enabled"
+                                                                      (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    <span class="objective-text">優化行動終端平均吞吐量</span>
+                                                                    <button type="button" class="small-btn">設定</button>
+                                                                </label>
+                                                            </ng-template>
+                                                        </div>
+                                                    </div>
+
+                                                    <div
+                                                      class="planning-row"
+                                                      *ngIf="selectedPlanningMode === 'area'">
+                                                      <label class="planning-row-label">欲強化項目</label>
+
+                                                      <div class="planning-row-content objective-list">
+                                                        <label class="objective-item">
+                                                          <input
+                                                            type="checkbox"
+                                                            [(ngModel)]="areaObjectives.coverage.enabled"
+                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                          <span class="objective-text">強化觀測區域覆蓋</span>
+                                                        </label>
+
+                                                        <label class="objective-item">
+                                                          <input
+                                                            type="checkbox"
+                                                            [(ngModel)]="areaObjectives.sinr.enabled"
+                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                          <span class="objective-text">強化觀測區域訊號品質</span>
+                                                        </label>
+
+                                                        <label class="objective-item">
+                                                          <input
+                                                            type="checkbox"
+                                                            [(ngModel)]="areaObjectives.rsrp.enabled"
+                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                          <span class="objective-text">強化觀測區域訊號強度</span>
+                                                        </label>
+
+                                                        <label class="objective-item">
+                                                          <input
+                                                            type="checkbox"
+                                                            [(ngModel)]="areaObjectives.throughput.enabled"
+                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                          <span class="objective-text">強化觀測區域訊號穩定度</span>
+                                                        </label>
+                                                      </div>
+                                                    </div>
+
+                                                    <!-- 欲佈建的發射源數量 -->
+                                                    <div class="planning-row">
+                                                        <label class="planning-row-label">欲佈建的發射源數量</label>
+
+                                                        <div class="planning-row-content mode-control-group">
+                                                            <label class="mode-control-item">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="bsCountMode"
+                                                                    [checked]="wholeAreaSettings.txCountMode === 'manual'"
+                                                                    (change)="setTxCountMode('manual')" />
+                                                                <span class="mode-text">自訂</span>
+                                                                <input
+                                                                    type="number"
+                                                                    class="inline-input mode-number"
+                                                                    [(ngModel)]="wholeAreaSettings.txCountManual"
+                                                                    (ngModelChange)="onPlanningFieldChanged()"
+                                                                    [disabled]="wholeAreaSettings.txCountMode !== 'manual'" />
+                                                            </label>
+
+                                                            <label class="mode-control-item">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="bsCountMode"
+                                                                    [checked]="wholeAreaSettings.txCountMode === 'auto'"
+                                                                    (change)="setTxCountMode('auto')" />
+                                                                <span class="mode-text">系統建議</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- 欲佈建的 RIS 數量 -->
+                                                    <div class="planning-row">
+                                                        <label class="planning-row-label">欲佈建的 RIS 數量</label>
+
+                                                        <div class="planning-row-content mode-control-group">
+                                                            <label class="mode-control-item">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="risCountMode"
+                                                                    [checked]="wholeAreaSettings.risCountMode === 'manual'"
+                                                                    (change)="setRisCountMode('manual')" />
+                                                                <span class="mode-text">自訂</span>
+                                                                <input
+                                                                    type="number"
+                                                                    class="inline-input mode-number"
+                                                                    [(ngModel)]="wholeAreaSettings.risCountManual"
+                                                                    (ngModelChange)="onPlanningFieldChanged()"
+                                                                    [disabled]="wholeAreaSettings.risCountMode !== 'manual'" />
+                                                            </label>
+
+                                                            <label class="mode-control-item">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="risCountMode"
+                                                                    [checked]="wholeAreaSettings.risCountMode === 'auto'"
+                                                                    (change)="setRisCountMode('auto')" />
+                                                                <span class="mode-text">系統建議</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Tab 2: 基地台參數設定 -->
+                                                <div *ngIf="activeConfigTab === 'radio'" class="planning-tab-content radio-layout">
+
+                                                    <!-- 基地台參數設定：標題獨立置於內容上方 -->
+                                                    <div class="radio-settings-panel">
+                                                        <div class="radio-settings-title">基地台參數設定</div>
+
+                                                        <div class="radio-settings-body">
+
+                                                            <!-- 每個發射源服務行動終端數量上限：改成基地台參數設定內的第一個項目 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">每個發射源服務行動終端數量上限</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            name="maxUePerTx"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="maxUePerTx"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 雙工方式 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">雙工方式</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <label class="radio-inline">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name="duplexMode"
+                                                                                [value]="'TDD'"
+                                                                                [(ngModel)]="tddConfig.duplexMode"
+                                                                                (ngModelChange)="onDuplexModeChange($event); onPlanningFieldChanged()" />
+                                                                            TDD
+                                                                        </label>
+
+                                                                        <label class="radio-inline">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name="duplexMode"
+                                                                                [value]="'FDD'"
+                                                                                [(ngModel)]="tddConfig.duplexMode"
+                                                                                (ngModelChange)="onDuplexModeChange($event); onPlanningFieldChanged()" />
+                                                                            FDD
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 基站種類 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">基站種類</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <label>
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                [(ngModel)]="tddConfig.bsTypeDistributed"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            支援分布式天線系統
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 天線 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">天線</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <select class="dt-select" [(ngModel)]="tddConfig.antenna" (ngModelChange)="onPlanningFieldChanged()">
+                                                                            <option *ngFor="let opt of antennaOptions" [value]="opt.value">
+                                                                                {{ opt.label }}
+                                                                            </option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 傳輸功率 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">傳輸功率</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input small"
+                                                                            [(ngModel)]="tddConfig.txPowerMin"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                        <span>~</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input small"
+                                                                            [(ngModel)]="tddConfig.txPowerMax"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 發射功率單位 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">發射功率單位</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <label class="radio-inline">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name="txUnit"
+                                                                                [value]="'dBm'"
+                                                                                [(ngModel)]="tddConfig.txPowerUnit"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            dBm
+                                                                        </label>
+
+                                                                        <label class="radio-inline">
+                                                                            <input
+                                                                                type="radio"
+                                                                                name="txUnit"
+                                                                                [value]="'mW'"
+                                                                                [(ngModel)]="tddConfig.txPowerUnit"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            mW
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 擴展係數 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">擴展係數</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="tddConfig.spreadFactor"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 上行資料串流層數 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">上行資料串流層數</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <select class="dt-select" [(ngModel)]="tddConfig.ulLayers" (ngModelChange)="onPlanningFieldChanged()">
+                                                                            <option *ngFor="let n of layerOptions" [value]="n">{{ n }}</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 下行資料串流層數 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">下行資料串流層數</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <select class="dt-select" [(ngModel)]="tddConfig.dlLayers" (ngModelChange)="onPlanningFieldChanged()">
+                                                                            <option *ngFor="let n of layerOptions" [value]="n">{{ n }}</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 上行調變能力 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">上行調變能力</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <select class="dt-select" [(ngModel)]="tddConfig.ulMcsTable" (ngModelChange)="onPlanningFieldChanged()">
+                                                                            <option *ngFor="let m of mcsTableOptions" [value]="m.value">
+                                                                                {{ m.label }}
+                                                                            </option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 下行調變能力 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">下行調變能力</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <select class="dt-select" [(ngModel)]="tddConfig.dlMcsTable" (ngModelChange)="onPlanningFieldChanged()">
+                                                                            <option *ngFor="let m of mcsTableOptions" [value]="m.value">
+                                                                                {{ m.label }}
+                                                                            </option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 雜訊指數 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">雜訊指數</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="tddConfig.noiseFigure"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                        <span class="unit">dB</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 發射增益 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">發射增益</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="tddConfig.txGain"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                        <span class="unit">dB</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 平均功耗 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">平均功耗</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="tddConfig.avgPowerW"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                        <span class="unit">W</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- 基地台價格 -->
+                                                            <div class="form-row">
+                                                                <label class="form-label">基地台價格</label>
+                                                                <div class="form-field">
+                                                                    <div class="field-line">
+                                                                        <input
+                                                                            type="number"
+                                                                            class="inline-input"
+                                                                            [(ngModel)]="tddConfig.bsCost"
+                                                                            (ngModelChange)="onPlanningFieldChanged()" />
+                                                                        <span class="unit">元</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <!-- TDD only -->
+                                                            <ng-container *ngIf="tddConfig.duplexMode === 'TDD'">
+                                                                <div class="form-row">
+                                                                    <label class="form-label">上下行配比</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select class="dt-select" [(ngModel)]="tddConfig.ulDlRatio" (ngModelChange)="onPlanningFieldChanged()">
+                                                                                <option *ngFor="let opt of ulDlRatioOptions" [value]="opt.value">
+                                                                                    {{ opt.label }}
+                                                                                </option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">中心頻率</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <input
+                                                                                type="number"
+                                                                                class="inline-input"
+                                                                                [(ngModel)]="tddConfig.centerFreqMHz"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">子載波間距 (KHz)</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select
+                                                                                class="dt-select"
+                                                                                [(ngModel)]="tddConfig.scsKHz"
+                                                                                (ngModelChange)="onScsChange($event); onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of scsKHzOptions" [value]="n">{{ n }}</option>
+                                                                            </select>
+                                                                            <span class="unit">kHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">頻寬</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select class="dt-select" [(ngModel)]="tddConfig.bandwidthMHz" (ngModelChange)="onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of bandwidthMHzOptionsFiltered" [value]="n">
+                                                                                    {{ n }}
+                                                                                </option>
+                                                                            </select>
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </ng-container>
+
+                                                            <!-- FDD only -->
+                                                            <ng-container *ngIf="tddConfig.duplexMode === 'FDD'">
+                                                                <div class="form-row">
+                                                                    <label class="form-label">上行中心頻率</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <input
+                                                                                type="number"
+                                                                                class="inline-input"
+                                                                                [(ngModel)]="fddConfig.ulCenterFreqMHz"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">下行中心頻率</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <input
+                                                                                type="number"
+                                                                                class="inline-input"
+                                                                                [(ngModel)]="fddConfig.dlCenterFreqMHz"
+                                                                                (ngModelChange)="onPlanningFieldChanged()" />
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">上行子載波間距</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select
+                                                                                class="dt-select"
+                                                                                [(ngModel)]="fddConfig.ulScsKHz"
+                                                                                (ngModelChange)="onUlScsChange($event); onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of scsKHzOptions" [value]="n">{{ n }}</option>
+                                                                            </select>
+                                                                            <span class="unit">kHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">上行頻寬(MHz)</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select class="dt-select" [(ngModel)]="fddConfig.ulBandwidthMHz" (ngModelChange)="onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of ulBandwidthMHzOptionsFiltered" [value]="n">
+                                                                                    {{ n }}
+                                                                                </option>
+                                                                            </select>
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">下行子載波間距</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select
+                                                                                class="dt-select"
+                                                                                [(ngModel)]="fddConfig.dlScsKHz"
+                                                                                (ngModelChange)="onDlScsChange($event); onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of scsKHzOptions" [value]="n">{{ n }}</option>
+                                                                            </select>
+                                                                            <span class="unit">kHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="form-row">
+                                                                    <label class="form-label">下行頻寬(MHz)</label>
+                                                                    <div class="form-field">
+                                                                        <div class="field-line">
+                                                                            <select class="dt-select" [(ngModel)]="fddConfig.dlBandwidthMHz" (ngModelChange)="onPlanningFieldChanged()">
+                                                                                <option *ngFor="let n of dlBandwidthMHzOptionsFiltered" [value]="n">
+                                                                                    {{ n }}
+                                                                                </option>
+                                                                            </select>
+                                                                            <span class="unit">MHz</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </ng-container>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                    </div>
+                </div>
+</div>
+</div>
+</div>

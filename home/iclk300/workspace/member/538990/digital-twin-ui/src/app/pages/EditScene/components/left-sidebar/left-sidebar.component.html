@@ -1,0 +1,34 @@
+<!-- src/app/components/left-sidebar/left-sidebar.component.html -->
+<div class="nav planner-rail planner-rail--left">
+  <!-- ===== Result Mode：5 顆分析按鈕 ===== -->
+  <ng-container *ngIf="resultService.viewMode() === 'result'; else editTpl">
+    <button
+      class="icon-btn rs-icon-btn planner-rail__btn"
+      *ngFor="let t of resultTools"
+      [class.active]="resultActive === t.id"
+      (click)="toggleResult(t.id)"
+      [title]="t.label"
+    >
+      <span class="icon">
+        <img [src]="t.icon" [alt]="t.label" />
+      </span>
+      <span class="text rs-icon-label planner-rail__label">{{ t.label }}</span>
+    </button>
+  </ng-container>
+
+  <!-- ===== Edit Mode：保留原本 6 顆工具（不變） ===== -->
+  <ng-template #editTpl>
+    <button
+      class="icon-btn rs-icon-btn planner-rail__btn"
+      *ngFor="let t of tools"
+      [class.active]="active === t.id"
+      (click)="toggle(t.id)"
+      [title]="t.label"
+    >
+      <span class="icon">
+        <img [src]="t.icon" [alt]="t.label" />
+      </span>
+      <span class="text rs-icon-label planner-rail__label">{{ t.label }}</span>
+    </button>
+  </ng-template>
+</div>

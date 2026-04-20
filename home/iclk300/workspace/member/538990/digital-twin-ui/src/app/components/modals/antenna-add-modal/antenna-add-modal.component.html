@@ -1,0 +1,139 @@
+<!-- overlay -->
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">新增天線</div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <form [formGroup]="form" (submit)="$event.preventDefault()">
+        <div class="form-grid">
+          <!-- 名稱 -->
+          <div class="form-row">
+            <div class="label-cell">名稱</div>
+            <div class="field-cell">
+              <input class="text-input" type="text" formControlName="name" />
+              <div class="err" *ngIf="f['name']?.touched && f['name']?.invalid">
+                天線名稱不可含空白或特殊字元，且須在16字以內!
+              </div>
+            </div>
+          </div>
+
+          <!-- 類型 -->
+          <div class="form-row">
+            <div class="label-cell">類型</div>
+            <div class="field-cell">
+              <select class="select-input" formControlName="type">
+                <option value="全向">全向</option>
+                <option value="指向">指向</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 網路種類 -->
+          <div class="form-row">
+            <div class="label-cell">網路種類</div>
+            <div class="field-cell">
+              <label class="radio-inline">
+                <input type="radio" formControlName="network" value="5G" />
+                <span>5G</span>
+              </label>
+
+              <label class="radio-inline">
+                <input type="radio" formControlName="network" value="Wi-Fi" />
+                <span>Wi-Fi</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 運作頻段 -->
+          <div class="form-row">
+            <div class="label-cell">運作頻段(MHz)</div>
+            <div class="field-cell field-cell--range">
+              <input class="text-input text-input--sm" type="text" formControlName="freqStartMHz" />
+              <span class="range-sep">~</span>
+              <input class="text-input text-input--sm" type="text" formControlName="freqEndMHz" />
+              <div class="err" *ngIf="(form.touched || submitAttempted) && (form.errors?.['bandRange'] || f['freqStartMHz']?.invalid || f['freqEndMHz']?.invalid)">
+                天線運作頻段應為正整數，且後面的數字應大於等於前面的數字!
+              </div>
+            </div>
+          </div>
+
+          <!-- 埠數 -->
+          <div class="form-row">
+            <div class="label-cell">埠數</div>
+            <div class="field-cell">
+              <input class="text-input text-input--sm" type="number" formControlName="count" />
+            </div>
+          </div>
+
+          <!-- 製造商 -->
+          <div class="form-row">
+            <div class="label-cell">製造商</div>
+            <div class="field-cell">
+              <input class="text-input" type="text" formControlName="vendor" />
+              <div class="err" *ngIf="f['vendor']?.touched && f['vendor']?.invalid">
+                天線製造商不可含空白或特殊字元，且須在16字以內!
+              </div>
+            </div>
+          </div>
+
+          <!-- 型號 -->
+          <div class="form-row">
+            <div class="label-cell">型號</div>
+            <div class="field-cell">
+              <input class="text-input" type="text" formControlName="model" />
+              <div class="err" *ngIf="f['model']?.touched && f['model']?.invalid">
+                天線型號不可含空白或特殊字元，且須在16字以內!
+              </div>
+            </div>
+          </div>
+
+          <!-- 場型數據 -->
+          <div class="form-row">
+            <div class="label-cell">
+              場型數據
+              <a class="link-btn" href="javascript:void(0)" (click)="downloadTemplate()">
+                (範例檔案下載)
+              </a>
+            </div>
+
+            <div class="field-cell field-cell--file">
+              <!-- 隱藏 input -->
+              <input
+                #fileInput
+                class="file-input"
+                type="file"
+                accept=".xlsx,.xls"
+                (change)="onFileSelected($event)"
+              />
+
+              <button class="view-btn" type="button" (click)="fileInput.click()">
+                上傳檔案
+              </button>
+
+              <span class="file-name">
+                {{ selectedFileName}}
+              </span>
+              <div class="err" *ngIf="submitAttempted && !selectedFile">
+                新增天線時，必須上傳場型數據檔案!
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" [disabled]="submitting" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>

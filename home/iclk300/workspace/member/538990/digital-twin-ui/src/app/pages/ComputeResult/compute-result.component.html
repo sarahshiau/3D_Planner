@@ -1,0 +1,16 @@
+<div class="result-container">
+  <div class="result-header">
+    <button class="back-btn" (click)="onBackClick()">← 返回編輯</button>
+    <h2>運算結果</h2>
+  </div>
+  
+  <div class="result-content" *ngIf="resultData; else noResult">
+    <pre>{{ resultData | json }}</pre>
+  </div>
+  
+  <ng-template #noResult>
+    <div class="no-result">
+      <p>暫無運算結果</p>
+    </div>
+  </ng-template>
+</div>

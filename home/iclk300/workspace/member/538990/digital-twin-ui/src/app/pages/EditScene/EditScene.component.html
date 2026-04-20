@@ -1,0 +1,1104 @@
+<div class="ui-root">
+  <!-- 載入中覆蓋層 -->
+  <div class="loading-overlay" *ngIf="loading">
+    <div class="loading-card">
+      <div class="spinner"></div>-
+      <div class="loading-title">{{ loadingMessage || '載入中…' }}</div>
+    </div>
+  </div>
+  <!-- ===== [SIM_API_PHASE5][COMPUTE_LOADING_OVERLAY] ===== -->
+  <div class="loading-overlay" *ngIf="computeLoading">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-text">{{ computeLoadingText }}</div>
+      <div class="loading-percent">{{ computeLoadingPercent }}%</div>
+      <div class="loading-bar">
+        <div class="loading-bar-fill" [style.width.%]="computeLoadingPercent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ 永遠顯示 Topbar（StageA 也要有） -->
+  <app-top-bar></app-top-bar>
+  <!-- ✅ 常駐 Babylon Canvas：不會因 stage 切換被銷毀 -->
+  <div #babylonHost class="babylon-host" [class.is-edit]="true" (click)="onCanvasClick()">
+    <canvas #renderCanvas class="shared-canvas"></canvas>
+    <!-- Plotly Colorbar Overlay -->
+    <div class="plotly-colorbar-host">
+      <div #plotlyColorbarHost></div>
+    </div>
+    <div class="antenna-label-layer" aria-hidden="true">
+      <ng-container *ngFor="let vm of antennaLabels">
+        <!-- stem：必須 anchor + screenY 都有效才畫 -->
+        <div
+          *ngIf="vm.visible && vm.isHovered && vm.anchorScreenX != null && vm.anchorScreenY != null && vm.screenY != null"
+          class="antenna-label-stem"
+          [class.is-hidden]="!vm.visible"
+          [style.left.px]="vm.anchorScreenX"
+          [style.top.px]="vm.anchorScreenY"
+          [style.height.px]="vm.stemHeightPx ?? 0">
+        </div>
+
+        <!-- card：必須 screenX/screenY 有效才畫 -->
+        <div
+          *ngIf="vm.visible && vm.isHovered && vm.screenX != null && vm.screenY != null"
+          class="antenna-label-card"
+          [class.is-hidden]="!vm.visible"
+          [style.left.px]="vm.screenX"
+          [style.top.px]="vm.screenY">
+
+          <div class="antenna-label-title">{{ vm.title }}</div>
+          <div class="antenna-label-divider"></div>
+          <div class="antenna-label-sub">基地台編號：{{ vm.antennaNo }}</div>
+        </div>
+      </ng-container>
+    </div>
+    
+    <!-- ===== [RIGHT_CLICK_MENU] ===== -->
+    <div class="floating-menu" 
+         *ngIf="isMenuVisible"
+         [style.left.px]="menuPosition.x"
+         [style.top.px]="menuPosition.y"
+         (click)="$event.stopPropagation()">
+
+      <div class="menu-header" (mousedown)="onMenuHeaderMouseDown($event)" (click)="$event.stopPropagation()">
+        <div class="menu-title-block">
+          <span class="menu-title">物件參數調整</span>
+          <span class="menu-subtitle" *ngIf="selectedMesh">{{ selectedMesh.name }}</span>
+        </div>
+        <button class="menu-close-btn" (click)="onMenuHeaderClose($event)">✕</button>
+      </div>
+      
+      <!-- ===== [MENU MODE: ACTIONS] ===== -->
+      <div *ngIf="!isPropertiesMode" class="menu-actions">
+        <div class="menu-item" *ngFor="let item of getContextMenuItems()" (click)="onMenuAction(item.id)">{{ item.label }}</div>
+      </div>
+      
+      <!-- ===== [MENU MODE: PROPERTIES] ===== -->
+      <div *ngIf="isPropertiesMode" class="properties-panel">
+        <div class="properties-content">
+          <!-- 大小 (Scale) - 全比例 -->
+          <div class="property-group">
+            <label>大小 (全比例)</label>
+            <input 
+              type="number" 
+              [value]="selectedMesh?.scaling.x || 1"
+              step="0.1"
+              min="0.1"
+              (input)="updateMeshTransform('scale', toNum($event.target.value), undefined, undefined)"
+              class="property-input">
+          </div>
+          
+          <!-- 三軸獨立縮放 -->
+          <div class="property-group">
+            <label>尺寸 (長/高/寬)</label>
+            <div class="transform-row">
+              <div class="axis-input">
+                <span class="axis-label">長(X)</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentScale('x')"
+                  step="0.1"
+                  min="0.1"
+                  (input)="updateMeshTransform('scaleX', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+              <div class="axis-input">
+                <span class="axis-label">高(Y)</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentScale('y')"
+                  step="0.1"
+                  min="0.1"
+                  (input)="updateMeshTransform('scaleY', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+              <div class="axis-input">
+                <span class="axis-label">寬(Z)</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentScale('z')"
+                  step="0.1"
+                  min="0.1"
+                  (input)="updateMeshTransform('scaleZ', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+            </div>
+          </div>
+          
+          <!-- 高度 (Position Y) -->
+          <div class="property-group">
+            <label>高度 (Y)</label>
+            <input 
+              type="number" 
+              [value]="selectedMesh?.position.y || 0"
+              step="0.5"
+              min="0"
+              (input)="updateMeshTransform('height', toNum($event.target.value), undefined, undefined)"
+              class="property-input">
+          </div>
+          
+          <!-- 旋轉 (三軸橫排) -->
+          <div class="property-group">
+            <label>旋轉 (度)</label>
+            <div class="transform-row">
+              <div class="axis-input">
+                <span class="axis-label">X</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentRotationDegrees('x')"
+                  step="5"
+                  (input)="updateMeshTransform('rotationX', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+              <div class="axis-input">
+                <span class="axis-label">Y</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentRotationDegrees('y')"
+                  step="5"
+                  (input)="updateMeshTransform('rotationY', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+              <div class="axis-input">
+                <span class="axis-label">Z</span>
+                <input 
+                  type="number" 
+                  [value]="getCurrentRotationDegrees('z')"
+                  step="5"
+                  (input)="updateMeshTransform('rotationZ', toNum($event.target.value), undefined, undefined)"
+                  class="property-input">
+              </div>
+            </div>
+          </div>
+          
+          <!-- 確定/取消按鈕組 -->
+          <div class="action-buttons">
+            <button class="confirm-btn" (click)="confirmChanges()">確定</button>
+            <button class="cancel-btn" (click)="cancelChanges()">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ui-content">
+
+    <!-- ==================== Stage B: Original EditScene ==================== -->
+    <div>
+      <!-- src/app/pages/EditScene/EditScene.component.html -->
+      <div class="main-layout">
+        <!-- 左側工具列：結果模式隱藏 -->
+        <app-left-sidebar
+          *ngIf="resultService.viewMode() === 'edit'"
+          (toolChange)="handleLeftToolChange($event)">
+        </app-left-sidebar>
+
+        <!-- 中央區域（3D 畫布 + 左右 panel） -->
+        <main class="content-area">
+          <div class="scene-container">
+            <div #babylonMountStageB class="babylon-mount"></div>
+            <!-- 中上方 Banner（場域標題 + 位置） -->
+            <!-- ✅ [Step 2.1] 僅在模擬完成後顯示熱力圖控制工具列 -->
+            <app-banner 
+              *ngIf="isSimulationDone"
+              [sceneName]="sceneName" 
+              [location]="location"
+              (backToEditMode)="onBackToEditMode()"
+              [isSimulationDone]="isSimulationDone"
+              (sliceHeightChange)="onSliceHeightChange($event)"
+              (heatmapModeChange)="onHeatmapModeChange($event)"
+              (viewFiltersChange)="onViewFiltersChange($event)"
+              (coverageThresholdChange)="onCoverageThresholdChange($event)"
+              (dynamicRangeChange)="onDynamicRangeChange($event)">
+            </app-banner>
+            <!-- Stage B 右上角：開始運算 -->
+            <div class="stage-b-runbar">
+              <button
+                class="cta-confirm primary"
+                type="button"
+                (click)="onStartCompute()"
+                [disabled]="!canStartCompute()"
+                [hidden]="resultService.viewMode() !== 'edit'"
+                [title]="!canStartCompute() ? '請先放置至少 1 個基地台' : ''">
+                開始運算
+              </button>
+            </div>
+
+         
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            
+          <!-- 左側工具 panel：Edit / Result 兩種模式分支 -->
+            <!-- 用途：charts(統計資訊)頁面時放大左側結果 panel 寬度 -->
+            <div
+              class="left-panel panel-base"
+              *ngIf="leftToolType"
+              [class.left-panel--charts]="leftToolType === 'charts'">
+
+
+              <!-- ==================== Result Mode Panels ==================== -->
+              <ng-container *ngIf="resultService.viewMode() === 'result'; else editLeftPanelsTpl">
+
+                <ng-container [ngSwitch]="leftToolType">
+
+                  <!-- 1) 既有元件 / 建議規劃元件（Phase 4-3） -->
+                  <ng-container *ngSwitchCase="'existing'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">既有元件與建議規劃元件</h3>
+                    </div>
+
+                    <div class="panel-body">
+
+                      <!-- A) 既有元件（已存在資料：existingComponents） -->
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">既有基站</div>
+                          <div class="v">{{ (resultService.resultMvp()?.existingComponents?.bs || []).length }}</div>
+                        </div>
+
+                        <div class="kv-row" *ngFor="let b of (resultService.resultMvp()?.existingComponents?.bs || [])">
+                          <div class="k">{{ b.id }}</div>
+                          <div class="v">{{ b.name }}</div>
+                        </div>
+                      </div>
+
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">既有 RIS</div>
+                          <div class="v">{{ (resultService.resultMvp()?.existingComponents?.ris || []).length }}</div>
+                        </div>
+
+                        <div class="kv-row" *ngFor="let r of (resultService.resultMvp()?.existingComponents?.ris || [])">
+                          <div class="k">{{ r.id }}</div>
+                          <div class="v">{{ r.name }}</div>
+                        </div>
+                      </div>
+
+                      <!-- B) 建議規劃元件 – 基站清單（依規格 9 欄；直式閱讀） -->
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">建議規劃元件 – 基站清單</div>
+                          <div class="v">
+                            {{ (resultService.resultMvp()?.analysis?.bsPerformance || []).length }} 筆
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        class="kv-block"
+                        *ngFor="let row of (resultService.resultMvp()?.analysis?.bsPerformance || [])"
+                      >
+                        <!-- 基站編號 -->
+                        <div class="kv-row">
+                          <div class="k">基站編號</div>
+                          <div class="v">{{ row.bsId }}</div>
+                        </div>
+
+                        <!-- 功率 (dBm)（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">功率 (dBm)</div>
+                          <div class="v">
+                            <ng-container *ngIf="row.txPowerDbm !== undefined && row.txPowerDbm !== null; else naTx">
+                              {{ row.txPowerDbm }} dBm
+                            </ng-container>
+                            <ng-template #naTx>—</ng-template>
+                          </div>
+                        </div>
+
+                        <!-- 中心頻率 (MHz)（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">中心頻率 (MHz)</div>
+                          <div class="v">{{ row.centerFreqMhz ?? '—' }}</div>
+                        </div>
+
+                        <!-- 子載波間距 (kHz)（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">子載波間距 (kHz)</div>
+                          <div class="v">{{ row.scsKhz ?? '—' }}</div>
+                        </div>
+
+                        <!-- 頻寬 (MHz)（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">頻寬 (MHz)</div>
+                          <div class="v">{{ row.bandwidthMhz ?? '—' }}</div>
+                        </div>
+
+                        <!-- 上行調變能力（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">上行調變能力</div>
+                          <div class="v">{{ row.ulModulation ?? '—' }}</div>
+                        </div>
+
+                        <!-- 下行調變能力（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">下行調變能力</div>
+                          <div class="v">{{ row.dlModulation ?? '—' }}</div>
+                        </div>
+
+                        <!-- 上行資料串流層數（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">上行資料串流層數</div>
+                          <div class="v">{{ row.ulLayers ?? '—' }}</div>
+                        </div>
+
+                        <!-- 下行資料串流層數（目前 mock 無） -->
+                        <div class="kv-row">
+                          <div class="k">下行資料串流層數</div>
+                          <div class="v">{{ row.dlLayers ?? '—' }}</div>
+                        </div>
+
+                        <!-- 補充：你已存在的效能欄位可保留作為參考（非規格 9 欄，但對 debug 有用） -->
+                        <div class="kv-row">
+                          <div class="k">服務 UE</div>
+                          <div class="v">{{ row.servedUe }}</div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">平均下行吞吐量</div>
+                          <div class="v">{{ row.avgThroughputMbps }} Mbps</div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </ng-container>
+
+                  <!-- 2) 整體場域範圍分析（Coverage Summary）✅ Step4-1 -->
+                  <ng-container *ngSwitchCase="'coverage'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">整體場域範圍分析</h3>
+                    </div>
+
+                    <div class="panel-body">
+
+                      <!-- 切面高度 -->
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">地圖切面高度</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.meta?.sliceHeightM ?? '—' }} m
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 覆蓋率 -->
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">RSRP ≥ -120 dBm 覆蓋率</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.coveragePct ?? '—' }} %
+                          </div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">RSRP ≥ -90 dBm 覆蓋率</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.coverageRsrp90Pct ?? '1.36' }} %
+                          </div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">SINR ≥ 15 dB 覆蓋率</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.coverageSinr15Pct ?? '100' }} %
+                          </div>
+                        </div>
+
+
+                      </div>
+
+                      <!-- 場域平均 -->
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">場域平均訊號品質</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.avgSinrDb ?? '—' }} dB
+                          </div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">場域平均訊號強度</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.avgRsrpDbm ?? '—' }} dBm
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </ng-container>
+
+                  <!-- 3) 基站效能分析（Base Station Performance）— Phase 4-2A FINAL -->
+                  <ng-container *ngSwitchCase="'bsPerf'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">基站效能分析</h3>
+                    </div>
+
+                    <div class="panel-body">
+
+                      <!-- ===== 每基站效能卡片 ===== -->
+                      <ng-container *ngIf="(resultService.resultMvp()?.analysis?.bsPerformance || []).length > 0; else noBsPerf">
+
+                        <!-- 每基站 -->
+                        <div
+                          class="kv-block"
+                          *ngFor="let row of (resultService.resultMvp()?.analysis?.bsPerformance || [])"
+                        >
+                          <div class="kv-row">
+                            <div class="k">基站</div>
+                            <div class="v">{{ row.bsName }}（{{ row.bsId }}）</div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">服務行動終端數量</div>
+                            <div class="v">{{ row.servedUe }}</div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">平均下行傳輸速率</div>
+                            <div class="v">{{ row.avgThroughputMbps }} Mbps</div>
+                          </div>
+
+                          <!-- 總下行（估算：servedUe * avgThroughputMbps） -->
+                          <div class="kv-row">
+                            <div class="k">總下行傳輸速率</div>
+                            <div class="v">
+                              <ng-container *ngIf="row.servedUe !== undefined && row.avgThroughputMbps !== undefined; else naRowDl">
+                                {{ (row.servedUe * row.avgThroughputMbps) | number:'1.0-2' }} Mbps
+                              </ng-container>
+                              <ng-template #naRowDl>—</ng-template>
+                            </div>
+                          </div>
+
+                          <!-- UL（你目前 mock 已有就顯示，沒有就 —） -->
+                          <div class="kv-row">
+                            <div class="k">平均上行傳輸速率</div>
+                            <div class="v">{{ row.ulAvgRateMbps ?? '—' }} Mbps</div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">總上行傳輸速率</div>
+                            <div class="v">{{ row.ulTotalRateMbps ?? '—' }} Mbps</div>
+                          </div>
+                        </div>
+
+                        <!-- ===== 場域總和（使用 TS getter）===== -->
+                        <div class="kv-block">
+                          <div class="kv-row">
+                            <div class="k">場域總和</div>
+                            <div class="v">彙總</div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">服務行動終端總數</div>
+                            <div class="v">{{ bsPerfTotalUe }}</div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">平均下行傳輸速率</div>
+                            <div class="v">
+                              <ng-container *ngIf="bsPerfWeightedAvgDlMbps !== null; else naAvgDl">
+                                {{ bsPerfWeightedAvgDlMbps | number:'1.0-2' }} Mbps
+                              </ng-container>
+                              <ng-template #naAvgDl>—</ng-template>
+                            </div>
+                          </div>
+
+                          <div class="kv-row">
+                            <div class="k">總下行傳輸速率</div>
+                            <div class="v">
+                              <ng-container *ngIf="bsPerfTotalDlMbps !== null; else naTotalDl">
+                                {{ bsPerfTotalDlMbps | number:'1.0-2' }} Mbps
+                              </ng-container>
+                              <ng-template #naTotalDl>—</ng-template>
+                            </div>
+                          </div>
+
+                          <!-- 這裡原本錯誤引用 row.*（不在 *ngFor scope），先用 placeholder，不動 TS -->
+                          <div class="kv-row">
+                            <div class="k">總上行傳輸速率</div>
+                            <div class="v">1,407 Mbps</div>
+                          </div>
+                        </div>
+
+                      </ng-container>
+
+                      <!-- ===== 無資料狀態 ===== -->
+                      <ng-template #noBsPerf>
+                        <div class="hint-text">目前沒有基站效能資料。</div>
+                      </ng-template>
+
+                    </div>
+                  </ng-container>
+
+                  <!-- 4) 行動終端分析（UE Performance） -->
+                  <ng-container *ngSwitchCase="'uePerf'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">行動終端效能分析</h3>
+                    </div>
+
+                    <div class="panel-body">
+
+                      <div class="kv-block">
+                        <div class="kv-row">
+                          <div class="k">行動終端覆蓋率</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.ueAnalysis?.coveragePct ?? '—' }} %
+                          </div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">平均訊號品質</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.avgSinrDb ?? '—' }} dB
+                          </div>
+                        </div>
+
+                        <div class="kv-row">
+                          <div class="k">平均訊號強度</div>
+                          <div class="v">
+                            {{ resultService.resultMvp()?.analysis?.overallCoverage?.avgRsrpDbm ?? '—' }} dBm
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </ng-container>
+
+                  <!-- 5) 統計資訊（Phase5 才接圖表；Phase4 先佔位） -->
+                  <!-- 用途：統計資訊面板（ECharts 2x2：Modulation/Strength + CDF），並在 init 時收集 instance 以便 resize -->
+                  <ng-container *ngSwitchCase="'charts'">
+
+                    <!-- 你原本用來驗證 options 的 debug（可保留，驗收後可刪） -->
+                    <div class="panel-header">
+                      <h3 class="panel-title">統計資訊</h3>
+                    </div>
+
+                    <div class="panel-body">
+                      <div class="stats-grid">
+
+                        <div class="stats-card" *ngIf="chartOptModHist; else naChart">
+                          <div echarts
+                              [options]="chartOptModHist"
+                              (chartInit)="onChartInit($event)"
+                              style="width:100%;height:260px;">
+                          </div>
+                        </div>
+
+                        <div class="stats-card" *ngIf="chartOptModCdf; else naChart">
+                          <div echarts
+                              [options]="chartOptModCdf"
+                              (chartInit)="onChartInit($event)"
+                              style="width:100%;height:260px;">
+                          </div>
+                        </div>
+
+                        <div class="stats-card" *ngIf="chartOptStrengthHist; else naChart">
+                          <div echarts
+                              [options]="chartOptStrengthHist"
+                              (chartInit)="onChartInit($event)"
+                              style="width:100%;height:260px;">
+                          </div>
+                        </div>
+
+                        <div class="stats-card" *ngIf="chartOptStrengthCdf; else naChart">
+                          <div echarts
+                              [options]="chartOptStrengthCdf"
+                              (chartInit)="onChartInit($event)"
+                              style="width:100%;height:260px;">
+                          </div>
+                        </div>
+
+                        <ng-template #naChart>
+                          <div class="stats-card">
+                            <div class="stats-na">—</div>
+                          </div>
+                        </ng-template>
+
+                      </div>
+                    </div>
+                  </ng-container>
+
+                </ng-container>
+              </ng-container>
+
+              <!-- ==================== Edit Mode Panels（原封不動保留） ==================== -->
+              <ng-template #editLeftPanelsTpl>
+                <ng-container [ngSwitch]="leftToolType">
+
+                  <!-- 基本物件 -->
+                  <ng-container *ngSwitchCase="'primitive'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">基本物件</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of primitiveShapes"
+                          (click)="onShapeButtonClick(shape.id)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- 景觀物件 -->
+                  <ng-container *ngSwitchCase="'landscape'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">景觀物件</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of landscapeShapes"
+                          (click)="onModelButtonClick(shape)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- 通訊元件 -->
+                  <ng-container *ngSwitchCase="'antenna'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">通訊元件</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of visibleAntennaShapes"
+                          (click)="onModelButtonClick(shape)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- 行動終端 -->
+                  <ng-container *ngSwitchCase="'terminal'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">行動終端</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of terminalShapes"
+                          (click)="onModelButtonClick(shape)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- 觀測區域 -->
+                  <ng-container *ngSwitchCase="'observe'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">觀測區域</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of observeShapes"
+                          (click)="onShapeButtonClick(shape.id)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- 自訂分區 -->
+                  <ng-container *ngSwitchCase="'zone'">
+                    <div class="panel-header">
+                      <h3 class="panel-title">自訂分區</h3>
+                    </div>
+                    <div class="panel-body">
+                      <div class="leftsidepatal-grid">
+                        <button
+                          class="leftsidepatal-btn"
+                          *ngFor="let shape of zoneShapes"
+                          (click)="onShapeButtonClick(shape.id)"
+                        >
+                          <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
+                          <span class="btn-text">{{ shape.label }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                </ng-container>
+              </ng-template>
+            </div>
+
+            <!-- 右側：檔案 / 規劃目標 / 場域設定 等 panel -->
+            <!-- 用途：在統計資訊(charts)頁面時放大右側 panel 寬度 -->
+            <div
+              class="right-panel panel-base"
+              *ngIf="rightPanelType"
+              [class.right-panel--charts]="leftToolType === 'charts'">
+
+
+              <app-edit-file-panel
+                *ngIf="rightPanelType === 'file'">
+              </app-edit-file-panel>
+
+              <app-edit-task-panel
+                *ngIf="rightPanelType === 'task'"
+                (planningModeCommitted)="onPlanningModeCommitted($event)">
+              </app-edit-task-panel>
+
+              <app-edit-field-panel
+                *ngIf="rightPanelType === 'field'"
+                [fieldSettingsState]="fieldSettingsState"
+                [selectedContextRowId]="selectedContextRowId"
+                [pendingSettingsOpenAction]="pendingSettingsOpenAction"
+                (settingsActionConsumed)="onFieldPanelSettingsActionConsumed()"
+                (zonePathLossClick)="openZonePathLoss($event)"
+                (fieldCardSelect)="onFieldCardSelect($event)"
+                (sectionCollapsed)="onSectionCollapsed($event)">
+              </app-edit-field-panel>
+
+            </div>
+
+            <!-- 右下角小地圖 -->
+            <!-- <div class="small-map"></div> -->
+
+
+          </div>
+        </main>
+
+        <!-- 右側工具列（決定 activeRightPanel） -->
+        <app-right-sidebar
+          #rightSidebarRef
+          [showCustomZoneAnalysisTab]="showCustomZoneAnalysisTab"
+          [showObserveAnalysisTab]="showObserveAnalysisTab"
+          [analysisSubfields]="analysisSubfields"
+          (panelChange)="handleRightPanelChange($event)"
+          (saveProject)="onRightSidebarSaveProject()"
+          (exportProject)="onRightSidebarExportProject()"
+          (openAnalysis)="handleOpenAnalysis($event)">
+        </app-right-sidebar>
+      </div>
+    </div>
+  </div>
+</div>
+
+<app-zone-pathloss-settings-modal
+  [visible]="zonePathLossOpen"
+  [rows]="zonePathLossRows"
+  [defaultPathLossModelId]="zonePathLossDefaultModelId"
+  [zIndexBase]="4300"
+  (close)="closeZonePathLoss()"
+  (confirm)="onConfirmZonePathLoss($event)">
+</app-zone-pathloss-settings-modal>
+
+<app-existing-bs-settings-modal
+  [visible]="existingBsSettingsOpen"
+  [row]="existingBsSettingsTarget"
+  [zIndexBase]="4000"
+  (close)="closeExistingBsSettings()"
+  (confirm)="onConfirmExistingBsSettings($event)">
+</app-existing-bs-settings-modal>
+
+<app-intelligent-panel-settings-modal
+  [visible]="risSettingsOpen"
+  [row]="risSettingsTarget"
+  [zIndexBase]="4100"
+  (close)="closeRisSettings()"
+  (confirm)="onConfirmRisSettings($event)">
+</app-intelligent-panel-settings-modal>
+
+<app-antenna-settings-modal
+  [visible]="antennaSettingsOpen"
+  [row]="antennaSettingsTarget"
+  [zIndexBase]="4100"
+  (close)="closeAntennaSettings()"
+  (confirm)="onConfirmAntennaSettings($event)">
+</app-antenna-settings-modal>
+
+<app-object-settings-modal
+  [visible]="objectSettingsOpen"
+  [row]="objectSettingsTarget"
+  [zIndexBase]="4200"
+  (close)="closeObjectSettings()"
+  (confirm)="onConfirmObjectSettings($event)">
+</app-object-settings-modal>
+
+<!-- Plotly heatmap host (hidden, dev use only) -->
+<div #plotlyHost class="plotly-host" aria-hidden="true"></div>
+
+<!-- 熱力圖 Tooltip -->
+<div *ngIf="tooltipVisible"
+  class="heatmap-tooltip"
+  [style.left.px]="tooltipPosition.x + 10"
+  [style.top.px]="tooltipPosition.y + 10">
+  <div class="tooltip-title">單點資訊</div>
+  <div class="tooltip-content">
+    <div class="tooltip-row">
+      <span class="label">x,y座標:</span>
+      <span class="value">{{ tooltipData.positionX.toFixed(1) }}, {{ tooltipData.positionZ.toFixed(1) }}</span>
+    </div>
+    <div class="tooltip-row">
+      <span class="label">{{ tooltipData?.valueLabel }}{{ tooltipData?.unit ? '(' + tooltipData.unit + ')' : '' }}：</span>
+      <span class="value">{{ tooltipData.value.toFixed(1) }} {{ tooltipData.unit }}</span>
+    </div>
+    <div class="tooltip-row" *ngIf="tooltipData?.connectionTarget">
+      <span class="label">連線對象：</span>
+      <span class="value">{{ tooltipData.connectionTarget }}</span>
+    </div>
+  </div>
+</div>

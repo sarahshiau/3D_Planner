@@ -1,0 +1,74 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+
+    <div class="modal-header">
+      <div class="modal-title">編輯自訂無線衰減模型</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="formula-block">
+        <div class="formula-text">Ltotal = 20 log10 f + distancePowerLoss log10 d + fieldLoss - 28</div>
+        <div class="formula-note">
+          f：傳輸頻率(MHz)；d：距離(公尺)；註：自由空間傳播可視為 20 log10 f - 2
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">模型名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.name" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">距離功率損耗係數</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.distancePowerLoss" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">場域耗損係數</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="text" [(ngModel)]="draft.fieldLoss" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            模型檔案
+            <a class="link-btn" href="javascript:void(0)" (click)="downloadTemplate()">
+              (範例檔案下載)
+            </a>
+          </div>
+
+          <div class="field-cell field-cell--file">
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+            />
+
+            <button class="view-btn" type="button" (click)="fileInput.click()">
+              更換檔案
+            </button>
+
+            <span class="file-name">
+              {{ selectedFileName || '未選擇檔案' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+
+  </div>
+</div>

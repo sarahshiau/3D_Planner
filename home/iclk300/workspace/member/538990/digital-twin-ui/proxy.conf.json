@@ -1,0 +1,8 @@
+{
+  "/son": {
+    "target": "http://211.20.94.215:3000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

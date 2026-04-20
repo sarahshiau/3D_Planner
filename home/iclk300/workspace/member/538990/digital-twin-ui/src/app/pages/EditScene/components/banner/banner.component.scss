@@ -1,0 +1,784 @@
+/* 外層 Banner：透明，只負責在場景中上方置中，浮在 3D 地圖上 */
+
+.banner {
+  position: fixed;
+  top: calc(var(--topbar-height, 56px) + 8px);
+  left: 0px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  /* ✅ 寬度跟內容走 */
+  width: max-content;
+
+  /* ✅ 但最大寬度 = 視窗可用寬度（扣掉 left 及安全邊距） */
+  max-width: calc(100vw - 24px);
+
+  background: transparent;
+  pointer-events: none;
+  z-index: 2;
+
+  /* ✅ 關鍵：不要 hidden，要能水平滾動 */
+  overflow-x: auto;
+  overflow-y: visible;
+
+  /* 可選：隱藏捲軸 */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.banner::-webkit-scrollbar {
+  display: none;
+}
+
+/* 中間的膠囊本體：看得到、可被點擊 */
+.capsule {
+  pointer-events: auto;     // 子元素恢復可點擊
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  padding: 5px 24px;
+  border-top-right-radius: 40px;
+  border-bottom-right-radius: 40px;
+  
+  background: rgba(20, 24, 36, 0.9);              // 深色半透明
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+
+  /* ⭐ 寬度跟視窗等比例縮放 */
+  width: clamp(360px, 45vw, 720px);
+}
+
+
+/* WP2: Header / Controls 結構殼（最小支撐） */
+.banner-header {
+  pointer-events: none; /* 外層不吃點擊 */
+}
+
+.banner-header .capsule {
+  pointer-events: auto; /* 膠囊可互動 */
+}
+
+.banner-controls {
+  width: 100%;
+  pointer-events: auto; /* 控制項可互動 */
+}
+
+/* RWD toggle 先給最基本可點樣式（不影響桌機） */
+.rwd-toggle-btn {
+  pointer-events: auto;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+/* 左側箭頭 */
+.arrow {
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* 中間標題 */
+.title {
+  font-size: 12x;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 1;                  // 讓 title 佔滿可用空間
+  text-align: center;       // 文字置中
+}
+
+/* 右側「現在位置」標籤 */
+.tools .badge {
+  font-size: 13px;
+  padding: 4px 12px;
+  border-radius: 20px;
+
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* 綠色小圓點 */
+.chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #20e07b;
+}
+
+/* ===== 熱力圖控制工具列樣式 ===== */
+
+// ✅ 工具列外層容器（包含右上角按鈕）
+.control-toolbar-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  max-width: 90vw;
+}
+
+.control-toolbar {
+  pointer-events: auto;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 0px 24px;
+  background: rgba(20, 24, 36, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+
+  @media (max-width: 1400px) {
+    gap: 12px;
+    padding: 10px 16px;
+  }
+
+  @media (max-width: 1024px) {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}
+
+.toolbar-section {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  &.left-section {
+    flex: 0 0 auto;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding-right: 12px;
+
+    @media (max-width: 1024px) {
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-right: 0;
+      padding-bottom: 8px;
+      width: 100%;
+      order: 1;
+    }
+  }
+
+  &.middle-section {
+    flex: 0 0 auto;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    padding-right: 12px;
+
+    @media (max-width: 1024px) {
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-right: 0;
+      padding-bottom: 8px;
+      width: 100%;
+      order: 2;
+    }
+  }
+
+  &.right-section {
+    flex: 1;
+    justify-content: flex-start;
+
+    @media (max-width: 1024px) {
+      flex: none;
+      width: 100%;
+      justify-content: flex-start;
+      order: 3;
+    }
+  }
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+
+  @media (max-width: 768px) {
+    gap: 4px;
+  }
+}
+
+.control-label {
+  font-size: 10px;
+  color: #aaa;
+  white-space: nowrap;
+  font-weight: 500;
+
+  @media (max-width: 768px) {
+    font-size: 10px;
+  }
+}
+
+.control-input {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 10px;
+  min-width: 80px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  &:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(76, 125, 194, 0.5);
+    box-shadow: 0 0 8px rgba(76, 125, 194, 0.3);
+  }
+
+  &.small {
+    min-width: 40px;
+    padding: 5px 6px;
+    font-size: 10px;
+  }
+
+  // 移除數值輸入框的上下箭頭
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 60px;
+    padding: 5px 6px;
+    font-size: 11px;
+  }
+}
+
+.control-select {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #fff;
+  padding: 6px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  background-size: 16px;
+  padding-right: 24px;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  &:focus {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(76, 125, 194, 0.5);
+    box-shadow: 0 0 8px rgba(76, 125, 194, 0.3);
+  }
+
+  option {
+    background: rgba(30, 40, 55, 0.95);
+    color: #fff;
+    padding: 8px;
+  }
+
+  @media (max-width: 768px) {
+    min-width: 90px;
+    font-size: 11px;
+  }
+}
+
+// 下拉選單容器
+.dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-trigger {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #fff;
+  padding: 4px 8px;
+  margin: 10px;
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  min-width: 90px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  &:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(76, 125, 194, 0.5);
+    box-shadow: 0 0 8px rgba(76, 125, 194, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 70px;
+    font-size: 11px;
+  }
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: rgba(30, 40, 55, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  min-width: 180px;
+  z-index: 1001;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: 300px;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    min-width: 150px;
+  }
+
+  // 自訂滾動條
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  }
+}
+
+.checkbox-item,
+.radio-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-size: 10px;
+  color: #ccc;
+  padding: 5px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  input {
+    cursor: pointer;
+    accent-color: rgba(76, 125, 194, 0.8);
+
+    &:hover {
+      accent-color: rgba(76, 125, 194, 1);
+    }
+  }
+
+  span {
+    user-select: none;
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+}
+
+.dynamic-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideIn 0.2s ease;
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+.dist-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+}
+
+.dist-toolbar__left,
+.dist-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dist-toolbar__right .control-group {
+  gap: 6px;
+}
+
+.dist-toolbar .radio-item {
+  padding: 3px 6px;
+}
+
+.range-confirm-btn {
+  padding: 4px 10px;
+  background: rgba(76, 125, 194, 0.35);
+  border: 1px solid rgba(76, 125, 194, 0.6);
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(76, 125, 194, 0.55);
+    border-color: rgba(76, 125, 194, 0.8);
+    box-shadow: 0 2px 8px rgba(76, 125, 194, 0.3);
+  }
+
+  &:active {
+    background: rgba(76, 125, 194, 0.75);
+    border-color: rgba(76, 125, 194, 1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.control-button {
+  padding: 4px 12px;
+  background: rgba(46, 77, 119, 0.8);
+  border: 1px solid ;
+  border-color: rgba(120, 180, 255, 0.55);
+  border-radius: 25px;
+  color: #fff;
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 10px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(76, 125, 194, 0.6);
+    border-color: rgba(76, 125, 194, 0.8);
+    box-shadow: 0 2px 8px rgba(76, 125, 194, 0.3);
+  }
+
+  &:active {
+    background: rgba(76, 125, 194, 0.8);
+    border-color: rgba(76, 125, 194, 1);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
+
+.confirm-btn {
+  background: rgba(76, 194, 125, 0.4);
+  border-color: rgba(76, 194, 125, 0.6);
+
+  &:hover {
+    background: rgba(76, 194, 125, 0.6);
+    border-color: rgba(76, 194, 125, 0.8);
+    box-shadow: 0 2px 8px rgba(76, 194, 125, 0.3);
+  }
+
+  &:active {
+    background: rgba(76, 194, 125, 0.8);
+    border-color: rgba(76, 194, 125, 1);
+  }
+}
+
+// 超小屏幕適配
+@media (max-width: 600px) {
+  .control-toolbar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .toolbar-section {
+    gap: 6px;
+
+    &.left-section,
+    &.middle-section {
+      padding-bottom: 6px;
+      padding-right: 0;
+    }
+  }
+
+  .control-group {
+    gap: 3px;
+  }
+
+  .control-label {
+    font-size: 10px;
+  }
+
+  .control-input,
+  .control-select,
+  .dropdown-trigger {
+    padding: 4px 6px;
+    font-size: 10px;
+    min-width: 50px;
+  }
+
+  .dynamic-controls {
+    gap: 4px;
+  }
+}
+
+/* ✅ Capsule 永遠同一排：禁止換行 */
+.capsule {
+  pointer-events: auto;
+
+  display: inline-flex;  /* shrink-to-fit 更直覺 */
+  align-items: center;
+  gap: 10px;
+
+  flex-wrap: nowrap;
+  white-space: nowrap;
+
+  width: max-content;    /* ✅ 內容多寬就多寬 */
+  overflow: visible;     /* ✅ 不在 capsule 裁切（裁切交給 banner 滾動） */
+}
+
+/* ✅ 控制項容器也禁止換行 */
+.capsule-controls {
+  pointer-events: auto;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+
+  flex-wrap: nowrap;
+  white-space: nowrap;
+
+  width: max-content;
+}
+
+/* 讓標題不要吃掉太多寬度，但仍同一排 */
+.title {
+  flex: 0 1 auto;
+  max-width: 260px;         /* 依你想要可調 200~360 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 控制群組緊湊化（可選但強烈建議） */
+.control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.control-label {
+  opacity: 0.9;
+  font-size: 10px;
+}
+
+/* select/input 更緊湊，減少撐寬 */
+.control-select,
+.control-input,
+.dropdown-trigger {
+  height: 28px;
+  padding: 2px 8px;
+  font-size: 10px;
+}
+
+/* 小數字輸入更窄 */
+.control-input.small {
+  width: 50px;
+}
+
+.banner-header {
+  overflow: visible !important;
+}
+
+/* dropdown/menu 必須在 banner 上層且不被裁切 */
+.dropdown-menu {
+  z-index: calc(var(--topbar-z, 1000) + 1);
+}
+
+/* =========================================================
+   Project Actions (新增，不影響既有 capsule / toolbar)
+   ========================================================= */
+
+.project-actions {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  flex: 0 0 auto;   // 不參與 title 的 flex 撐寬
+}
+
+/* 使用你現有 button 視覺語言，不改任何既有值 */
+.action-btn {
+  pointer-events: auto;
+  padding: 6px 14px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(120, 180, 255, 0.55);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+/* 垂直分隔線（獨立元素，不影響 layout 計算） */
+.v-sep {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.16);
+  margin: 0 6px;
+  flex: 0 0 auto;
+}
+
+/* =========================================================
+   Slice height input — compact width (override only)
+   ========================================================= */
+
+.slice-height-input {
+  min-width: 55px;   /* 保留你縮窄的數值 */
+  width: 55px;
+
+  /* ✅ 內容不要置右 */
+  text-align: left;
+
+  /* ✅ 確保沒有把整顆 input 推去右側 */
+  margin-left: 0;
+}
+
+/* =========================================================
+   View icon dropdown anchored at the end
+   ========================================================= */
+
+.view-icon-wrapper {
+  position: relative;      /* ✅ 讓 menu 以 icon 為 anchor */
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* =========================================================
+   View icon button (ensure icon displays)
+   ========================================================= */
+
+.icon-square-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  pointer-events: auto;
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 18px 18px;
+
+  padding: 0;
+}
+
+.view-icon-btn {
+  background-image: url("/assets/icons/visiblebtn.png");
+}
+
+/* dropdown：由 TS 用 fixed 給 top/left */
+.view-dropdown-menu {
+  position: fixed !important;
+  z-index: 3005 !important;
+}
+
+/* =========================================================
+   View dropdown: positioned by TS (fixed) — DO NOT anchor to banner
+   ========================================================= */
+
+.view-dropdown-menu {
+  position: fixed;     /* 位置由 TS 的 [ngStyle] 給 top/left */
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+
+  /* ✅ 重要：解除 .dropdown-menu 的 left:0 / top:calc(...) 影響 */
+  inset: auto;
+
+  /* z-index 交給 TS（inline style），這裡不再硬寫 */
+}
+
+.slice-height-select { width: 50px; }

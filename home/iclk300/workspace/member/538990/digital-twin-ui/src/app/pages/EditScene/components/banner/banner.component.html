@@ -1,0 +1,167 @@
+<!-- src/app/components/banner/banner.component.html -->
+<div class="banner">
+  <div class="banner-header">
+    <!-- 主標題膠囊 -->
+    <div class="capsule">
+      <div class="arrow" (click)="onBackClick()" title="回到編輯模式">←</div>
+      <div class="title">{{ sceneName }}</div>
+
+      <div class="project-actions" *ngIf="isProjectActionsEnabled">
+        <button class="action-btn secondary" (click)="onSaveProjectClick()">儲存專案</button>
+        <!-- <button class="action-btn secondary" (click)="onExportProjectClick()">匯出專案</button> -->
+        <span class="v-sep" aria-hidden="true"></span>
+      </div>
+      <!-- ✅ Inline Controls：與專案名稱同一條（wrap 允許換行） -->
+      <div class="capsule-controls" *ngIf="isSimulationDone">
+
+        <!-- 分布圖模式（整段一起框：label + select + radios/inputs） -->
+        <div class="dist-toolbar" role="group" aria-label="分布圖模式控制列">
+          <!-- 左側：模式選擇 -->
+          <div class="dist-toolbar__left">
+            <label class="control-label">分布圖模式</label>
+            <select
+              [(ngModel)]="activeHeatmapMode"
+              (change)="onHeatmapModeChange()"
+              class="control-select"
+            >
+              <option value="sinr">訊號品質</option>
+              <option value="coverage">訊號覆蓋圖</option>
+              <option value="rsrp">訊號強度</option>
+              <option value="ul_rate">上行傳輸速率</option>
+              <option value="dl_rate">下行傳輸速率</option>
+            </select>
+          </div>
+
+          <!-- 右側：Coverage 專屬（radio 立即生效） -->
+          <div *ngIf="activeHeatmapMode === 'coverage'" class="dist-toolbar__right">
+            <label class="radio-item">
+              <input
+                type="radio"
+                [(ngModel)]="coverageThreshold"
+                (change)="onCoverageThresholdChange()"
+                value="rsrp_minus_120"
+              />
+              <span>RSRP ≥ -120 dBm</span>
+            </label>
+
+            <label class="radio-item">
+              <input
+                type="radio"
+                [(ngModel)]="coverageThreshold"
+                (change)="onCoverageThresholdChange()"
+                value="rsrp_minus_90"
+              />
+              <span>RSRP ≥ -90 dBm</span>
+            </label>
+
+            <label class="radio-item">
+              <input
+                type="radio"
+                [(ngModel)]="coverageThreshold"
+                (change)="onCoverageThresholdChange()"
+                value="sinr_15"
+              />
+              <span>SINR ≥ 15 dB</span>
+            </label>
+          </div>
+
+          <!-- 右側：非 Coverage（min/max 先暫存，按「確認」才套用 + 觸發重繪） -->
+          <div *ngIf="activeHeatmapMode !== 'coverage'" class="dist-toolbar__right">
+            <div class="control-group">
+              <label class="control-label">最小值</label>
+              <input
+                type="number"
+                [(ngModel)]="draftDynamicRange.min"
+                class="control-input small"
+                (keydown.enter)="onDynamicRangeConfirm()"
+              />
+            </div>
+
+            <div class="control-group">
+              <label class="control-label">最大值</label>
+              <input
+                type="number"
+                [(ngModel)]="draftDynamicRange.max"
+                class="control-input small"
+                (keydown.enter)="onDynamicRangeConfirm()"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="range-confirm-btn"
+              (click)="onDynamicRangeConfirm()"
+              [disabled]="!isDynamicRangeDraftValid || !isDynamicRangeDirty"
+              title="輸入完成後按確認才會更新熱力圖"
+            >
+              確認
+            </button>
+          </div>
+        </div>
+
+        <!-- 切面高度 -->
+        <div class="control-group">
+          <label class="control-label">切面高度 (m)</label>
+          <select
+            [(ngModel)]="sliceHeight"
+            (change)="onSliceHeightChange()"
+            class="control-select slice-height-select"
+          >
+            <option *ngFor="let h of sliceHeightOptions" [ngValue]="h">
+              {{ h }}
+            </option>
+          </select>
+
+        </div>
+
+        <!-- ✅ View (moved to the very end): icon + dropdown -->
+        <div class="view-icon-wrapper">
+          <button
+          #viewBtn
+            class="icon-square-btn view-icon-btn"
+            type="button"
+            (click)="toggleViewDropdown()"
+            aria-label="檢視"
+            title="檢視"
+            ></button>
+            
+            
+          </div>
+          
+      </div>
+      
+      <button
+        class="rwd-toggle-btn"
+        *ngIf="isCompactLayout"
+        (click)="toggleResponsiveControls()"
+        aria-label="Toggle controls"
+      >
+        {{ isResponsiveControlsOpen ? '▴' : '▾' }}
+      </button>
+    </div>
+  </div>
+
+</div>
+<div class="dropdown-menu view-dropdown-menu" *ngIf="isViewDropdownOpen" [ngStyle]="viewMenuStyle">
+  <!-- ✅ 這段請從你原本的 dropdown-menu 原封不動貼過來 -->
+  <label class="checkbox-item">
+    <input type="checkbox"
+      [(ngModel)]="viewFilters.showTerminals"
+      (change)="onViewFilterChange()">
+    <span>顯示終端</span>
+  </label>
+
+  <label class="checkbox-item">
+    <input type="checkbox"
+      [(ngModel)]="viewFilters.showObstacles"
+      (change)="onViewFilterChange()">
+    <span>顯示障礙物</span>
+  </label>
+
+  <label class="checkbox-item">
+    <input type="checkbox"
+      [(ngModel)]="viewFilters.showAntennas"
+      (change)="onViewFilterChange()">
+    <span>顯示基地台</span>
+  </label>
+</div>

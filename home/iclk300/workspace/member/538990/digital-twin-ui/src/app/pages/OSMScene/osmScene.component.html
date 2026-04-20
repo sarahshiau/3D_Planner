@@ -1,0 +1,17 @@
+<div class="main-layout">
+  <app-left-sidebar></app-left-sidebar>
+
+  <main class="content-area">
+    <div class="osm-container">
+      <div #mapContainer class="osm-map"></div>
+      <canvas #renderCanvas class="babylon-view"></canvas>
+      <button class="export-btn" (click)="exportGLB()">匯出 GLB</button>
+
+      <div *ngIf="loading" class="loading-overlay">
+        {{ message }}
+      </div>
+    </div>
+  </main>
+
+  <app-right-sidebar></app-right-sidebar>
+</div>

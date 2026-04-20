@@ -1,0 +1,200 @@
+<div class="picker-root">
+  <div class="picker-header">
+    <button class="secondary" (click)="onCancel()">上一步</button>
+    <div class="picker-title">{{ stepTitle }}</div>
+    <button class="secondary" (click)="onCancel()">關閉</button>
+  </div>
+  
+  <div class="picker-body">
+    <div class="picker-grid">
+      <!-- 左：2D / BBox -->
+      <div class="picker-pane">
+        <div class="pane-title">地圖範圍選取</div>
+
+        <!-- Top tools -->
+        <div class="map-tools" (click)="$event.stopPropagation()">
+          <!-- 1) Nominatim search -->
+          <span class="bbox-label">地點關鍵字</span>
+          <form class="tool-row" (submit)="onSearchSubmit($event)">
+            <input
+            class="tool-input"
+            type="text"
+            [(ngModel)]="searchQuery"
+            name="searchQuery"
+            placeholder="搜尋地址/地標（Nominatim）例如：工業技術研究院、Kaohsiung..."
+            autocomplete="off"
+            />
+            <button class="tool-btn" type="submit" [disabled]="isSearching || !searchQuery?.trim()">
+              搜尋
+            </button>
+          </form>
+          
+          <!-- Search results -->
+          <div class="search-results" *ngIf="searchResults?.length">
+            <button
+              class="result-item"
+              *ngFor="let r of searchResults"
+              type="button"
+              (click)="selectSearchResult(r)"
+              title="{{ r.display_name }}"
+            >
+              {{ r.display_name }}
+            </button>
+          </div>
+
+          <div class="tool-hint" *ngIf="searchError">{{ searchError }}</div>
+
+          <!-- 2) Lat/Lng -->
+          <span class="bbox-label">地點經緯度</span>
+          <div class="tool-row tool-row-bbox">
+            <div class="bbox-field">
+              <span class="bbox-label">South</span>
+              <input
+              class="tool-input tool-input-sm"
+              type="number"
+              step="any"
+              [(ngModel)]="bboxSouth"
+              name="bboxSouth"
+              placeholder="24.76"
+              />
+            </div>
+            
+            <div class="bbox-field">
+              <span class="bbox-label">West</span>
+              <input
+              class="tool-input tool-input-sm"
+              type="number"
+              step="any"
+              [(ngModel)]="bboxWest"
+              name="bboxWest"
+              placeholder="121.03"
+              />
+            </div>
+            
+            <div class="bbox-field">
+              <span class="bbox-label">North</span>
+              <input
+              class="tool-input tool-input-sm"
+                type="number"
+                step="any"
+                [(ngModel)]="bboxNorth"
+                name="bboxNorth"
+                placeholder="24.77"
+                />
+              </div>
+              
+              <div class="bbox-field">
+                <span class="bbox-label">East</span>
+                <input
+                class="tool-input tool-input-sm"
+                type="number"
+                step="any"
+                [(ngModel)]="bboxEast"
+                name="bboxEast"
+                placeholder="121.04"
+                />
+              </div>
+              
+              
+            <button class="tool-btn" type="button" (click)="goToBBox()">
+              定位並框選
+            </button>
+          </div>
+          <div class="tool-row tool-row-bbox-size">
+            <label class="bbox-label">寬 (m)</label>
+            <input
+              class="tool-input tool-input-sm"
+              type="number"
+              min="1"
+              max="1200"
+              step="1"
+              [(ngModel)]="bboxWidthM"
+              name="bboxWidthM"
+              placeholder="例如 250（上限 1200m）"
+            />
+            <label class="bbox-label">高 (m)</label>
+            <input
+              class="tool-input tool-input-sm"
+              type="number"
+              min="1"
+              max="1200"
+              step="1"
+              [(ngModel)]="bboxHeightM"
+              name="bboxHeightM"
+              placeholder="例如 250（上限 1200m）"
+            />
+            <button class="tool-btn" type="button" (click)="applyBBoxSizeFromInput()">
+              套用尺寸
+            </button>
+          </div>
+          <div class="search-hint">預設定位為「工業技術研究院」</div>
+        </div>
+
+        <!-- Leaflet map -->
+        <div #leafletHost class="leaflet-host"></div>
+
+        <!-- [PreviewFlow v1 tweak] -->
+        <div class="preview-actions">
+          <!-- [PreviewFlow v1 disable] -->
+          <!-- [PreviewFlow v1 cancel-fix] -->
+          <button
+            class="secondary"
+            type="button"
+            (click)="onCancelPreview()"
+            [disabled]="!canCancelPreview"
+          >
+            取消預覽
+          </button>
+          <!-- [PreviewFlow v1 disable] -->
+          <button
+            class="primary"
+            type="button"
+            (click)="onConfirmPreview()"
+            [disabled]="
+              !pendingBBox ||
+              isPreviewLocked ||
+              previewFlowState === 'preview_cancelling' ||
+              previewFlowState === 'preview_clearing'
+            "
+          >
+            預覽確認
+          </button>
+        </div>
+
+        <div class="pane-hint">
+          操作：點左側地圖工具列的「矩形」按鈕後，在地圖上拖曳框選範圍，確認範圍後再進入下一步預覽。
+        </div>
+      </div>
+
+      <!-- 右：3D 預覽 -->
+      <div class="picker-pane right-pane">
+        <div class="pane-title">3D 預覽</div>
+
+        <div class="preview-stage-container">
+          <canvas #previewCanvas class="preview-canvas" [class.is-hidden]="previewStatus !== 'success'"></canvas>
+
+          <div class="preview-overlay" *ngIf="previewStatus === 'idle'">
+            <div class="overlay-text">等待建立預覽...</div>
+          </div>
+
+          <div class="preview-overlay" *ngIf="previewStatus === 'generating'">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="overlay-text">地圖載入中...</div>
+          </div>
+
+          <div class="preview-overlay error" *ngIf="previewStatus === 'error'">
+            <div class="overlay-text">{{ previewError }}</div>
+            <button class="secondary" type="button" (click)="onRetry()">再試一次</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="picker-footer">
+    <div class="footer-actions">
+      <button type="button" class="secondary" (click)="onCancel()">上一步</button>
+      <button type="button" class="primary" [disabled]="!canConfirmMap" (click)="onConfirm()">確認並建立</button>
+    </div>
+  </div>
+</div>

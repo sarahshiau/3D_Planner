@@ -1,0 +1,104 @@
+<div class="modal-overlay" *ngIf="visible" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card modal-card--narrow" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <div class="modal-header">
+      <div class="modal-title">編輯配置</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="label-cell">配置名稱</div>
+          <div class="field-cell">
+            <input class="text-input" type="text" [(ngModel)]="draft.profileName" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射水平角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射水平角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="number" [(ngModel)]="draft.incHorizontalMin" placeholder="Min" style="width: 45%; display: inline-block;" />
+            <span style="padding: 0 5px;">~</span>
+            <input class="text-input" type="number" [(ngModel)]="draft.incHorizontalMax" placeholder="Max" style="width: 45%; display: inline-block;" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            入射垂直角範圍
+            <button class="mini-link" type="button" (click)="openHelp('入射垂直角範圍')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="number" [(ngModel)]="draft.incVerticalMin" placeholder="Min" style="width: 45%; display: inline-block;" />
+            <span style="padding: 0 5px;">~</span>
+            <input class="text-input" type="number" [(ngModel)]="draft.incVerticalMax" placeholder="Max" style="width: 45%; display: inline-block;" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射水平角
+            <button class="mini-link" type="button" (click)="openHelp('反射水平角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="number" [(ngModel)]="draft.refHorizontal" placeholder="例：0" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            反射垂直角
+            <button class="mini-link" type="button" (click)="openHelp('反射垂直角')">(詳)</button>
+          </div>
+          <div class="field-cell">
+            <input class="text-input" type="number" [(ngModel)]="draft.refVertical" placeholder="例：90" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">反射係數大小(dB)</div>
+          <div class="field-cell">
+            <input class="text-input text-input--sm" type="number" [(ngModel)]="draft.refCoefficient" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="label-cell">
+            場型數據 (選填)
+          </div>
+
+          <div class="field-cell field-cell--file">
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept=".xlsx,.xls"
+              (change)="onFileSelected($event)"
+            />
+
+            <button class="view-btn" type="button" (click)="fileInput.click()">上傳新檔案</button>
+            <span class="file-name">{{ pendingFileName || '未選擇檔案' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="isParsing" style="color: #666; margin-top: 10px;">Excel 解析中...</div>
+      <div *ngIf="parseError" style="color: #d32f2f; margin-top: 10px;">{{ parseError }}</div>
+    </div>
+
+    <div class="modal-footer modal-footer--right">
+      <button class="view-btn" type="button" (click)="onCancel()">取消</button>
+      <button class="primary-btn" type="button" (click)="onConfirm()">確定</button>
+    </div>
+  </div>
+</div>
+
+<app-ris-angle-help-modal
+  *ngIf="helpOpen"
+  [zIndexBase]="zIndexBase + 10"
+  [title]="helpTitle"
+  (close)="closeHelp()"
+></app-ris-angle-help-modal>

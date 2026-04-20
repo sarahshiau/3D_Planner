@@ -1,0 +1,131 @@
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">智慧反射面板管理</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="system"
+        />
+        <span>系統預設</span>
+      </label>
+
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="custom"
+        />
+        <span>自訂</span>
+      </label>
+    </div>
+
+    <!-- custom toolbar -->
+    <div class="modal-toolbar" *ngIf="isCustom">
+      <button class="primary-btn" type="button" (click)="onAdd()">新增</button>
+    </div>
+
+    
+    <!-- Table -->
+    <div class="table-wrap">
+      <div class="error-message" *ngIf="errorMsg">
+        {{ errorMsg }}
+      </div>
+
+      <div class="table-loading-overlay" *ngIf="loadingList">
+        <div class="list-loading">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="text">讀取中...</span>
+        </div>
+      </div>
+      
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-name">名稱</th>
+            <th>類型</th>
+            <th>運作頻段(MHz)</th>
+            <th>製造商</th>
+            <th>材質</th>
+            <th>元件數量</th>
+            <th>元件尺寸(mm)</th>
+            <th>平均功耗</th>
+            <th>價格</th>
+            <th class="col-action">配置</th>
+            <th class="col-edit" *ngIf="isCustom">編輯/刪除</th>
+          </tr>
+        </thead>
+        
+        <tbody>
+          <tr *ngFor="let r of currentRows">
+            <td class="col-name">
+              {{ r.name }}
+              <span *ngIf="r.__uiStatus === 'uploading'">上傳中…</span>
+              <span *ngIf="r.__uiStatus === 'deleting'">刪除中…</span>
+            </td>
+            <td>{{ r.type }}</td>
+            <td>{{ r.freqMHz }}</td>
+            <td>{{ r.vendor }}</td>
+            <td>{{ r.material }}</td>
+            <td>{{ r.elementCount }}</td>
+            <td>{{ r.elementSizeMm }}</td>
+            <td>{{ r.avgPower }}</td>
+            <td>{{ r.price }}</td>
+            <td class="col-action">
+              <button class="view-btn" type="button" (click)="onView(r)" [disabled]="r.__uiStatus === 'uploading' || r.__uiStatus === 'deleting'">查看</button>
+            </td>
+            <td class="col-edit" *ngIf="isCustom">
+              <button class="view-btn" type="button" (click)="onEdit(r)" [disabled]="r.__uiStatus === 'uploading' || r.__uiStatus === 'deleting'">編輯</button>
+              <button class="danger-btn" type="button" (click)="onDeleteClick(r)" [disabled]="r.__uiStatus === 'uploading' || r.__uiStatus === 'deleting'">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="pager-btn" type="button" disabled>&lt;</button>
+      <span class="pager-current">1</span>
+      <button class="pager-btn" type="button" disabled>&gt;</button>
+    </div>
+  </div>
+</div>
+
+<!-- 第二層：配置管理 -->
+<app-ris-config-manage-modal
+  *ngIf="configManageOpen && configTarget"
+  [zIndexBase]="zIndexBase + 10"
+  [risID]="configTarget.risID"
+  [risName]="configTarget.risName"
+  [isCustom]="isCustom"
+  (close)="closeConfigManage()"
+></app-ris-config-manage-modal>
+
+<app-ris-add-modal
+  *ngIf="addOpen"
+  [zIndexBase]="3020"
+  [existingRisNames]="existingRisNames"
+  (close)="closeAdd()"
+  (confirm)="onAddConfirm($event)"
+></app-ris-add-modal>
+
+<app-ris-edit-modal
+  *ngIf="editOpen && editingRow"
+  [open]="editOpen"
+  [row]="editingRow"
+  [zIndexBase]="3030"
+  (close)="closeEdit()"
+  (confirm)="onEditConfirm($event)"
+></app-ris-edit-modal>

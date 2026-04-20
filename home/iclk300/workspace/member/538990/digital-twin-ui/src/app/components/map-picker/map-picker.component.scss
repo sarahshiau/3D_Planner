@@ -1,0 +1,366 @@
+/* 🔥 ROOT: Follow parent container height, establish flex baseline */
+.picker-root {
+  width: 100%;
+  height: 100%;  /* 🔥 Follow parent height, not fixed to viewport */
+  max-width: 1280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;  /* 🔥 Critical: allows flex computation & overflow detection */
+  margin: 0 auto;
+  background: #0b1020;
+  border-radius: 0;
+  box-sizing: border-box;
+  overflow: hidden;  /* 🔥 Prevent root scroll; all scroll via .picker-body */
+}
+
+/* 🔥 HEADER: Fixed non-shrinking, always visible at top */
+.picker-header {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;  /* 🔥 Prevent any height compression */
+}
+
+/* 🔥 FOOTER FIXED VISIBLE: Remove sticky, rely on flex flow to anchor at bottom */
+.picker-footer {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex: 0 0 auto;  /* 🔥 Never shrink, never grow, maintain intrinsic height */
+  box-sizing: border-box;
+  background: inherit;
+  /* 🔥 Removed: position sticky + bottom; rely on flex layout to anchor */
+  z-index: 5;
+}
+
+.picker-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* 🔥 BODY: Main scroll container between header & footer */
+.picker-body {
+  flex: 1 1 auto;  /* 🔥 Take remaining space after header/footer */
+  min-height: 0;  /* 🔥 Allow flex child sizing */
+  display: flex;
+  flex-direction: column;  /* 🔥 Stack children vertically */
+  padding: 14px;
+  overflow-y: auto;  /* 🔥 Main scroll container */
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.picker-placeholder {
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 14px;
+  line-height: 1.6;
+}
+
+/* 🔥 GRID: Three-part layout - left & right panes fill vertically */
+.picker-grid {
+  flex: 1 1 auto;  /* 🔥 Fill body height, flex to available space */
+  min-height: 0;  /* 🔥 Allow flex sizing */
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;  /* 🔥 Panes stretch to fill grid height */
+}
+
+/* 🔥 PANE: Column layout - header/footer fixed, interactive area flex-grows */
+.picker-pane {
+  min-width: 0;  /* 🔥 Allow grid width control */
+  min-height: 0;  /* 🔥 Allow flex sizing */
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 🔥 Pane items: title/tools/hint fixed, leaflet-host/preview-stage grows */
+}
+
+.right-pane {
+  min-width: 0;
+}
+
+.pane-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  flex-shrink: 0;
+}
+
+.map-tools {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+/* 🔥 LEAFLET HOST: Primary interactive area - flex-grow in left pane */
+.leaflet-host {
+  width: 100%;
+  flex: 1 1 auto;  /* 🔥 Grow to fill pane, shrink if constrained */
+  min-height: 200px;  /* 🔥 Ensure minimum usable height for interaction */
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-sizing: border-box;
+}
+
+.pane-hint {
+  font-size: 12px;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.preview-placeholder {
+  flex: 1;
+  min-height: 0;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* 🔥 PREVIEW STAGE: Primary interactive area - flex-grow in right pane */
+.preview-stage-container {
+  position: relative;
+  flex: 1 1 auto;  /* 🔥 Grow to fill pane, shrink if constrained */
+  min-height: 200px;  /* 🔥 Ensure minimum usable height, match leaflet-host */
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+}
+
+.preview-canvas.is-hidden {
+  display: none;
+}
+
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+  z-index: 2;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.preview-overlay.error {
+  gap: 16px;
+}
+
+.overlay-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.tool-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.tool-row-2 {
+  margin-top: 8px;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+.tool-input {
+  width: 100%;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 10px;
+  outline: none;
+}
+
+.tool-input-sm {
+  height: 34px;
+}
+
+.tool-btn {
+  height: 34px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0 12px;
+  cursor: pointer;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.tool-btn:hover {
+  background: rgba(76, 125, 194, 0.8);
+  border-color: rgba(120, 180, 255, 0.9);
+  box-shadow: 0 0 6px rgba(120, 180, 255, 0.45);
+}
+
+.tool-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.search-results {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.result-item {
+  text-align: left;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.20);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.result-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tool-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.tool-row-bbox {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.tool-row-bbox-size {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.bbox-field {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 6px;
+}
+
+.bbox-label {
+  font-size: 12px;
+  opacity: 0.85;
+  padding-left: 2px;
+}
+
+.search-hint {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* [PreviewFlow v1 tweak] */
+.preview-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* [PreviewFlow v1 cancel-fix] */
+.preview-actions button:disabled,
+.footer-actions button:disabled,
+.map-tools button:disabled {
+  cursor: not-allowed;
+}
+
+.primary,
+.secondary {
+  padding: 8px 14px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+}
+
+.primary {
+  border-color: rgba(120, 180, 255, 0.55);
+  background: rgba(80, 140, 220, 0.22);
+}
+
+.footer-actions {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  animation: picker-spin 0.9s linear infinite;
+}
+
+@keyframes picker-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1100px) {
+  .picker-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* 🔥 REMOVED: forced height caps; let responsive body handle sizing */
+}

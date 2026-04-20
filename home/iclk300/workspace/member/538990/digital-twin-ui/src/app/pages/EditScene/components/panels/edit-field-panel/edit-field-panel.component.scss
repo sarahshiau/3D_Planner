@@ -1,0 +1,384 @@
+/* src/app/pages/EditScene/panels/edit-field-panel/edit-field-panel.component.scss */
+
+@use '../../../../../../styles/panel-shared' as shared;
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+
+  /* ===== [RS][TOKENS] baseline = Result panel ===== */
+  --rs-panel-bg: rgba(20, 20, 24, 0.92);
+  --rs-layout-bg: rgba(20, 20, 24, 0.92);
+
+  --rs-surface-soft: rgba(255, 255, 255, 0.06);
+  --rs-surface-hover: rgba(255, 255, 255, 0.10);
+  --rs-surface-active: rgba(255, 255, 255, 0.14);
+
+  --rs-border-panel: rgba(255, 255, 255, 0.08);
+  --rs-border-card: rgba(255, 255, 255, 0.05);
+  --rs-border-divider: rgba(255, 255, 255, 0.10);
+  --rs-border-hover: rgba(255, 255, 255, 0.20);
+  --rs-border-active: rgba(255, 255, 255, 0.25);
+
+  --rs-r-panel: 12px;
+  --rs-r-card: 8px;
+
+  --rs-pad-panel: 12px 14px;
+  --rs-pad-section: 16px;
+  --rs-pad-card: 12px;
+
+  --rs-text-primary: #fff;
+  --rs-text-weak: rgba(255,255,255,0.6);
+}
+
+.panel-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+  position: relative;
+
+  background: var(--rs-panel-bg);
+  border-bottom: 1px solid var(--rs-border-panel);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rs-text-primary);
+}
+
+.panel-body {
+  height: calc(100% - 56px);
+  min-height: 0;
+  overflow: auto;
+
+  padding-bottom: 40px;
+  background: var(--rs-layout-bg);
+}
+
+/* ============================
+   場域設定：外層 Accordion
+   ============================ */
+
+.field-accordion {
+  margin-top: 0;
+  padding: var(--rs-pad-section);
+  background: var(--rs-surface-soft);
+  border: 1px solid var(--rs-border-divider);
+  border-radius: var(--rs-r-panel);
+}
+
+.field-accordion-item + .field-accordion-item {
+  margin-top: 8px;
+}
+
+.field-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--rs-surface-soft);
+  border: 1px solid transparent; /* prevent hover shift */
+  border-radius: var(--rs-r-card);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.field-accordion-header:hover {
+  background: var(--rs-surface-active);
+  border-color: var(--rs-border-hover);
+}
+
+.field-accordion-title {
+  flex: 1;
+  text-align: left;
+}
+
+.field-accordion-count {
+  min-width: 24px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: var(--rs-surface-active);
+  border: 1px solid var(--rs-border-card);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+}
+
+.field-accordion-chevron {
+  margin-left: 8px;
+  font-size: 12px;
+  transition: transform 0.15s ease-out;
+}
+
+.field-accordion-chevron.open {
+  transform: rotate(180deg);
+}
+
+.field-accordion-body {
+  padding: var(--rs-pad-card);
+  background: var(--rs-surface-soft);
+  border-radius: var(--rs-r-card);
+  border: 1px solid var(--rs-border-divider);
+  border-top: none;
+}
+
+.field-accordion-placeholder {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* inputs/select */
+.field-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-label {
+  width: 25%;
+  font-size: 12px;
+  opacity: 1;
+  color: var(--rs-text-weak);
+  flex-shrink: 0;
+}
+
+.field-line input[type='number'],
+.field-line input[type='text'],
+.field-line select {
+  // flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 6px;
+  margin: 5px;
+  border-radius: 6px;
+  background: rgb(11 22 45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 13px;
+}
+
+/* basic 場域資訊 */
+.basic-field-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 障礙物清單 */
+.obstacle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.obstacle-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(8, 20, 44, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.obstacle-item.is-selected {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.obstacle-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* simple lists */
+.simple-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.simple-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(8, 20, 44, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.simple-item.is-selected {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.simple-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* ============================
+   衰減模型設定 modal
+   ============================ */
+
+.pathloss-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.pathloss-modal {
+  width: 760px;
+  max-width: 95%;
+  background: rgba(15, 19, 35, 0.5);
+  border-radius: 5px;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 13px;
+  box-shadow: 0 3px 4px rgba(89, 89, 89, 0.45);
+}
+
+.pathloss-modal-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgb(0 61 144 / 60%);
+  color: #fff;
+}
+
+.pathloss-modal-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.modal-close-btn {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.pathloss-modal-header-row,
+.pathloss-modal-body-row {
+  display: grid;
+  grid-template-columns: 2.2fr 3.2fr;
+  align-items: stretch;
+}
+
+.pathloss-modal-header-row {
+  border-bottom: 1px solid #cddbe8;
+}
+
+.ph-col-name,
+.ph-col-formula {
+  padding: 10px 16px;
+  border-right: 1px solid #cddbe8;
+}
+
+.ph-col-formula {
+  border-right: none;
+}
+
+.pathloss-modal-header-row .ph-col-name,
+.pathloss-modal-header-row .ph-col-formula {
+  font-weight: 600;
+}
+
+.ph-inline-label {
+  margin-bottom: 6px;
+}
+
+.ph-select {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 2px;
+  border: 1px solid #b0b8c5;
+  font-size: 13px;
+}
+
+.ph-col-formula {
+  display: flex;
+}
+
+.ph-formula-text {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px 10px;
+}
+
+/* ===== Empty State Style ===== */
+.field-empty-state {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 場域尺寸 / 切面高度：唯讀顯示（由 EditScene 從 bbox 同步） */
+.readonly-input {
+  opacity: 0.88;
+  cursor: default;
+  pointer-events: none;
+  user-select: text;
+  background: rgba(18, 24, 44, 0.95) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: rgba(231, 234, 240, 0.92) !important;
+}
+
+.field-setting-value--triple {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--rs-text-primary);
+}
+
+.unit-text {
+  font-size: 12px;
+  color: var(--rs-text-weak);
+  white-space: nowrap;
+}
+
+.field-line--readonly-hint .unit-text {
+  white-space: normal;
+  line-height: 1.4;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.clear-btn,
+.settings-btn,
+.settings-btn .material-symbols-outlined {
+  color: #fff;
+}

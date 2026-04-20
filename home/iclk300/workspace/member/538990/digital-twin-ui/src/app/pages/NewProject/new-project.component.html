@@ -1,0 +1,167 @@
+<div class="page">
+  <div class="top">
+    <div class="title">專案管理</div>
+    <button class="primary" (click)="onOpenCreateModal()">新增專案</button>
+  </div>
+
+  <!-- 歷史專案列表（Phase 0: mock） -->
+  <div class="list-card">
+    <div class="list-header list-header-one">
+      <div class="col name">專案名稱</div>
+      <div class="col type">網路種類</div>
+      <div class="col time">建立時間</div>
+      <div class="col act">編輯</div>
+      <div class="col act">刪除</div>
+    </div>
+
+    <div class="project-group" *ngFor="let p of projects">
+      <div class="list-row parent-row">
+        <div class="col name name-cell">
+          <input
+            *ngIf="hasChildren(p)"
+            class="expand-btn"
+            [class.expanded]="isExpanded(p.groupId)"
+            type="image"
+            src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 18 15 12 9 6'/%3E%3C/svg%3E"
+            (click)="toggleGroup(p.groupId)"
+            [attr.aria-label]="isExpanded(p.groupId) ? '收合群組' : '展開群組'"
+            [attr.title]="isExpanded(p.groupId) ? '收合群組' : '展開群組'"
+          />
+          <span>{{ p.taskName }}</span>
+        </div>
+        <div class="col type">{{ p.protocol }}</div>
+        <div class="col time">{{ p.createTime }}</div>
+        <div class="col act">
+          <button class="icon-btn edit-btn" title="編輯">✎</button>
+        </div>
+        <div class="col act">
+          <button class="icon-btn delete-btn" title="刪除">🗑</button>
+        </div>
+      </div>
+
+      <div class="child-list" *ngIf="hasChildren(p) && isExpanded(p.groupId)">
+        <div class="list-row child-row" *ngFor="let child of p.groupTask">
+          <div class="col name child-name">{{ child.taskName }}</div>
+          <div class="col type">{{ child.protocol }}</div>
+          <div class="col time">{{ child.createTime }}</div>
+          <div class="col act">
+            <button class="icon-btn edit-btn" title="編輯">✎</button>
+          </div>
+          <div class="col act">
+            <button class="icon-btn delete-btn" title="刪除">🗑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="showCreateModal" (click)="onCloseCreateModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-title">
+        新增專案
+        <button class="close-btn" (click)="onCloseCreateModal()">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row">
+          <div class="label">專案名稱</div>
+          <input class="input" [(ngModel)]="draftForm.projectName" placeholder="輸入名稱" />
+        </div>
+
+        <div class="form-section">
+          <div class="row">
+            <div class="label">網路種類</div>
+            <div class="radio-row">
+              <label class="radio">
+                <input type="radio" name="networkType" [(ngModel)]="draftForm.networkType" value="5G" />
+                <span>5G</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="networkType" [(ngModel)]="draftForm.networkType" value="WiFi" />
+                <span>Wi-Fi</span>
+              </label>
+              <label class="radio">
+                <input type="radio" name="networkType" [(ngModel)]="draftForm.networkType" value="5G+WiFi" />
+                <span>5G + Wi-Fi</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="label">頻段</div>
+            <div class="radio-row">
+              <label class="radio"><input type="radio" name="band" [(ngModel)]="draftForm.band" value="n78" /><span>n78</span></label>
+              <label class="radio"><input type="radio" name="band" [(ngModel)]="draftForm.band" value="n79" /><span>n79</span></label>
+              <label class="radio"><input type="radio" name="band" [(ngModel)]="draftForm.band" value="n257" /><span>n257</span></label>
+              <label class="radio"><input type="radio" name="band" [(ngModel)]="draftForm.band" value="n258" /><span>n258</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="row">
+            <div class="label">場域圖</div>
+
+            <div class="radio-row">
+              <label class="radio">
+                <input type="radio" name="fieldMapSource" [(ngModel)]="draftForm.fieldMapSource" value="glb" />
+                <span>上傳 GLB 檔案</span>
+              </label>
+
+              <label class="radio">
+                <input type="radio" name="fieldMapSource" [(ngModel)]="draftForm.fieldMapSource" value="gis" />
+                <span>使用 GIS 地圖</span>
+              </label>
+            </div>
+
+            <div class="sub" *ngIf="draftForm.fieldMapSource === 'glb'">
+              <input type="file" accept=".glb" (change)="onPickFile($event, 'glb')" />
+              <div class="hint" *ngIf="selectedGlbFile">已選：{{ selectedGlbFile.name }}</div>
+            </div>
+
+            <div class="sub" *ngIf="draftForm.fieldMapSource === 'gis'">
+              <div class="hint">按下「確認」後將進入 GIS 地圖範圍選擇。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section" *ngIf="draftForm.fieldMapSource !== 'gis'">
+          <div class="row">
+            <div class="label">場域尺寸</div>
+            <div class="size-grid">
+              <div class="size-item">
+                <span class="tag">長</span>
+                <input class="mini" type="number" [(ngModel)]="draftForm.fieldSize.length" />
+                <span class="unit">公尺</span>
+              </div>
+              <div class="size-item">
+                <span class="tag">寬</span>
+                <input class="mini" type="number" [(ngModel)]="draftForm.fieldSize.width" />
+                <span class="unit">公尺</span>
+              </div>
+              <div class="size-item">
+                <span class="tag">高</span>
+                <input class="mini" type="number" [(ngModel)]="draftForm.fieldSize.height" />
+                <span class="unit">公尺</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" (click)="$event.stopPropagation()">
+        <button class="secondary" (click)="onCloseCreateModal()">取消</button>
+        <button class="primary" (click)="onCreateConfirm(); $event.stopPropagation()">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="showGisPicker" (click)="onCancelGisPicker()">
+    <div class="gis-modal-host" (click)="$event.stopPropagation()">
+      <app-map-picker
+        (cancel)="onCancelGisPicker()"
+        (committed)="onCommittedFromPicker($event)">
+      </app-map-picker>
+    </div>
+  </div>
+</div>

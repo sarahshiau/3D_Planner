@@ -1,0 +1,63 @@
+<!-- src/app/pages/MapTest/map-test.component.html -->
+<div class="layout">
+  <!-- 左側：2D Leaflet -->
+  <section class="left">
+    <div class="panel">
+      <div class="title">MapTest（2D → 3D 生成）</div>
+
+      <!-- 搜尋框（先做 UI，下一步再串 Nominatim 或你內部地理服務） -->
+      <div class="row">
+        <input
+          class="search"
+          type="text"
+          placeholder="搜尋地點(尚未完成)"
+          [(ngModel)]="searchText"
+        />
+        <button (click)="onSearch()">搜尋</button>
+      </div>
+
+      <div class="hint">
+        使用者流程
+        1.使用地圖左側工具畫「矩形 BBox」。
+        2.系統會自動更新中心點並生成 3D 建築。
+      </div>
+
+      <div class="info">
+        <div><b>BBox</b>：{{ bboxText }}</div>
+        <div><b>中心點</b>：lat緯度={{ refPoint.lat }}, lon經度={{ refPoint.lon }}</div>
+        <div><b>建築數量</b>：{{ buildingCount }}</div>
+        <div class="error" *ngIf="errorMsg">{{ errorMsg }}</div>
+      </div>
+
+      <!-- 選中建築後顯示 Slider -->
+      <div class="card" *ngIf="selectedBuilding">
+        <div class="cardTitle">選中建築：{{ selectedBuilding.name }}</div>
+
+        <div class="muted">調整高度（mesh.scaling.y）</div>
+        <input
+          type="range"
+          min="0.2"
+          max="5"
+          step="0.05"
+          [value]="heightScale"
+          (input)="onHeightScaleChange($any($event.target).valueAsNumber)"
+        />
+        <div class="muted">heightScale = {{ heightScale }}</div>
+      </div>
+
+      <!-- <div class="row">
+        <button (click)="captureMapToGround()">更新地面貼圖</button>
+        <button (click)="setModePlace()">放置元件</button>
+        <button (click)="startSim()">啟動模擬</button>
+      </div> -->
+    </div>
+
+    <!-- Leaflet 容器 -->
+    <div id="leaflet-map" class="leaflet"></div>
+  </section>
+
+  <!-- 右側：3D Babylon -->
+  <section class="right">
+    <canvas id="renderCanvas" #renderCanvas></canvas>
+  </section>
+</div>

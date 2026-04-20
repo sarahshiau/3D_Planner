@@ -1,0 +1,109 @@
+<!-- overlay -->
+<div class="modal-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="modal-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title">無線衰減模型管理</div>
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="modal-tabs">
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset-pathloss"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="system"
+        />
+        <span>系統預設</span>
+      </label>
+
+      <label class="tab">
+        <input
+          type="radio"
+          name="preset-pathloss"
+          [ngModel]="preset"
+          (ngModelChange)="onPresetChange($event)"
+          value="custom"
+        />
+        <span>自訂</span>
+      </label>
+    </div>
+
+    <!-- 自訂工具列 -->
+    <div class="modal-toolbar" *ngIf="isCustom">
+      <button class="primary-btn" type="button" (click)="onAdd()" [disabled]="uploading">
+        {{ uploading ? '上傳中…' : '新增' }}
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th class="col-name">衰減模型名稱</th>
+            <th class="col-distancePowerLoss">距離功率損耗係數</th>
+            <th class="col-fieldLoss">場域耗損係數</th>
+            <th class="col-formula">衰減模型公式</th>
+            <th class="col-edit" *ngIf="isCustom">編輯/刪除</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let r of currentRows; trackBy: trackByRow">
+            <td class="col-name">
+              <span *ngIf="r.__uiStatus !== 'uploading'">{{ r.name }}</span>
+              <span *ngIf="r.__uiStatus === 'uploading'">Uploading… {{ r.name }}</span>
+            </td>
+            <td class="col-distancePowerLoss">{{ r.distancePowerLoss }}</td>
+            <td class="col-fieldLoss">{{ r.fieldLoss }}</td>
+            <td class="col-formula">{{ r.formula }}</td>
+
+            <td class="col-edit" *ngIf="isCustom">
+              <button class="view-btn" type="button" (click)="onEdit(r)" [disabled]="r.__uiStatus === 'uploading'">編輯</button>
+              <button class="danger-btn" type="button" (click)="onDelete(r)" [disabled]="r.__uiStatus === 'uploading'">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="list-loading" *ngIf="loadingList">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="text">讀取中...</span>
+      </div>
+    </div>
+
+    <!-- Footer：system 顯示分頁；custom 先保留樣式一致 -->
+    <div class="modal-footer">
+      <ng-container *ngIf="!isCustom; else customFooter">
+        <button class="pager-btn" type="button" (click)="prevSystemPage()" [disabled]="systemPage === 1">&lt;</button>
+        <span class="pager-current">{{ systemPage }}</span>
+        <button class="pager-btn" type="button" (click)="nextSystemPage()" [disabled]="systemPage === systemTotalPages">&gt;</button>
+      </ng-container>
+
+      <ng-template #customFooter>
+        <span class="pager-spacer"></span>
+      </ng-template>
+    </div>
+
+  </div>
+</div>
+
+<app-pathloss-model-add-modal
+  *ngIf="addOpen"
+  [zIndexBase]="3020"
+  (close)="closeAdd()"
+  (confirm)="onAddConfirm($event)"
+></app-pathloss-model-add-modal>
+
+<app-pathloss-model-edit-modal
+  *ngIf="editOpen && editTarget"
+  [zIndexBase]="3030"
+  [row]="editTarget"
+  (close)="closeEdit()"
+  (confirm)="onEditConfirm($event)"
+></app-pathloss-model-edit-modal>

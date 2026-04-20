@@ -1,0 +1,206 @@
+@use 'src/styles/panel-shared' as *;
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+
+  /* ===== [RS][TOKENS] baseline = Result panel ===== */
+  --rs-panel-bg: rgba(20, 20, 24, 0.92);
+  --rs-layout-bg: rgba(20, 20, 24, 0.92);
+
+  --rs-surface-soft: rgba(255, 255, 255, 0.06);
+  --rs-surface-hover: rgba(255, 255, 255, 0.10);
+  --rs-surface-active: rgba(255, 255, 255, 0.14);
+
+  --rs-border-panel: rgba(255, 255, 255, 0.08);
+  --rs-border-card: rgba(255, 255, 255, 0.05);
+  --rs-border-divider: rgba(255, 255, 255, 0.10);
+  --rs-border-hover: rgba(255, 255, 255, 0.20);
+  --rs-border-active: rgba(255, 255, 255, 0.25);
+
+  --rs-r-panel: 12px;
+  --rs-r-card: 8px;
+
+  --rs-pad-panel: 12px 14px;
+  --rs-pad-section: 16px;
+  --rs-pad-card: 12px;
+
+  --rs-text-primary: #fff;
+  --rs-text-weak: rgba(255,255,255,0.6);
+}
+
+.panel-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+  position: relative;
+
+  background: var(--rs-panel-bg);
+  border-bottom: 1px solid var(--rs-border-panel);
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--rs-text-primary);
+}
+
+.panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+
+  padding: var(--rs-pad-panel);
+  background: var(--rs-layout-bg);
+}
+
+/* =========================
+   File Panel Root
+   ========================= */
+
+.file-panel {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+
+  /* 由容器統一控制間距 */
+  gap: var(--space-lg, 0.5rem);
+
+  background: var(--rs-panel-bg);
+}
+
+.file-section {
+  margin-top: 12px;
+  padding: var(--rs-pad-section);
+  background: var(--rs-surface-soft);
+  border: 1px solid var(--rs-border-divider);
+  border-radius: var(--rs-r-panel);
+}
+
+/* =========================
+   Action Buttons
+   ========================= */
+
+.file-actions {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap; // 小螢幕自動換行
+  gap: var(--space-sm, 0.75rem);
+
+  padding: var(--rs-pad-section);
+  background: var(--rs-surface-soft);
+  border: 1px solid var(--rs-border-divider);
+  border-radius: var(--rs-r-panel);
+}
+
+/* =========================
+   Layer List
+   ========================= */
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 0.75rem);
+
+  /* 讓清單自然撐滿剩餘高度 */
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 單一圖層項目 */
+.layer-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding-block: var(--space-xs, 0.5rem);
+  gap: var(--space-md, 1rem);
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* =========================
+   Text
+   ========================= */
+
+.file-name {
+  font-size: 0.75rem; // 約 12px
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================
+   Buttons
+   ========================= */
+
+.btn {
+  padding: 0.3rem 0.75rem;
+  white-space: nowrap;
+  border-radius: 10px;
+
+  background: var(--rs-surface-hover);
+  border: 1px solid transparent; /* prevent hover layout shift */
+  color: #fff;
+
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    background: var(--rs-surface-active);
+    border-color: var(--rs-border-hover);
+  }
+
+  &:active {
+    background: var(--rs-surface-active);
+    border-color: var(--rs-border-active);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.small-btn{
+    margin-left: 0.75rem;
+}
+/* =========================
+   Inputs
+   ========================= */
+
+input {
+  width: 100%;
+
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+
+  background: var(--rs-surface-soft);
+  border: 1px solid var(--rs-border-divider);
+  color: #fff;
+
+  font-size: 0.875rem;
+
+  &:focus {
+    outline: none;
+    border-color: var(--rs-border-hover);
+    background: var(--rs-surface-active);
+  }
+}
+
+/* Debug 區塊：讓你知道 save 流程有跑完 */
+.save-debug {
+  margin: 8px 0 0;
+  font-size: 12px;
+  opacity: 0.9;
+}

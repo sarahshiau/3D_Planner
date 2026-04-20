@@ -1,0 +1,31 @@
+<div class="pattern-overlay" (click)="onBackdropClick()" [style.zIndex]="zIndexBase">
+  <div class="pattern-card" (click)="$event.stopPropagation()" [style.zIndex]="zIndexBase + 1">
+    <div class="pattern-header">
+      <div class="pattern-title">
+        【{{ antenna?.name }}】 天線場型圖
+      </div>
+
+      <button class="close-btn" type="button" (click)="onClose()" aria-label="close">
+        ✕
+      </button>
+    </div>
+
+    <div class="pattern-body">
+      <div class="gain-row">
+        <span class="gain-label">模擬發射增益：</span>
+        <input class="gain-input" type="number" [(ngModel)]="txGainDb" />
+        <span class="gain-unit">dB</span>
+      </div>
+
+      <!-- 圖片/3D 區：先留空，之後你接 3D 套件就把內容塞進來 -->
+      <div class="pattern-charts">
+        <div class="chart-placeholder">
+          <div class="ph-title">3D天線場型圖（先留空）</div>
+          <div class="ph-box">
+            <canvas #patternCanvas class="pattern-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

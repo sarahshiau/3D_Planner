@@ -1,0 +1,180 @@
+// .nav{display:flex;flex-direction:column;gap:8px;align-items:center}
+
+:host {
+  /* Narrow rail baseline: btn(44) + small padding */
+  --ls-btn: 44px;
+  --ls-rail-pad: 6px; /* total visual breathing space */
+  --ls-rail-min: calc(var(--ls-btn) + var(--ls-rail-pad));
+  --ls-rail-max: 84px;
+
+  /* responsive but narrow */
+  --ls-rail-width: clamp(var(--ls-rail-min), 6vw, var(--ls-rail-max));
+
+  width: var(--ls-rail-width);
+  height: 100%;
+  display: block;
+  min-height: 0;
+}
+
+.nav.planner-rail.planner-rail--left {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+
+  background: #131522;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+
+  padding-top: 10px;
+  gap: 12px;
+}
+
+.nav.planner-rail--left .icon-btn {
+  width: 100%;
+  height: auto;
+
+  padding: 6px;                 /* match Right */
+  border-radius: 10px;
+  border: 1px solid transparent; /* prevent hover shift */
+  box-sizing: border-box;
+
+  background: rgba(255, 255, 255, 0.06);
+
+  cursor: pointer;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;                      /* match Right */
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.nav.planner-rail--left .icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.20);
+}
+
+.nav.planner-rail--left .icon-btn.active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* [FIX] rs-icon-btn may have global fixed height/overflow that clips the label */
+.nav.planner-rail--left .rs-icon-btn {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.nav.planner-rail--left .icon-btn .icon {
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav.planner-rail--left .icon-btn .icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+
+.nav.planner-rail--left .text {
+  font-size: 11px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+
+  width: 100%;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+/* Removed icon-specific hover/active - now handled by .planner-rail__btn */
+
+.nav.planner-rail--left .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ===== [PLANNER_RAIL] Shared Rail Button System ===== */
+/* NOTE: Remove fixed width from .planner-rail to avoid conflicts */
+.planner-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: #131522;
+}
+
+.planner-rail--left {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== Planner Rail Button Base ===== */
+.planner-rail__btn {
+  width: 100%;
+  padding: 8px 6px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  background: rgba(255, 255, 255, 0.06);
+  transition: all 0.18s ease;
+
+  cursor: pointer;
+}
+
+/* hover */
+.planner-rail__btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.2);
+}
+
+/* active */
+.planner-rail__btn.active {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.25);
+}
+
+/* left icon wrapper */
+.planner-rail__btn .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* icon size */
+.planner-rail__btn img,
+.planner-rail__btn .icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+/* label */
+.planner-rail__label {
+  font-size: 11px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+  text-align: center;
+
+  white-space: nowrap;
+}

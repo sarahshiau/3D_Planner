@@ -1,0 +1,21 @@
+<!-- 背景遮罩：點擊關閉 -->
+<div class="topbar-panel-backdrop" (click)="onClose()"></div>
+
+<!-- Panel 本體：阻止事件往外冒泡，避免點到面板也觸發關閉 -->
+<div class="topbar-panel" (click)="$event.stopPropagation()">
+  <div class="topbar-panel__header">
+    <span class="topbar-panel__title">管理欄位</span>
+
+    <button mat-icon-button aria-label="close" (click)="onClose()">
+      <span aria-hidden="true">✕</span>
+    </button>
+  </div>
+
+  <div class="topbar-panel__content">
+    <!-- 先放佔位項目：之後你要改成真正路由/事件都可以 -->
+    <button mat-button class="topbar-panel__item" style="color: white;" (click)="onClickAntennaManage()">天線管理</button>
+    <button mat-button class="topbar-panel__item"style="color: white;" (click)="onOpenPathlossManage()">無線衰減模型管理</button>
+    <button mat-button class="topbar-panel__item"style="color: white;" (click)="onMaterialManageClick()">材質管理</button>
+    <button mat-button class="topbar-panel__item"style="color: white;" (click)="onOpenRisManage()">智慧反射面板管理</button>
+  </div>
+</div>

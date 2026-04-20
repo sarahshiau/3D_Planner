@@ -1,0 +1,133 @@
+:host {
+  display: block;
+}
+
+/* 主卡片：貼近你目前的 modal card 風格 */
+.planner-modal-card {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  border-radius: 10px;
+  background: #0b1020;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(205, 219, 232, 0.55);
+  color: #e7eaf0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.planner-modal-card.type-success {
+  border-bottom-color: rgba(97, 214, 140, 0.65);
+}
+
+.planner-modal-card.type-error {
+  border-bottom-color: rgba(255, 120, 120, 0.75);
+}
+
+.planner-modal-card.type-info {
+  border-bottom-color: rgba(129, 199, 255, 0.75);
+}
+
+.planner-modal-card.type-question {
+  border-bottom-color: rgba(205, 219, 232, 0.55);
+}
+
+/* Header */
+.planner-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.close-btn {
+  background: rgba(80, 140, 220, 0.22);
+  color: #fff;
+  border-color: rgba(120, 180, 255, 0.55);
+  border-radius: 10px;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px 4px 0px 4px;
+}
+.close-btn:hover {
+    background: rgba(76, 125, 194, 0.8);  /* 背景變亮 */
+    border-color: rgba(120, 180, 255, 0.9);    /* 邊框發亮 */
+    box-shadow: 0 0 6px rgba(120, 180, 255, 0.45); /* 邊框光暈 */
+}
+
+/* Body */
+.planner-modal-body {
+  padding: 14px 16px;
+}
+
+.message {
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(231, 234, 240, 0.92);
+  white-space: pre-line;
+}
+
+/* Footer */
+.planner-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* buttons */
+.view-btn {
+  padding: 8px 14px;
+  border-radius: 25px;
+  border-color: rgba(120,180,255,0.55);
+  background: rgba(80,140,220,0.22);
+  color: #fff;
+  cursor: pointer;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+
+  .view-btn:hover {
+      background: rgba(76, 125, 194, 0.8);  /* 背景變亮 */
+      border-color: rgba(120, 180, 255, 0.9);    /* 邊框發亮 */
+      box-shadow: 0 0 6px rgba(120, 180, 255, 0.45); /* 邊框光暈 */
+  }
+
+.primary {
+  border-color: rgba(120,180,255,0.55);
+  background: rgba(80,140,220,0.22);
+}
+
+.danger-btn {
+  padding: 8px 14px;
+  border-radius: 25px;
+  border: 1px solid rgba(255, 120, 120, 0.9);
+  background: rgba(255, 0, 0, 0.06);
+  color: #fff;
+  cursor: pointer;
+
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+
+  .danger-btn:hover {
+      border: 1px solid rgba(245, 158, 158, 0.9);
+      background: rgba(228, 171, 171, 0.06);
+      box-shadow: 0 0 6px rgba(80, 58, 58, 0.45); /* 邊框光暈 */
+  }
