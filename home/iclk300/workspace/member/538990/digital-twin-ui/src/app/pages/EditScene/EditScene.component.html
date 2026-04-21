@@ -2,18 +2,36 @@
   <!-- 載入中覆蓋層 -->
   <div class="loading-overlay" *ngIf="loading">
     <div class="loading-card">
-      <div class="spinner"></div>-
+      <div class="spinner"></div>
       <div class="loading-title">{{ loadingMessage || '載入中…' }}</div>
+
+      <div class="loading-error" *ngIf="loadingError">
+        {{ loadingErrorMessage || '地圖載入失敗，請再試一次' }}
+      </div>
+
+      <div class="loading-actions" *ngIf="loadingError">
+        <button class="retry-btn" type="button" (click)="retryBootstrapLoading()">
+        再試一次
+        </button>
+      </div>
     </div>
   </div>
+
   <!-- ===== [SIM_API_PHASE5][COMPUTE_LOADING_OVERLAY] ===== -->
   <div class="loading-overlay" *ngIf="computeLoading">
     <div class="loading-card">
-      <div class="spinner"></div>
-      <div class="loading-text">{{ computeLoadingText }}</div>
-      <div class="loading-percent">{{ computeLoadingPercent }}%</div>
-      <div class="loading-bar">
-        <div class="loading-bar-fill" [style.width.%]="computeLoadingPercent"></div>
+      <div class="spinner" *ngIf="!computeLoadingError"></div>
+
+      <div class="loading-title">運算中...</div>
+
+      <div class="loading-error" *ngIf="computeLoadingError">
+        {{ computeLoadingErrorMessage || '運算失敗，請再試一次' }}
+      </div>
+
+      <div class="loading-actions" *ngIf="computeLoadingError">
+        <button class="retry-btn" type="button" (click)="retryStartCompute()">
+          再試一次
+        </button>
       </div>
     </div>
   </div>

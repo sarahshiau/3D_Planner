@@ -45,6 +45,7 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
   previewReady = false;
   previewRequestId = 0;
 
+  
   private refreshDebounceTimer: any = null;
   private readonly REFRESH_DEBOUNCE_MS = 400;
 
@@ -73,10 +74,20 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
   private previewScene: Scene | null = null;
   private previewCamera: ArcRotateCamera | null = null;
   private previewAssets: any | null = null;
+  private previewResizeObserver: ResizeObserver | null = null;
+  private previewLastResizeW = 0;
+  private previewLastResizeH = 0;
 
   private onResize = () => {
     try {
       this.previewEngine?.resize();
+
+      requestAnimationFrame(() => {
+        this.previewEngine?.resize();
+        requestAnimationFrame(() => {
+          this.previewEngine?.resize();
+        });
+      });
     } catch {}
   };
 
@@ -107,10 +118,9 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.initLeaflet();
 
-    // 確保 modal render 後 canvas 有尺寸
+    // 只初始化 preview runtime，不自動生成 preview
     setTimeout(() => {
       this.tryInitPreview();
-      this.schedulePreviewRefresh('ngAfterViewInit');
     }, 0);
   }
 
@@ -119,8 +129,10 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       clearTimeout(this.refreshDebounceTimer);
       this.refreshDebounceTimer = null;
     }
-    this.disposePreview();
-    this.disposeLeaflet();
+    if (this.previewResizeObserver) {
+      this.previewResizeObserver.disconnect();
+      this.previewResizeObserver = null;
+}
   }
 
   private validateBBoxBasic(bbox: { south: number; west: number; north: number; east: number } | null): { ok: boolean; message?: string } {
@@ -199,20 +211,39 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
    * validation + preview refresh. All bbox sources (draw:created, draw:edited, manual input,
    * search result apply) must go through this to ensure consistent refresh lineage.
    */
-  private applyBBoxChange(bbox: { south: number; west: number; north: number; east: number } | null, reason: string): void {
+  private applyBBoxChange(
+    bbox: { south: number; west: number; north: number; east: number } | null,
+    reason: string
+  ): void {
+    console.log('[MapPicker][BBoxPending]', { reason, bbox });
+
     this.selectedBBox = bbox;
+
+    if (this.refreshDebounceTimer) {
+      clearTimeout(this.refreshDebounceTimer);
+      this.refreshDebounceTimer = null;
+    }
+
     if (!bbox) {
-      if (this.refreshDebounceTimer) {
-        clearTimeout(this.refreshDebounceTimer);
-        this.refreshDebounceTimer = null;
-      }
-      this.resetPreviewValidationState();
+      this.previewReady = false;
+      this.validationError = null;
+      this.previewError = null;
+      this.previewMessageOverride = null;
+      this.previewStatus = 'idle';
+      this.currentPreviewBBoxKey = null;
       return;
     }
+
     const size = this.measureBBoxSizeMeters(bbox);
     this.bboxWidthM = Math.round(size.widthM);
     this.bboxHeightM = Math.round(size.heightM);
-    this.schedulePreviewRefresh(reason);
+
+    // BBox 變更只更新 pending，不自動生成 preview
+    this.validationError = null;
+    this.previewError = null;
+    this.previewMessageOverride = null;
+    this.previewReady = false;
+    this.previewStatus = 'idle';
   }
 
   private schedulePreviewRefresh(reason: string) {
@@ -265,7 +296,6 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
   // This prevents duplicate Overpass calls for the same bbox when user drags quickly.
   private pendingOsmRequests = new Map<string, Promise<any>>();
   private pendingOsmSubscribers = new Map<string, number>();
-  private osmCache = new Map<string, any>();
   private currentPreviewBBoxKey: string | null = null;
   private lastFetchedBBox: { south: number; west: number; north: number; east: number } | null = null;
   private _previewFlowState: '' | 'preview_cancelling' | 'preview_clearing' = '';
@@ -387,6 +417,8 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    console.log('[MapPicker][PreviewConfirm]', { bbox: this.pendingBBox });
+
     this.tryInitPreview();
 
     if (!this.preview) {
@@ -407,8 +439,18 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const isCancellingInFlight = this.isGenerating || this.previewStatus === 'generating' || this.previewStatus === 'validating';
+    const isCancellingInFlight =
+      this.isGenerating ||
+      this.previewStatus === 'generating' ||
+      this.previewStatus === 'validating';
+
     this._previewFlowState = isCancellingInFlight ? 'preview_cancelling' : 'preview_clearing';
+
+    console.log('[MapPicker][PreviewCancel]', {
+      mode: this._previewFlowState,
+      hasSelectedBBox: !!this.selectedBBox,
+      hasPreviewAssets: !!this.previewAssets,
+    });
 
     try {
       this.previewRequestId++;
@@ -428,13 +470,17 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
 
       this.previewAssets = null;
       this.currentPreviewBBoxKey = null;
-      this.previewStatus = this.selectedBBox ? 'idle' : 'idle';
+      this.previewStatus = 'idle';
       this.previewEngine?.resize();
+
+      console.log('[MapPicker][PreviewCleared]', {
+        hasSelectedBBox: !!this.selectedBBox,
+        previewStatus: this.previewStatus,
+      });
     } finally {
       this._previewFlowState = '';
     }
   }
-
   onRetry(): void {
     this.onConfirmPreview();
   }
@@ -616,10 +662,15 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
     // 2) Babylon runtime
     const canvas = this.previewCanvas.nativeElement;
 
-    this.previewEngine = new Engine(canvas, true, {
-      preserveDrawingBuffer: true,
-      stencil: true,
-    });
+    this.previewEngine = new Engine(
+      canvas,
+      true,
+      {
+        preserveDrawingBuffer: true,
+        stencil: true,
+      },
+      true
+    );
 
     this.previewScene = new Scene(this.previewEngine);
 
@@ -642,12 +693,37 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       this.previewScene?.render();
     });
 
-    // Resize handling
     window.addEventListener('resize', this.onResize);
 
-    // Modal render 後再 resize 一次，避免 canvas 初始尺寸為 0
-    setTimeout(() => this.previewEngine?.resize(), 0);
+    const hostEl = canvas.parentElement;
+    if (hostEl && typeof ResizeObserver !== 'undefined') {
+      this.previewResizeObserver?.disconnect();
 
+      this.previewResizeObserver = new ResizeObserver(() => {
+        const w = hostEl.clientWidth || canvas.clientWidth;
+        const h = hostEl.clientHeight || canvas.clientHeight;
+
+        if (w <= 2 || h <= 2) return;
+        if (w === this.previewLastResizeW && h === this.previewLastResizeH) return;
+
+        this.previewLastResizeW = w;
+        this.previewLastResizeH = h;
+
+        try {
+          this.previewEngine?.resize();
+        } catch {}
+      });
+
+      this.previewResizeObserver.observe(hostEl);
+    }
+
+    // 初次建立後補兩次 resize
+    requestAnimationFrame(() => {
+      this.previewEngine?.resize();
+      requestAnimationFrame(() => {
+        this.previewEngine?.resize();
+      });
+    });
     console.log('[MapPicker] preview manager + babylon runtime created');
   }
 
@@ -655,44 +731,97 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
   /**
    * Guard: validate bbox before generate. Only calls refreshPreviewIfReady when valid.
    */
-  private guardedRefreshPreview(reason: string): void {
-    this.resetPreviewValidationState();
+    private guardedRefreshPreview(reason: string): void {
+      this.resetPreviewValidationState();
 
-    if (!this.selectedBBox) {
-      this.previewStatus = 'idle';
-      return;
+      if (!this.selectedBBox) {
+        this.previewStatus = 'idle';
+        this.previewReady = false;
+        this.currentPreviewBBoxKey = null;
+        return;
+      }
+
+      const validation = this.validateBBoxForPreview(this.selectedBBox);
+      if (!validation.ok) {
+        this.previewStatus = 'idle';
+        this.previewReady = false;
+        this.currentPreviewBBoxKey = null;
+        this.validationError = validation.message ?? '預覽範圍不合法';
+        return;
+      }
+
+      void this.refreshPreviewIfReady(reason);
     }
 
-    this.previewStatus = 'validating';
+    private validateBBoxForPreview(
+      bbox: { south: number; west: number; north: number; east: number } | null
+    ): { ok: boolean; message?: string } {
+      if (!bbox) {
+        return { ok: false, message: '請先選取預覽範圍' };
+      }
 
-    const basic = this.validateBBoxBasic(this.selectedBBox);
-    if (!basic.ok) {
-      this.validationError = basic.message ?? '框選範圍無效，請重新選取。';
-      this.previewStatus = 'error';
-      return;
+      const { south, west, north, east } = bbox;
+
+      if (
+        !Number.isFinite(south) ||
+        !Number.isFinite(west) ||
+        !Number.isFinite(north) ||
+        !Number.isFinite(east)
+      ) {
+        return { ok: false, message: '預覽範圍座標無效' };
+      }
+
+      if (north <= south || east <= west) {
+        return { ok: false, message: '預覽範圍尺寸無效' };
+      }
+
+      const size = this.measureBBoxSizeMeters(bbox);
+
+      if (!Number.isFinite(size.widthM) || !Number.isFinite(size.heightM)) {
+        return { ok: false, message: '無法計算預覽範圍尺寸' };
+      }
+
+      if (size.widthM <= 0 || size.heightM <= 0) {
+        return { ok: false, message: '預覽範圍尺寸必須大於 0' };
+      }
+
+      return { ok: true };
     }
-
-    const size = this.validateBBoxSize(this.selectedBBox!);
-    if (!size.ok) {
-      this.validationError = size.message ?? '框選範圍無效，請重新選取。';
-      this.previewStatus = 'error';
-      return;
-    }
-
-    void this.refreshPreviewIfReady(reason);
-  }
-
+    
   private async refreshPreviewIfReady(reason: string): Promise<void> {
+    const canvas = this.previewCanvas?.nativeElement;
+    const hostEl = canvas?.parentElement;
+
+    const cw = canvas?.clientWidth ?? 0;
+    const ch = canvas?.clientHeight ?? 0;
+    const hw = hostEl?.clientWidth ?? 0;
+    const hh = hostEl?.clientHeight ?? 0;
+
+    console.log('[MapPicker][PreviewCanvasSize][before-generate]', {
+      canvasClient: { w: cw, h: ch },
+      hostClient: { w: hw, h: hh },
+      canvasBuffer: {
+        w: canvas?.width ?? 0,
+        h: canvas?.height ?? 0,
+      },
+    });
+
+    if (Math.max(cw, hw) <= 2 || Math.max(ch, hh) <= 2) {
+      console.warn('[MapPicker] preview generate skipped: canvas size not ready');
+      this.previewStatus = 'error';
+      this.previewError = '預覽畫布尚未完成排版，請再試一次。';
+      this.isGenerating = false;
+      return;
+    }
     if (!this.preview || !this.previewCanvas?.nativeElement) return;
     if (!this.selectedBBox) return;
 
-    // If bbox change is small, reuse current preview assets and skip Overpass.
+    // If bbox change is very small, keep current preview and skip regeneration.
     const selectedBBox = this.selectedBBox;
     const selectedBBoxKey = this.buildBBoxKey(selectedBBox);
     if (
       this.lastFetchedBBox &&
-      !this.hasSignificantBBoxChange(this.lastFetchedBBox, selectedBBox) &&
-      !this.osmCache.has(selectedBBoxKey)
+      !this.hasSignificantBBoxChange(this.lastFetchedBBox, selectedBBox)
     ) {
       this.previewStatus = this.previewAssets ? 'success' : 'idle';
       this.previewReady = !!this.previewAssets;
@@ -700,6 +829,7 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       this.previewError = null;
       this.validationError = null;
       this.previewMessageOverride = null;
+      this.currentPreviewBBoxKey = this.previewAssets ? selectedBBoxKey : null;
       this.previewEngine?.resize();
       return;
     }
@@ -717,6 +847,17 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
     console.log('[MapPicker] preview generate start', {
       reason,
       bbox: this.selectedBBox,
+    });
+
+    this.previewEngine?.resize();
+    
+    this.previewEngine?.resize();
+
+    requestAnimationFrame(() => {
+      this.previewEngine?.resize();
+      requestAnimationFrame(() => {
+        this.previewEngine?.resize();
+      });
     });
 
     if (!this.previewScene) {
@@ -739,69 +880,27 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
 
     const bboxKey = this.buildBBoxKey(b);
 
-    // 2️⃣ bbox cache hit: reuse generated assets (skip Overpass)
-    if (this.osmCache.has(bboxKey)) {
-      const cachedAssets = this.osmCache.get(bboxKey);
 
-      if (requestId !== this.previewRequestId) return;
-
-      // Dispose previous assets only if they are not the cached assets being reused.
-      if (this.previewAssets) {
-        const prevCached = this.currentPreviewBBoxKey
-          ? this.osmCache.get(this.currentPreviewBBoxKey)
-          : null;
-        if (prevCached !== this.previewAssets) {
-          try {
-            (this.preview as any).disposeAssets?.(this.previewAssets);
-          } catch (e) {
-            console.warn('[MapPicker] dispose previous preview assets failed (ignored)', e);
-          }
-        }
-      }
-
-      this.previewAssets = cachedAssets;
-      this.currentPreviewBBoxKey = bboxKey;
-      this.isGenerating = false;
-      this.previewReady = true;
-      this.previewStatus = 'success';
-      this.previewError = null;
-      this.validationError = null;
-      this.previewMessageOverride = null;
-
-      // camera fit
-      try {
-        const ground = this.previewAssets?.ground;
-        const cam = this.previewCamera;
-
-        if (ground && cam) {
-          const center = ground.position ?? Vector3.Zero();
-          cam.setTarget(center);
-
-          const r = ground.getBoundingInfo?.().boundingSphere?.radiusWorld ?? 100;
-          cam.radius = Math.max(80, r * 2.2);
-        }
-      } catch (e) {
-        console.warn('[MapPicker] camera fit failed (ignored)', e);
-      }
-
-      this.previewEngine?.resize();
-      return;
-    }
-
-    // 3️⃣ 清掉上一輪 preview assets (cache miss)
     try {
       if (this.previewAssets) {
-        const prevCached = this.currentPreviewBBoxKey
-          ? this.osmCache.get(this.currentPreviewBBoxKey)
-          : null;
-        if (prevCached !== this.previewAssets) {
-          (this.preview as any).disposeAssets?.(this.previewAssets);
-        }
+        (this.preview as any).disposeAssets?.(this.previewAssets);
       }
     } catch (e) {
       console.warn('[MapPicker] dispose previous preview assets failed (ignored)', e);
     }
     this.previewAssets = null;
+    this.currentPreviewBBoxKey = null;
+
+    // 3️⃣ 先清掉目前顯示中的 preview assets，避免舊 bbox 殘留在 scene
+    try {
+      if (this.previewAssets) {
+        (this.preview as any).disposeAssets?.(this.previewAssets);
+      }
+    } catch (e) {
+      console.warn('[MapPicker] dispose previous preview assets failed (ignored)', e);
+    }
+    this.previewAssets = null;
+    this.currentPreviewBBoxKey = null;
 
     // 4️⃣ 關鍵：In-flight dedupe for same bbox (avoid duplicate Overpass)
     let pendingPromise = this.pendingOsmRequests.get(bboxKey);
@@ -844,9 +943,9 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
         return;
       }
 
-      this.previewAssets = assets;
-      this.osmCache.set(bboxKey, assets);
-      this.currentPreviewBBoxKey = bboxKey;
+    this.previewAssets = assets;
+    this.currentPreviewBBoxKey = bboxKey;
+
     } finally {
       const prevSubs = this.pendingOsmSubscribers.get(bboxKey);
       if (prevSubs != null) {
@@ -905,6 +1004,7 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
       (this.preview as any)?.disposeAssets?.(this.previewAssets);
     } catch {}
     this.previewAssets = null;
+    this.currentPreviewBBoxKey = null;
 
     // Dispose Babylon runtime
     try {

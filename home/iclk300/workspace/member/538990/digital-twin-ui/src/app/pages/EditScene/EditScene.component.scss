@@ -1194,6 +1194,41 @@ app-right-sidebar,
   transition: width 0.2s ease;
 }
 
+.loading-error {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #ffd6d6;
+  text-align: center;
+}
+
+.loading-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.retry-btn {
+  min-width: 120px;
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #20c997;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  filter: brightness(1.05);
+}
+
+.retry-btn:active {
+  transform: translateY(1px);
+}
+
 /* 旋轉動畫 (Spinner) */
 .spinner {
   width: 40px;

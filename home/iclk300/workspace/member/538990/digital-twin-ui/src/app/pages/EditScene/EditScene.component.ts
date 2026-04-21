@@ -712,7 +712,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // TODO: TEMP_SESSION_REMOVE_AFTER_LOGIN_SYSTEM
   // ========================================================
   private readonly DEV_TEMP_SESSION =
-    'son_session_230e4316-2def-401f-b299-1197ed5bf682';
+    'son_session_0f9fe636-f31a-43bf-9b26-55f5b0a11d35';
 
   // ===== [Step2A][Registry] Scene Object Registry =====
   private sceneObjectRegistry = new Map<string, SceneObjectRegistryEntry>();
@@ -3077,9 +3077,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   // --- loading overlay ---
-  private setLoading(on: boolean, message = ''): void {
+  private setLoading(on: boolean, message = '載入中...'): void {
     this.loading = on;
-    this.loadingMessage = message;
+    this.loadingMessage = message || '載入中...';
+
+    if (on) {
+      this.loadingError = false;
+      this.loadingErrorMessage = '';
+    }
   }
 
   // --- 新增：左側面板所需的按鈕清單 ---
@@ -3487,301 +3492,331 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // -------------------- 開始運算 --------------------
-  async onStartCompute(): Promise<void> {
-    console.log('[UI][StartCompute] ENTER onStartCompute', {
-      time: new Date().toISOString(),
-      viewMode: this.resultService.viewMode(),
-      computeMode: this.computeMode,
-    });
+  // async onStartCompute(): Promise<void> {
+  //   console.log('[UI][StartCompute] ENTER onStartCompute', {
+  //     time: new Date().toISOString(),
+  //     viewMode: this.resultService.viewMode(),
+  //     computeMode: this.computeMode,
+  //   });
 
-    if (!this.guardEditWrite('onStartCompute')) return;
+  //   if (!this.guardEditWrite('onStartCompute')) return;
 
-    this.distMode = 'sinr';
+  //   this.distMode = 'sinr';
 
-    // ===== [SIM_API_PHASE3] API flow gate =====
-    console.log('[SIM_API_PHASE3] Gate triggered, entering API flow');
-    return this.runSimulationApiFlow();
+  //   // ===== [SIM_API_PHASE3] API flow gate =====
+  //   console.log('[SIM_API_PHASE3] Gate triggered, entering API flow');
+  //   return this.runSimulationApiFlow();
 
-    // ===== [COMPUTEMODE:OVERRIDE] =====
-    // Allow runtime override via window.__computeModeOverride
+  //   // ===== [COMPUTEMODE:OVERRIDE] =====
+  //   // Allow runtime override via window.__computeModeOverride
     
-    // ===== [WP6][ANCHOR:START_COMPUTE_LOADING] =====
+  //   // ===== [WP6][ANCHOR:START_COMPUTE_LOADING] =====
+  //   this.computeLoading = true;
+  //   this.startComputeProgressTicker();
+
+  //   const scene = this.scene;
+  //   if (!scene) {
+  //     console.warn('[SignalHeatRay][P1] abort: this.scene is null/undefined');
+  //     return;
+  //   }
+
+  //   try {
+  //     const forced = (window as any).__computeModeOverride;
+  //     if (forced === 'plotly-heatmap' || forced === 'signal-heat-ray') {
+  //       this.computeMode = forced;
+  //     }
+
+  //     console.log('[StartCompute] gate check', { computeMode: this.computeMode, heatmapResolutionMode: this.heatmapResolutionMode });
+  //     console.log('[ComputeMode][DBG]', {
+  //       computeMode: this.computeMode,
+  //       override: (window as any).__computeModeOverride,
+  //       enableRayOverlay: (window as any).__enableRayOverlay,
+  //     });
+  //     console.log('[HM][DEBUG] after gate check', {
+  //       computeMode: this.computeMode,
+  //     });
+
+  //     // ===== [COMPUTE_MODE:GATE] =====
+  //     // Route to Plotly heatmap flow if in plotly-heatmap mode
+  //     if (this.computeMode === 'plotly-heatmap') {
+  //       console.log('[HM][CHK] ENTER heatmap branch');
+  //       // Phase 5.4C: Dev-only batch mode (3x resolution modes)
+  //       const batch = (window as any).__hmBatch === true;
+  //       if (batch) {
+  //         const originalMode = this.heatmapResolutionMode;
+  //         // Run preview (10m)
+  //         this.heatmapResolutionMode = 'preview';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Run standard (5m)
+  //         this.heatmapResolutionMode = 'standard';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Run detail (3m)
+  //         this.heatmapResolutionMode = 'detail';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
+  //         // Overlay rays ONLY after the final (detail) heatmap render in batch mode
+  //         this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/batch/detail');
+  //         // ===============================================
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Restore original mode
+  //         this.heatmapResolutionMode = originalMode;
+  //         console.log('[Heatmap][DBG] batch mode complete', { restoredMode: this.heatmapResolutionMode });
+  //       } else {
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
+  //         // Overlay rays after single heatmap render in non-batch mode
+  //         this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/single');
+  //         // ===============================================
+  //       }
+
+  //       this.resultService.setResultData(RESULT_API_MOCK);
+  //       this.resultService.setResultMvp(RESULT_MVP_MOCK);
+  //       this.rightPanelType = null;
+  //       console.log('[SignalHeatRay][Overlay] done (if enabled) before entering result mode');
+  //       console.log('[Phase1] enter result mode after plotly heatmap');
+  //       return;
+  //     }
+
+  //     console.log('[SignalHeatRay][P1] StartCompute clicked', {
+  //       time: new Date().toISOString(),
+  //     });
+
+  //     // ✅ [Commit -1.2] 清理 legacy heatmap 資源
+  //     this.disposeLegacyHeatmapAssets();
+
+  //     // ✅ 清理舊有射線數據，確保乾淨狀態
+  //     this.clearSignalRays();
+
+  //     console.log('[SignalHeatRay][P1] scene ok', {
+  //       meshCount: scene.meshes?.length ?? -1,
+  //     });
+
+  //     // Phase 1: mesh role scan (by metadata.type)
+  //     let antenna = 0;
+  //     let terminal = 0;
+  //     let blocker = 0;
+
+  //     for (const m of scene.meshes) {
+  //       const t = (m as any)?.metadata?.type;
+  //       if (t === 'antenna') antenna++;
+  //       else if (t === 'terminal') terminal++;
+  //       else if (t === 'building' || t === 'obstacle') blocker++;
+  //     }
+
+  //     console.log('[SignalHeatRay][P1] scan result', { antenna, terminal, blocker });
+
+  //     // Phase 1: still do NOT compute rays, do NOT render
+  //     // Phase 0：結果頁跳轉維持停用
+  //     // this.router.navigate(['/result']);
+    
+  //     // ===== [SIGRAY:P2:LINK_GEOMETRY] =====
+  //     // Purpose: Build a single link (A0 -> T0). Terminal determines ray direction.
+  //     // Inputs: scene.meshes, metadata.type, mesh absolute positions
+  //     // Outputs: from/to/distance/dir logs
+  //     // Exit: return if missing antenna/terminal or invalid positions
+  //     // Rollback: comment this block to keep only Phase 1 logs.
+  //     // ====================================
+  //     const { antennas, terminals, blockers } = this.p2_collectSignalNodes(scene);
+
+  //     console.log('[SignalHeatRay][P2] nodes', {
+  //       antenna: antennas.length,
+  //       terminal: terminals.length,
+  //       blocker: blockers.length,
+  //     });
+
+  //     // ✅ 檢查是否有基地台（終端不是必需的，熱力圖模擬只需要基地台）
+  //     if (antennas.length === 0) {
+  //       console.warn('[SignalHeatRay][P2] abort: need at least 1 antenna');
+  //       return;
+  //     }
+
+  //     // ✅ 條件判斷：僅當同時有終端時才計算 Phase 2 link 資料
+  //     if (antennas.length > 0 && terminals.length > 0) {
+  //       const a0 = antennas[0];
+  //       const t0 = terminals[0];
+
+  //       const from = a0.getAbsolutePosition?.()?.clone?.() ?? a0.position?.clone?.();
+  //       const to = t0.getAbsolutePosition?.()?.clone?.() ?? t0.position?.clone?.();
+
+  //       if (!from || !to) {
+  //         console.warn('[SignalHeatRay][P2] abort: cannot read positions', { from, to });
+  //         return;
+  //       }
+
+  //       const vec = to.subtract(from);
+  //       const distanceM = vec.length();
+  //       const dir = vec.normalize();
+
+  //       console.log('[SignalHeatRay][P2] link(A0->T0)', {
+  //         antennaId: a0.uniqueId,
+  //         terminalId: t0.uniqueId,
+  //         from: from.toString?.() ?? from,
+  //         to: to.toString?.() ?? to,
+  //         distanceM,
+  //         dir: dir.toString?.() ?? dir,
+  //       });
+  //     } else {
+  //       console.log('[SignalHeatRay][P2] skip link calculation: no terminal available');
+  //     }
+
+  //   // ===== [SIGRAY:P4.4:FANOUT_ALL_ANTENNAS] =====
+  //   // Purpose: render rays for ALL antennas (v1 multi-BS support)
+  //   // Rollback: comment this block to disable ray fanout.
+  //   // =============================================
+  //   if (terminals.length === 0) {
+  //     console.warn('[SignalHeatRay][P4.4] skip: no terminals -> no rays rendered');
+  //   } else {
+  //     this.p4_computeFanoutFromAntennas(scene, antennas, terminals, blockers);
+  //   }
+
+  //   // ✅ [Commit -1.1] 停用 legacy heatmap pipeline 入口
+  //   console.log('[Heatmap][Plotly] start compute (legacy heatmap disabled)');
+  //   // this.runHeatmapSimulation(scene, antennas, blockers);
+
+  //   // ===== [GRIDBUILDER:PHASE1.3] =====
+  //   // Purpose: Validate grid metadata and sample points (world grid verification)
+  //   // ====================================
+  //   if (this.floorMesh) {
+  //     const gridMeta = this.buildHeatmapGridMeta(this.floorMesh, this.plotlyHeatmapCellSize);
+
+  //     // Heatmap corner world points (for explicit (i,j)->(x,z) mapping)
+  //     const nx = gridMeta.nx;
+  //     const nz = gridMeta.nz;
+  //     const p00 = this.getHeatmapSamplePoint(gridMeta.min, 0, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p10 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p01 = this.getHeatmapSamplePoint(gridMeta.min, 0, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p11 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+
+  //     console.log('[DBG][HeatmapCorners]', {
+  //       nx,
+  //       nz,
+  //       corner_00: { i: 0, j: 0, x: p00.x, z: p00.z },
+  //       corner_10: { i: nx - 1, j: 0, x: p10.x, z: p10.z },
+  //       corner_01: { i: 0, j: nz - 1, x: p01.x, z: p01.z },
+  //       corner_11: { i: nx - 1, j: nz - 1, x: p11.x, z: p11.z },
+  //     });
+
+  //     // Sample three reference points: (0,0), (nx/2, nz/2), (nx-1, nz-1)
+  //     const pMid = this.getHeatmapSamplePoint(
+  //       gridMeta.min,
+  //       Math.floor(nx / 2),
+  //       Math.floor(nz / 2),
+  //       this.plotlyHeatmapCellSize,
+  //       this.plotlyHeatmapSliceHeight
+  //     );
+
+  //     console.log('[Heatmap][Grid] sample points', {
+  //       p00_0_0: p00.toString?.() ?? p00,
+  //       pMid: pMid.toString?.() ?? pMid,
+  //       p11_max: p11.toString?.() ?? p11,
+  //     });
+
+  //     // Optional: antenna world -> heatmap grid index debug
+  //     try {
+  //       if ((window as any).__hmDebugWorldToIndex === true && scene) {
+  //         const { antennas } = this.p2_collectSignalNodes(scene);
+  //         const a0 = antennas[0] ?? null;
+  //         if (a0 && typeof a0.getAbsolutePosition === 'function') {
+  //           const pos = a0.getAbsolutePosition();
+  //           const idx = this.hmDbgWorldToGridIndex(gridMeta.min, this.plotlyHeatmapCellSize, gridMeta.nx, gridMeta.nz, pos.x, pos.z);
+  //           console.log('[DBG][WorldToHeatmapIndex]', {
+  //             antennaName: a0.name,
+  //             worldX: pos.x,
+  //             worldZ: pos.z,
+  //             i: idx.i,
+  //             j: idx.j,
+  //             nx,
+  //             nz,
+  //           });
+  //         }
+  //       }
+  //     } catch (e) {
+  //       console.warn('[DBG][WorldToHeatmapIndex] failed', e);
+  //     }
+
+  //     // ===== [DEBUG:GRIDBUILDER] =====
+  //     // Purpose: Visualize grid sample points with debug spheres
+  //     // ====================================
+  //     const enableMarkers = (window as any).__hmDebugMarkers === true;
+  //     if ((this.DEBUG_HEATMAP_GRID || enableMarkers) && scene) {
+  //       const debugSpheres = [
+  //         { pos: p00, name: '[DBG-HM-CORNER] 00', color: new Color3(1, 0, 0) }, // red
+  //         { pos: p10, name: '[DBG-HM-CORNER] 10', color: new Color3(0, 1, 0) }, // green
+  //         { pos: p01, name: '[DBG-HM-CORNER] 01', color: new Color3(0, 0, 1) }, // blue
+  //         { pos: p11, name: '[DBG-HM-CORNER] 11', color: new Color3(1, 1, 0) }, // yellow
+  //       ];
+
+  //       for (const { pos, name, color } of debugSpheres) {
+  //         const sphere = MeshBuilder.CreateSphere(name, { diameter: 0.3 }, scene);
+  //         sphere.position = pos;
+  //         sphere.material = new StandardMaterial(name + '_mat', scene);
+  //         (sphere.material as StandardMaterial).emissiveColor = color;
+  //       }
+
+  //       console.log('[Heatmap][Grid] debug corner markers created', { nx, nz });
+  //     }
+  //   } else {
+  //       console.warn('[Heatmap][Grid] abort: no floorMesh');
+  //     }
+
+  //     // ✅ 標記模擬完成，啟用 Banner 熱力圖控制工具列
+  //     this.isSimulationDone = true;
+
+  //     console.log('[SignalHeatRay][A-final] setResultMvp -> result mode');
+
+  //     this.resultService.setResultData(RESULT_API_MOCK);
+  //     this.resultService.setResultMvp(RESULT_MVP_MOCK);
+  //   } finally {
+  //     this.stopComputeProgressTicker();
+  //     this.computeProgressPercent = 100;
+  //     await new Promise(res => setTimeout(res, 120));
+
+  //       this.computeLoading = false;
+  //     }
+  // }
+
+async onStartCompute(): Promise<void> {
+  console.log('[DBG] onStartCompute click');
+
+  if (!this.guardEditWrite('onStartCompute')) return;
+
+  this.distMode = 'sinr';
+
+  this.openComputeLoading();
+
+  try {
+    console.log('[SIM_API] start runSimulationApiFlow');
+
+    await this.runSimulationApiFlow();
+
+    console.log('[SIM_API] flow success');
+
+    this.closeComputeLoading();
+
+  } catch (e: any) {
+    console.error('[SIM_API] flow failed', e);
+
     this.computeLoading = true;
-    this.startComputeProgressTicker();
-
-    const scene = this.scene;
-    if (!scene) {
-      console.warn('[SignalHeatRay][P1] abort: this.scene is null/undefined');
-      return;
-    }
-
-    try {
-      const forced = (window as any).__computeModeOverride;
-      if (forced === 'plotly-heatmap' || forced === 'signal-heat-ray') {
-        this.computeMode = forced;
-      }
-
-      console.log('[StartCompute] gate check', { computeMode: this.computeMode, heatmapResolutionMode: this.heatmapResolutionMode });
-      console.log('[ComputeMode][DBG]', {
-        computeMode: this.computeMode,
-        override: (window as any).__computeModeOverride,
-        enableRayOverlay: (window as any).__enableRayOverlay,
-      });
-      console.log('[HM][DEBUG] after gate check', {
-        computeMode: this.computeMode,
-      });
-
-      // ===== [COMPUTE_MODE:GATE] =====
-      // Route to Plotly heatmap flow if in plotly-heatmap mode
-      if (this.computeMode === 'plotly-heatmap') {
-        console.log('[HM][CHK] ENTER heatmap branch');
-        // Phase 5.4C: Dev-only batch mode (3x resolution modes)
-        const batch = (window as any).__hmBatch === true;
-        if (batch) {
-          const originalMode = this.heatmapResolutionMode;
-          // Run preview (10m)
-          this.heatmapResolutionMode = 'preview';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          await new Promise(r => setTimeout(r, 50));
-
-          // Run standard (5m)
-          this.heatmapResolutionMode = 'standard';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          await new Promise(r => setTimeout(r, 50));
-
-          // Run detail (3m)
-          this.heatmapResolutionMode = 'detail';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
-          // Overlay rays ONLY after the final (detail) heatmap render in batch mode
-          this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/batch/detail');
-          // ===============================================
-          await new Promise(r => setTimeout(r, 50));
-
-          // Restore original mode
-          this.heatmapResolutionMode = originalMode;
-          console.log('[Heatmap][DBG] batch mode complete', { restoredMode: this.heatmapResolutionMode });
-        } else {
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
-          // Overlay rays after single heatmap render in non-batch mode
-          this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/single');
-          // ===============================================
-        }
-
-        this.resultService.setResultData(RESULT_API_MOCK);
-        this.resultService.setResultMvp(RESULT_MVP_MOCK);
-        this.rightPanelType = null;
-        console.log('[SignalHeatRay][Overlay] done (if enabled) before entering result mode');
-        console.log('[Phase1] enter result mode after plotly heatmap');
-        return;
-      }
-
-      console.log('[SignalHeatRay][P1] StartCompute clicked', {
-        time: new Date().toISOString(),
-      });
-
-      // ✅ [Commit -1.2] 清理 legacy heatmap 資源
-      this.disposeLegacyHeatmapAssets();
-
-      // ✅ 清理舊有射線數據，確保乾淨狀態
-      this.clearSignalRays();
-
-      console.log('[SignalHeatRay][P1] scene ok', {
-        meshCount: scene.meshes?.length ?? -1,
-      });
-
-      // Phase 1: mesh role scan (by metadata.type)
-      let antenna = 0;
-      let terminal = 0;
-      let blocker = 0;
-
-      for (const m of scene.meshes) {
-        const t = (m as any)?.metadata?.type;
-        if (t === 'antenna') antenna++;
-        else if (t === 'terminal') terminal++;
-        else if (t === 'building' || t === 'obstacle') blocker++;
-      }
-
-      console.log('[SignalHeatRay][P1] scan result', { antenna, terminal, blocker });
-
-      // Phase 1: still do NOT compute rays, do NOT render
-      // Phase 0：結果頁跳轉維持停用
-      // this.router.navigate(['/result']);
-    
-      // ===== [SIGRAY:P2:LINK_GEOMETRY] =====
-      // Purpose: Build a single link (A0 -> T0). Terminal determines ray direction.
-      // Inputs: scene.meshes, metadata.type, mesh absolute positions
-      // Outputs: from/to/distance/dir logs
-      // Exit: return if missing antenna/terminal or invalid positions
-      // Rollback: comment this block to keep only Phase 1 logs.
-      // ====================================
-      const { antennas, terminals, blockers } = this.p2_collectSignalNodes(scene);
-
-      console.log('[SignalHeatRay][P2] nodes', {
-        antenna: antennas.length,
-        terminal: terminals.length,
-        blocker: blockers.length,
-      });
-
-      // ✅ 檢查是否有基地台（終端不是必需的，熱力圖模擬只需要基地台）
-      if (antennas.length === 0) {
-        console.warn('[SignalHeatRay][P2] abort: need at least 1 antenna');
-        return;
-      }
-
-      // ✅ 條件判斷：僅當同時有終端時才計算 Phase 2 link 資料
-      if (antennas.length > 0 && terminals.length > 0) {
-        const a0 = antennas[0];
-        const t0 = terminals[0];
-
-        const from = a0.getAbsolutePosition?.()?.clone?.() ?? a0.position?.clone?.();
-        const to = t0.getAbsolutePosition?.()?.clone?.() ?? t0.position?.clone?.();
-
-        if (!from || !to) {
-          console.warn('[SignalHeatRay][P2] abort: cannot read positions', { from, to });
-          return;
-        }
-
-        const vec = to.subtract(from);
-        const distanceM = vec.length();
-        const dir = vec.normalize();
-
-        console.log('[SignalHeatRay][P2] link(A0->T0)', {
-          antennaId: a0.uniqueId,
-          terminalId: t0.uniqueId,
-          from: from.toString?.() ?? from,
-          to: to.toString?.() ?? to,
-          distanceM,
-          dir: dir.toString?.() ?? dir,
-        });
-      } else {
-        console.log('[SignalHeatRay][P2] skip link calculation: no terminal available');
-      }
-
-    // ===== [SIGRAY:P4.4:FANOUT_ALL_ANTENNAS] =====
-    // Purpose: render rays for ALL antennas (v1 multi-BS support)
-    // Rollback: comment this block to disable ray fanout.
-    // =============================================
-    if (terminals.length === 0) {
-      console.warn('[SignalHeatRay][P4.4] skip: no terminals -> no rays rendered');
-    } else {
-      this.p4_computeFanoutFromAntennas(scene, antennas, terminals, blockers);
-    }
-
-    // ✅ [Commit -1.1] 停用 legacy heatmap pipeline 入口
-    console.log('[Heatmap][Plotly] start compute (legacy heatmap disabled)');
-    // this.runHeatmapSimulation(scene, antennas, blockers);
-
-    // ===== [GRIDBUILDER:PHASE1.3] =====
-    // Purpose: Validate grid metadata and sample points (world grid verification)
-    // ====================================
-    if (this.floorMesh) {
-      const gridMeta = this.buildHeatmapGridMeta(this.floorMesh, this.plotlyHeatmapCellSize);
-
-      // Heatmap corner world points (for explicit (i,j)->(x,z) mapping)
-      const nx = gridMeta.nx;
-      const nz = gridMeta.nz;
-      const p00 = this.getHeatmapSamplePoint(gridMeta.min, 0, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p10 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p01 = this.getHeatmapSamplePoint(gridMeta.min, 0, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p11 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-
-      console.log('[DBG][HeatmapCorners]', {
-        nx,
-        nz,
-        corner_00: { i: 0, j: 0, x: p00.x, z: p00.z },
-        corner_10: { i: nx - 1, j: 0, x: p10.x, z: p10.z },
-        corner_01: { i: 0, j: nz - 1, x: p01.x, z: p01.z },
-        corner_11: { i: nx - 1, j: nz - 1, x: p11.x, z: p11.z },
-      });
-
-      // Sample three reference points: (0,0), (nx/2, nz/2), (nx-1, nz-1)
-      const pMid = this.getHeatmapSamplePoint(
-        gridMeta.min,
-        Math.floor(nx / 2),
-        Math.floor(nz / 2),
-        this.plotlyHeatmapCellSize,
-        this.plotlyHeatmapSliceHeight
-      );
-
-      console.log('[Heatmap][Grid] sample points', {
-        p00_0_0: p00.toString?.() ?? p00,
-        pMid: pMid.toString?.() ?? pMid,
-        p11_max: p11.toString?.() ?? p11,
-      });
-
-      // Optional: antenna world -> heatmap grid index debug
-      try {
-        if ((window as any).__hmDebugWorldToIndex === true && scene) {
-          const { antennas } = this.p2_collectSignalNodes(scene);
-          const a0 = antennas[0] ?? null;
-          if (a0 && typeof a0.getAbsolutePosition === 'function') {
-            const pos = a0.getAbsolutePosition();
-            const idx = this.hmDbgWorldToGridIndex(gridMeta.min, this.plotlyHeatmapCellSize, gridMeta.nx, gridMeta.nz, pos.x, pos.z);
-            console.log('[DBG][WorldToHeatmapIndex]', {
-              antennaName: a0.name,
-              worldX: pos.x,
-              worldZ: pos.z,
-              i: idx.i,
-              j: idx.j,
-              nx,
-              nz,
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[DBG][WorldToHeatmapIndex] failed', e);
-      }
-
-      // ===== [DEBUG:GRIDBUILDER] =====
-      // Purpose: Visualize grid sample points with debug spheres
-      // ====================================
-      const enableMarkers = (window as any).__hmDebugMarkers === true;
-      if ((this.DEBUG_HEATMAP_GRID || enableMarkers) && scene) {
-        const debugSpheres = [
-          { pos: p00, name: '[DBG-HM-CORNER] 00', color: new Color3(1, 0, 0) }, // red
-          { pos: p10, name: '[DBG-HM-CORNER] 10', color: new Color3(0, 1, 0) }, // green
-          { pos: p01, name: '[DBG-HM-CORNER] 01', color: new Color3(0, 0, 1) }, // blue
-          { pos: p11, name: '[DBG-HM-CORNER] 11', color: new Color3(1, 1, 0) }, // yellow
-        ];
-
-        for (const { pos, name, color } of debugSpheres) {
-          const sphere = MeshBuilder.CreateSphere(name, { diameter: 0.3 }, scene);
-          sphere.position = pos;
-          sphere.material = new StandardMaterial(name + '_mat', scene);
-          (sphere.material as StandardMaterial).emissiveColor = color;
-        }
-
-        console.log('[Heatmap][Grid] debug corner markers created', { nx, nz });
-      }
-    } else {
-        console.warn('[Heatmap][Grid] abort: no floorMesh');
-      }
-
-      // ✅ 標記模擬完成，啟用 Banner 熱力圖控制工具列
-      this.isSimulationDone = true;
-
-      console.log('[SignalHeatRay][A-final] setResultMvp -> result mode');
-
-      this.resultService.setResultData(RESULT_API_MOCK);
-      this.resultService.setResultMvp(RESULT_MVP_MOCK);
-    } finally {
-      this.stopComputeProgressTicker();
-      this.computeProgressPercent = 100;
-      await new Promise(res => setTimeout(res, 120));
-
-        this.computeLoading = false;
-      }
+    this.computeLoadingError = true;
+    this.computeLoadingErrorMessage =
+      e?.message?.trim()
+        ? e.message
+        : '運算失敗，請再試一次';
   }
+}
 
   // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:HELPER] =====
   // Purpose: Overlay signal rays on top of Plotly heatmap without switching computeMode.
@@ -4371,15 +4406,27 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   loading = false;
   loadingMessage = '';
 
+  loadingError = false;
+  loadingErrorMessage = '';
   // ===== [SIM_API_PHASE5][COMPUTE_LOADING_STATE] =====
   computeLoading = false;
-  computeLoadingText = '運算中...';
-  computeLoadingPercent = 0;
-  private computeLoadingTarget = 0;
-  private computeLoadingTimer: any = null;
+  computeLoadingError = false;
+  computeLoadingErrorMessage = '';
 
   // [WP6][ANCHOR:T1] Compute loading state (separate from map/building loading)
   computeProgressPercent = 0;
+
+  private openComputeLoading(): void {
+    this.computeLoading = true;
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
+  }
+
+  private closeComputeLoading(): void {
+    this.computeLoading = false;
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
+  }
 
   private __computeProgressTimer: any = null;
 
@@ -4409,45 +4456,15 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   }
 
   // ===== [SIM_API_PHASE5][COMPUTE_LOADING_PROGRESS] =====
-  private startComputeLoadingProgress(): void {
-    this.stopComputeLoadingProgress();
-    this.computeLoadingPercent = 0;
-    this.computeLoadingTarget = 0;
-
-    this.computeLoadingTimer = window.setInterval(() => {
-      if (!this.computeLoading) return;
-
-      if (this.computeLoadingPercent < this.computeLoadingTarget) {
-        const next = this.computeLoadingPercent + 1;
-        this.computeLoadingPercent = next > this.computeLoadingTarget
-          ? this.computeLoadingTarget
-          : next;
-      }
-    }, 80);
-  }
-
-  private setComputeLoadingTarget(percent: number): void {
-    const safe = Math.max(0, Math.min(99, Math.floor(percent)));
-    if (safe > this.computeLoadingTarget) {
-      this.computeLoadingTarget = safe;
-    }
-  }
-
-  private stopComputeLoadingProgress(): void {
-    if (this.computeLoadingTimer != null) {
-      window.clearInterval(this.computeLoadingTimer);
-      this.computeLoadingTimer = null;
-    }
-  }
-
-  private async finishComputeLoadingProgress(): Promise<void> {
-    this.computeLoadingTarget = 100;
-    this.computeLoadingPercent = 100;
-    await new Promise(resolve => setTimeout(resolve, 180));
+ retryStartCompute(): void {
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
     this.computeLoading = false;
-    this.stopComputeLoadingProgress();
-  }
 
+    queueMicrotask(() => {
+      void this.onStartCompute();
+    });
+  }
 
   // -------------------- Two-stage workflow state --------------------
   stage: 'edit' = 'edit';
@@ -6860,16 +6877,11 @@ private __antennaPlaceableSeq = 0;
   }
 
   private async bootstrapCommittedMapIntoStageB(): Promise<void> {
-    // const committed = this.draft.consumeCommittedMap();
-
     console.log('[EditScene][DBG] bootstrap enter');
 
     let meta = this.draft.consumeProjectMeta?.() ?? null;
     let committed = this.draft.consumeCommittedMap?.() ?? null;
 
-    // =====================
-    // DEBUG ONLY (TEMP)
-    // =====================
     if (this.DEBUG_STAY_IN_EDITSCENE) {
       if (!meta) {
         const debugMeta = {
@@ -6881,13 +6893,12 @@ private __antennaPlaceableSeq = 0;
           createdAtISO: new Date().toISOString(),
         };
         this.draft.setProjectMeta?.(debugMeta);
-        console.log('[EditScene][DEBUG] injected projectMeta', debugMeta);
-        meta = debugMeta; // ✅ 更新本地變數
+        meta = debugMeta;
       }
 
       if (!committed) {
         const debugCommitted = {
-          provider: 'osm' as const,  // ✅ 修正型別
+          provider: 'osm' as const,
           zoom: 17,
           committedAtISO: new Date().toISOString(),
           bbox: {
@@ -6898,11 +6909,10 @@ private __antennaPlaceableSeq = 0;
           },
         };
         this.draft.setCommittedMap?.(debugCommitted);
-        console.log('[EditScene][DEBUG] injected committedMapData', debugCommitted);
-        committed = debugCommitted; // ✅ 更新本地變數
+        committed = debugCommitted;
       }
     }
-    // =====================
+
     if (!committed?.bbox) {
       console.warn('[EditScene][Phase3] no committed bbox -> redirect to /project/new');
       this.router.navigate(['/project/new']);
@@ -6910,25 +6920,26 @@ private __antennaPlaceableSeq = 0;
     }
 
     this.initFieldSettingsFromProjectMeta(meta);
-    // 防止 cutHeights 被洗掉：只在 cutHeights 缺失或三格都空時補回預設
+
     if (
       !this.fieldSettingsState.cutHeights ||
       this.fieldSettingsState.cutHeights.every(v => v == null || String(v).trim() === '')
     ) {
       this.fieldSettingsState.cutHeights = ['1.05', '', ''];
     }
+
     this.applyCommittedMapMeta(committed);
-    // 防止 applyCommittedMapMeta 後 cutHeights 被洗掉（同上：三格都空時補回）
+
     if (
       !this.fieldSettingsState.cutHeights ||
       this.fieldSettingsState.cutHeights.every(v => v == null || String(v).trim() === '')
     ) {
       this.fieldSettingsState.cutHeights = ['1.05', '', ''];
     }
+
     this.sceneName = this.fieldSettingsState.projectName || this.sceneName;
 
-    // 1. 開始前開啟
-    this.setLoading(true, '準備場景中…');
+    this.setLoading(true, '載入中...');
 
     try {
       const { south, west, north, east } = committed.bbox;
@@ -6937,29 +6948,51 @@ private __antennaPlaceableSeq = 0;
         (L as any).latLng(north, east)
       );
 
-      // 2. 更新文字但不要關閉 loading
-      this.loadingMessage = '生成地圖與建築中…';
-      
-      const assets = await this.mapPreview.generate(this.scene!, bounds, committed.zoom ?? 17);
+      const assets = await this.mapPreview.generate(
+        this.scene!,
+        bounds,
+        committed.zoom ?? 17
+      );
+
+      if (!assets?.ground) {
+        throw new Error('地圖或建築生成失敗：缺少 ground mesh');
+      }
 
       this.committedMapData = assets;
-      this.floorMesh = assets?.ground ?? null;
+      this.floorMesh = assets.ground;
 
       try { this.coord.commitAnchor?.(committed.bbox); } catch {}
       try { this.empowerCommittedMapMeshes?.(); } catch {}
 
       const canvas = this.renderCanvas?.nativeElement;
-      if (canvas && this.floorMesh) {
-        this.initEditStageRuntime(this.floorMesh, canvas);
+      if (!canvas || !this.floorMesh) {
+        throw new Error('場景初始化失敗：缺少 canvas 或 floorMesh');
       }
 
-    } catch (e) {
-      console.error('[EditScene] bootstrap failed', e);
-    } finally {
-      // 3. 確保所有異步操作（包含 Mesh 生成）結束後才關閉
-      this.setLoading(false);
-    }
+    await this.initEditStageRuntime(this.floorMesh, canvas);
+    this.setLoading(false);
 
+    } catch (e: any) {
+      console.error('[EditScene] bootstrap failed', e);
+
+      this.loading = true;
+      this.loadingError = true;
+      this.loadingMessage = '載入中...';
+      this.loadingErrorMessage =
+        e?.message?.trim()
+          ? e.message
+          : '地圖載入失敗，請再試一次';
+    }
+  }
+
+  retryBootstrapLoading(): void {
+    this.loadingError = false;
+    this.loadingErrorMessage = '';
+    this.loading = false;
+
+    queueMicrotask(() => {
+      void this.bootstrapCommittedMapIntoStageB();
+    });
   }
 
   // -------------------- Stage B Enter --------------------
@@ -7065,7 +7098,7 @@ private __antennaPlaceableSeq = 0;
   }
 
   // -------------------- Stage B Runtime Init --------------------
-  private initEditStageRuntime(groundMesh: Mesh, canvas: HTMLCanvasElement): void {
+  private async initEditStageRuntime(groundMesh: Mesh, canvas: HTMLCanvasElement): Promise<void> {
     this.scene.activeCamera = this.fpsCamera;
     (this.scene as any).cameraToUseForPointers = this.fpsCamera;
     this.scene.activeCameras = [this.fpsCamera];
@@ -7083,9 +7116,12 @@ private __antennaPlaceableSeq = 0;
     this.floorMesh.isPickable = true;
     console.log('[StageB][Init] floorMesh set =', this.floorMesh.name);
     // ✅ StageB DOM（*ngIf）需要一個 tick 才會出現 mount 點
-    setTimeout(() => {
-      this.mountBabylonHostToCurrentStage();
-    }, 0);
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        this.mountBabylonHostToCurrentStage();
+        resolve();
+      }, 0);
+    });
 
 
     // 2) fpsCamera
@@ -16643,10 +16679,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   private async runSimulationApiFlow(): Promise<void> {
     // ===== [SIM_API_PHASE5][COMPUTE_LOADING_START] =====
     this.computeLoading = true;
-    this.computeLoadingText = '運算中...';
-    this.computeLoadingPercent = 0;
-    this.computeLoadingTarget = 0;
-    this.stopComputeLoadingProgress();
 
     try {
       console.log('[SIM_API_PHASE3][runSimulationApiFlow] START');
@@ -17851,7 +17883,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
       const finalSessionId = demoPayload.task_meta.sessionid || input.taskMeta.sessionId || '';
 
-      this.computeLoadingText = '運算中，請稍候...';
 
       console.log('[SIM_API_PHASE3][progress] start', {
         taskId: finalTaskId,
@@ -17862,8 +17893,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         finalTaskId,
         finalSessionId
       );
-
-      this.computeLoadingText = '運算完成，載入結果中...';
 
       // ===== STEP 3: GET completeCalcResult =====
       console.log('[SIM_API_PHASE3] fetching completeCalcResult...');
@@ -17892,7 +17921,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       if (!completeRes) {
         console.warn('[SIM_API_PHASE3] completeCalcResult is empty -> show failure');
         // 顯示「運算失敗」視窗（目前以 computeLoading overlay 顯示文案）
-        this.computeLoadingText = '運算失敗';
         this.rightPanelType = null;
         try {
           this.resultService.resetToEdit();
@@ -17959,8 +17987,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       // Do not touch heatmap logic in catch
     } finally {
       // ===== [SIM_API_PHASE5][COMPUTE_LOADING_END] =====
-      this.stopComputeLoadingProgress();
-      this.computeLoadingPercent = 0;
       await new Promise((resolve) => setTimeout(resolve, 180));
       this.computeLoading = false;
     }
