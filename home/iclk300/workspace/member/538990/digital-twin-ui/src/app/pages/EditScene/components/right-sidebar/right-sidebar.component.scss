@@ -209,8 +209,8 @@
 }
 
 .rs-result-panel {
-  width: 420px;
-  max-width: 420px;
+  width: 520px;
+  max-width: 520px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -1259,20 +1259,15 @@
     background: var(--rs-bg-hover);
   }
 
-  .detail-title {
+  .detail-card-header {
     color: #fff;
     font-size: 13px;
+    font-weight: 500;
     margin-bottom: 10px;
-  }
-
-  &.active .detail-title {
-    border-left: 3px solid var(--rs-accent);
-    padding-left: 8px;
   }
 
   .info-list.no-bg {
     background: transparent;
-    padding: 0;
   }
 }
 
@@ -1695,11 +1690,12 @@
   margin-top: 12px;
 }
 
-.object-card {
-  /* 以 .detail-card 既有風格為主；此處只補交互一致性 */
-  &.with-accent {
-    border-color: rgba(59, 130, 246, 0.65);
-  }
+.is-clickable {
+  cursor: pointer;
+}
+
+.object-card.detail-card.selected {
+  box-shadow: inset 0 0 0 2px #ffffff !important;
 }
 
 .summary-card {
@@ -1711,11 +1707,13 @@
   border-left: 4px solid var(--rs-accent);
 }
 
-.object-empty-state {
+.empty-state {
   padding: 18px 12px;
   text-align: center;
+  font-size: 13px;
   color: var(--rs-text-weak);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--rs-border-divider);
   border-radius: var(--rs-r-card);
 }
+

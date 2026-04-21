@@ -1,5 +1,6 @@
 // src/app/components/right-sidebar/right-sidebar.component.ts
 import { AfterViewInit, Component, EventEmitter, Input, Output, computed, effect, inject, signal, OnChanges, OnInit, SimpleChanges } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RightPanelType } from '../../EditScene.component';
 import { HttpClient } from '@angular/common/http';
 
@@ -8,6 +9,8 @@ import { CommonModule } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { ResultDataService, ResultApiResponse, BsDetail } from 'src/app/services/result-data.service';
 import { FieldDomainStoreService } from 'src/app/services/field-domain-store.service';
+import { RisService } from 'src/app/services/ris.service';
+import type { RisApi } from 'src/app/models/ris.model';
 import { ResultPanelVm } from '../../../../models/result-panel.model';
 import { buildResultPanelVm } from '../../../../builders/result-panel.builder';
 import { DEFAULT_EVALUATION_FUNC } from 'src/app/mocks/task-payload.mock';
@@ -95,6 +98,7 @@ type BsObjectSummaryVm = {
 
 type BsObjectRowVm = {
   id: number;
+  rowId?: string | null;
   title: string;
   type: 'default' | 'candidate';
   items: ObjectInfoItemVm[];
@@ -107,6 +111,7 @@ type RisObjectSummaryVm = {
 
 type RisObjectRowVm = {
   id: number;
+  rowId?: string | null;
   title: string;
   type: 'default' | 'candidate';
   items: ObjectInfoItemVm[];
@@ -129,10 +134,21 @@ type ObjectPanelCardItemVm = {
   value: string;
 };
 
+type ObjectCardSelectPayload = {
+  objectKind: 'bs' | 'ris';
+  sourceType: 'default' | 'candidate';
+  displayTitle: string;
+  backendId: number | null;
+  rowId?: string | null;
+  rowIndex?: number | null;
+};
+
 type ObjectPanelCardVm = {
   title: string;
   items: ObjectPanelCardItemVm[];
   withAccent: boolean;
+  selectPayload?: ObjectCardSelectPayload | null;
+  cardKey?: string | null;
 };
 
 type ObjectPanelSummaryVm = {
@@ -204,6 +220,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   @Output() saveProject = new EventEmitter<void>();
   @Output() exportProject = new EventEmitter<void>();
   @Output() openAnalysis = new EventEmitter<string>();
+  @Output() objectCardSelect = new EventEmitter<ObjectCardSelectPayload>();
 
   active: RightPanelType = null;
   // ===== [RESULT:A-FEATURE] local success modal (no MatDialog) =====
@@ -219,6 +236,11 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   activeResult = signal<ResultNavId | null>(null);
   private readonly executionModeSignal = signal<'planning' | 'simulation' | null>(null);
   readonly isSimulationMode = computed(() => this.executionModeSignal() === 'simulation');
+  readonly isSimulationModeEffective = computed(() => {
+    const fromExecutionMode = this.executionModeSignal() === 'simulation';
+    const fromResultInput = (this.resultService?.result?.() as any)?.input?.isSimulation === true;
+    return fromExecutionMode || fromResultInput;
+  });
   private readonly analysisSubfieldsSignal = signal<SubfieldRow[]>([]);
   activeAnalysisItem = signal<AnalysisTabId>('field');
   statsMetric = signal<'modulation' | 'sinr'>('modulation');
@@ -339,7 +361,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   ];
   
   // Object panel state management
-  activeObjectTab = signal<'bs' | 'ris' | 'ue'>('bs');
+  activeObjectTab = signal<'bs' | 'ris'>('bs');
   bsViewMode = signal<'existing' | 'planned'>('existing');
   readonly risViewMode = signal<'existing' | 'suggest'>('existing');
   readonly terminalViewMode = signal<'existing' | 'suggest'>('existing');
@@ -389,20 +411,16 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   readonly objectExistingTerminalRawRows = computed<any[]>(() => {
     const input = this.objectInput();
-    const output = this.object5gOutput();
     const parsed = this.parsePipeCoordinateText(input?.ueCoordinate);
     if (!parsed.length) return [];
 
-    // 暫以全場平均 SINR / RSRP 帶入每張 UE 卡；日後可改為 per-UE 真實結果
-    const signalQuality = this.asFiniteNumber(output?.averageSinr);
-    const signalStrength = this.asFiniteNumber(output?.averageRsrp);
-
+    // per-UE signal data not available from backend yet
     return parsed.map((p) => ({
       id: p.id,
       title: `終端 ${p.id}`,
       coordinate: p.coordinate,
-      signalQuality,
-      signalStrength,
+      signalQuality: null,
+      signalStrength: null,
     }));
   });
 
@@ -419,13 +437,20 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   ];
 
   readonly visibleResultButtons = computed(() => {
-    const isSimulation = this.executionModeSignal() === 'simulation';
-    if (!isSimulation) return this.resultButtonsBase;
+    if (!this.isSimulationModeEffective()) return this.resultButtonsBase;
     return this.resultButtonsBase.filter(btn => btn.id !== 'result');
   });
 
   private readonly http = inject(HttpClient);
   private readonly fieldDomainStore = inject(FieldDomainStoreService);
+  private readonly fieldDomainState = toSignal(this.fieldDomainStore.state$, {
+    initialValue: this.fieldDomainStore.snapshot,
+  });
+  private readonly risService = inject(RisService);
+
+  private getRisModelForId(risID: number): RisApi | null {
+    return this.risService.risApiCatalog.find(r => r.risID === risID) ?? null;
+  }
 
   readonly pathLossModelListSignal = signal<any[]>([]);
 
@@ -552,19 +577,32 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
     // Step 3: simulation mode 時主動清掉 result panel
     effect(() => {
-      const isSimulation = this.executionModeSignal() === 'simulation';
-      const active = this.activeResult();
-
-      if (isSimulation && active === 'result') {
+      if (this.isSimulationModeEffective() && this.activeResult() === 'result') {
         this.activeResult.set('analysis');
       }
     });
 
     // Step 4: simulation mode 時把「建議規劃基站」view 重設為「既有基站」
     effect(() => {
-      if (this.isSimulationMode() && this.bsViewMode() === 'planned') {
+      if (this.isSimulationModeEffective() && this.bsViewMode() === 'planned') {
         this.bsViewMode.set('existing');
       }
+    });
+
+    effect(() => {
+      console.log('[SIM_MODE_FINAL_FIX]', {
+        executionModeInput: this.executionModeSignal?.(),
+        fromExecutionMode: this.executionModeSignal?.() === 'simulation',
+        fromResultInput: (this.resultService?.result?.() as any)?.input?.isSimulation === true,
+        isSimulationModeEffective: this.isSimulationModeEffective?.(),
+        activeObjectTab: this.activeObjectTab?.(),
+        bsViewMode: this.bsViewMode?.(),
+        activeResult: this.activeResult?.(),
+        visibleResultButtonIds: this.visibleResultButtons?.()?.map?.((b: any) => b.id) ?? [],
+        suggestBsObjectRowsCount: this.suggestBsObjectRows?.()?.length ?? 0,
+        existingBsObjectRowsCount: this.existingBsObjectRows?.()?.length ?? 0,
+        currentObjectCardsCount: this.currentObjectCards?.()?.length ?? 0,
+      });
     });
 
     // DEBUG: API_ONLY 資料血統驗證
@@ -873,7 +911,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   }
 
   selectResult(id: ResultNavId) {
-    if (this.executionModeSignal() === 'simulation' && id === 'result') {
+    if (this.isSimulationModeEffective() && id === 'result') {
       return;
     }
 
@@ -883,6 +921,31 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   closeResultPanel(): void {
     this.activeResult.set(null);
+  }
+
+  selectedObjectCardKey: string | null = null;
+
+  private buildObjectCardKeyFromPayload(
+    payload: ObjectCardSelectPayload | null | undefined,
+    fallbackTitle: string,
+  ): string {
+    if (!payload) return fallbackTitle;
+    return `${payload.objectKind}:${payload.sourceType}:${payload.rowId ?? payload.backendId ?? fallbackTitle}`;
+  }
+
+  onObjectCardClick(card: ObjectPanelCardVm): void {
+    if (!card.selectPayload) return;
+
+    const key = card.cardKey ?? card.title;
+
+    if (this.selectedObjectCardKey === key) {
+      this.selectedObjectCardKey = null;
+    } else {
+      this.selectedObjectCardKey = key;
+    }
+
+    console.log('[ObjectCardSelect][Sidebar]', card.selectPayload);
+    this.objectCardSelect.emit(card.selectPayload);
   }
 
   setFilter(status: 'all' | 'passed' | 'failed'): void {
@@ -1277,7 +1340,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     return null;
   }
 
-  /** 標題：risName / name / title → RIS ${risID|id|列序} */
+  /** 標題：instance identity 優先；risID 只作最後 fallback（同型號多 instance 會重複）*/
   private resolveRisTitle(row: any, rowIndex?: number): string {
     for (const c of [
       row?.risName,
@@ -1288,9 +1351,18 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     ]) {
       if (c != null && String(c).trim() !== '') return String(c).trim();
     }
-    const id = this.resolveRisId(row);
-    if (id != null) return `RIS ${id}`;
+    // seq = instance 序號（若 API 有回傳）
+    const seq = this.asFiniteNumber(row?.seq);
+    if (seq !== null) return `RIS ${seq}`;
+    // rowIndex = 在 chosen 陣列中的位置，作為穩定的 instance 顯示編號
     if (rowIndex !== undefined) return `RIS ${rowIndex + 1}`;
+
+    // id/ID = API 分配的 per-instance 數字 ID（若存在且 > 0 才使用）
+    const instId = this.asFiniteNumber(row?.id ?? row?.ID);
+    if (instId !== null && instId > 0) return `RIS ${instId}`;
+    // risID 為 model 型號 ID，多個 instance 會重複，僅作最後手段
+    const rid = this.asFiniteNumber(row?.risID);
+    if (rid !== null) return `RIS ${rid}`;
     return 'RIS —';
   }
 
@@ -1493,8 +1565,16 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     const idNum = this.resolveBsId(row) ?? -1;
     const L = this.objectPanelLabels.bs;
     const idShown = this.resolveBsId(row);
+
     return {
       id: idNum,
+      rowId:
+        row?.rowId != null ? String(row.rowId) :
+        row?.fieldRowId != null ? String(row.fieldRowId) :
+        row?.id != null ? String(row.id) :
+        row?.ID != null ? String(row.ID) :
+        row?.bsID != null ? String(row.bsID) :
+        null,
       title: this.resolveBsTitle(row),
       type,
       items: [
@@ -1520,8 +1600,16 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     const L = this.objectPanelLabels.ris;
     const idNum = this.pickNumericId(row, rowIndex);
     const inputBand = this.objectInput()?.lteBand;
+
     const vm: RisObjectRowVm = {
       id: idNum,
+      rowId:
+        row?.rowId != null ? String(row.rowId) :
+        row?.fieldRowId != null ? String(row.fieldRowId) :
+        row?.id != null ? String(row.id) :
+        row?.ID != null ? String(row.ID) :
+        row?.risID != null ? String(row.risID) :
+        null,
       title: this.resolveRisTitle(row, rowIndex),
       type,
       items: [
@@ -1535,6 +1623,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
         { label: L.cost, value: this.resolveRisCostText(row) },
       ],
     };
+
     console.log('[RIS_ROW_MAPPING]', { rawRow: row, mappedVm: vm });
     return vm;
   }
@@ -1589,24 +1678,27 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   });
 
   readonly existingBsObjectRows = computed<BsObjectRowVm[]>(() => {
-    return this.objectChosenDefaultBs()
-      .map((row: any) => this.buildBsObjectRowVm(row, 'default'))
+    const storeRows = this.fieldDomainState()?.existingBs ?? [];
+    return storeRows
+      .map(row => this.buildBsObjectRowVm(row, 'default'))
       .filter((row): row is BsObjectRowVm => !!row)
       .sort((a, b) => a.id - b.id);
   });
 
   readonly suggestBsObjectRows = computed<BsObjectRowVm[]>(() => {
-    if (this.isSimulationMode()) return [];
-    return this.objectChosenCandidateBs()
-      .map((row: any) => this.buildBsObjectRowVm(row, 'candidate'))
+    if (this.isSimulationModeEffective()) return [];
+    const storeRows = this.fieldDomainState()?.candidateBs ?? [];
+    return storeRows
+      .map(row => this.buildBsObjectRowVm(row, 'candidate'))
       .filter((row): row is BsObjectRowVm => !!row)
       .sort((a, b) => a.id - b.id);
   });
 
   readonly activeBsObjectRows = computed<BsObjectRowVm[]>(() => {
-    return this.bsViewMode() === 'planned'
-      ? this.suggestBsObjectRows()
-      : this.existingBsObjectRows();
+    if (this.isSimulationModeEffective() || this.bsViewMode() !== 'planned') {
+      return this.existingBsObjectRows();
+    }
+    return this.suggestBsObjectRows();
   });
 
   readonly hasActiveBsObjectRows = computed<boolean>(() => {
@@ -1644,43 +1736,66 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   });
 
   readonly existingRisObjectRows = computed<RisObjectRowVm[]>(() => {
-    const chosen = this.objectChosenDefaultRis();
     const input = this.objectInputDefaultRis();
-    const useChosen = chosen.length > 0;
-    const source = useChosen ? chosen : input;
+    if (!input.length) return [];
+    const chosen = this.objectChosenDefaultRis();
+    if (!chosen.length) return [];
 
-    return source
+    const built = chosen
       .map((row: any, idx: number) => {
         const rid = this.resolveRisId(row);
         const fb =
           (rid != null ? this.findInputDefaultRisByRisId(rid) : null) ??
           input[idx] ??
           null;
-        const merged = useChosen ? this.mergeRisDisplaySource(row, fb) : this.mergeRisDisplaySource(row, null);
+        // Attach RIS catalog model data under 'ris' key so risSpecObjects finds it
+        // as a fallback without polluting top-level (avoids risName overriding title)
+        const model = rid != null ? this.getRisModelForId(rid) : null;
+        const fbWithModel = model
+          ? { ...(fb ?? {}), ris: { ...model, ...(fb?.ris ?? {}) } }
+          : fb;
+        const merged = this.mergeRisDisplaySource(row, fbWithModel);
         return this.buildRisObjectRowVm(merged, 'default', idx);
       })
       .filter((row): row is RisObjectRowVm => row != null)
       .sort((a, b) => a.id - b.id);
+
+    const seen = new Set<number>();
+    return built.filter(r => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
   });
 
   readonly suggestRisObjectRows = computed<RisObjectRowVm[]>(() => {
     const chosen = this.objectChosenCandidateRis();
+    if (!chosen.length) return [];
     const input = this.objectInputCandidateRis();
-    const useChosen = chosen.length > 0;
-    const source = useChosen ? chosen : input;
 
-    return source
+    const built = chosen
       .map((row: any, idx: number) => {
         const rid = this.resolveRisId(row);
         const fb =
           (rid != null ? this.findInputCandidateRisByRisId(rid) : null) ??
           input[idx] ??
           null;
-        const merged = useChosen ? this.mergeRisDisplaySource(row, fb) : this.mergeRisDisplaySource(row, null);
+        const model = rid != null ? this.getRisModelForId(rid) : null;
+        const fbWithModel = model
+          ? { ...(fb ?? {}), ris: { ...model, ...(fb?.ris ?? {}) } }
+          : fb;
+        const merged = this.mergeRisDisplaySource(row, fbWithModel);
         return this.buildRisObjectRowVm(merged, 'candidate', idx);
       })
       .filter((row): row is RisObjectRowVm => row != null)
       .sort((a, b) => a.id - b.id);
+
+    const seen = new Set<number>();
+    return built.filter(r => {
+      if (seen.has(r.id)) return false;
+      seen.add(r.id);
+      return true;
+    });
   });
 
   readonly activeRisObjectRows = computed<RisObjectRowVm[]>(() => {
@@ -1701,16 +1816,13 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   // Terminal Object VMs
   readonly terminalSummaryVm = computed<TerminalObjectSummaryVm>(() => {
-    const input = this.objectInput();
-    const output = this.object5gOutput();
-
+    const out = this.resultOutput;
     return {
-      title: '終端資訊-規劃模式',
+      title: '終端資訊',
       items: [
-        { label: '網路種類', value: this.safeText(input?.mapProtocol) },
-        { label: '平均訊號品質', value: this.formatWithUnit(output?.averageSinr, 'dB', 2) },
-        { label: '平均訊號強度', value: this.formatWithUnit(output?.averageRsrp, 'dBm', 2) },
-        { label: '平均吞吐量', value: this.formatWithUnit(output?.throughput, 'Mbps', 2) },
+        { label: '網路種類', value: this.safeText(this.objectInput()?.mapProtocol) },
+        { label: '平均訊號品質', value: this.formatDb(out?.ueAverageSinr, 'dB') },
+        { label: '平均訊號強度', value: this.formatDb(out?.ueAverageRsrp, 'dBm') },
       ],
     };
   });
@@ -1745,6 +1857,12 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
       : '目前沒有既有終端資料';
   });
 
+  readonly hasPerUeTerminalMetrics = computed<boolean>(() => {
+    const rows = this.activeTerminalObjectRows();
+    return rows.some((row: any) =>
+      row?.items?.some((item: any) => item?.value != null && item.value !== '—')
+    );
+  });
   // ===== [Object Panel] Unified VM (mock-first, API-later) =====
   private get mockBsCardRows(): BsObjectRowVm[] {
     const bs = this.objectPanelLabels.bs;
@@ -1846,6 +1964,14 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   // ===== build helpers (no template parsing) =====
   private buildBsCardVm(row: BsObjectRowVm): ObjectPanelCardVm {
+    const payload: ObjectCardSelectPayload = {
+      objectKind: 'bs',
+      sourceType: row.type,
+      displayTitle: this.resolveBsCardTitle(row),
+      backendId: row.id ?? null,
+      rowId: row.rowId != null ? String(row.rowId) : null,
+      rowIndex: null,
+    };
     return {
       title: this.resolveBsCardTitle(row),
       items: row.items.map(i => ({
@@ -1853,10 +1979,20 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
         value: i.value,
       })),
       withAccent: true,
+      cardKey: this.buildObjectCardKeyFromPayload(payload, this.resolveBsCardTitle(row)),
+      selectPayload: payload,
     };
   }
 
   private buildRisCardVm(row: RisObjectRowVm): ObjectPanelCardVm {
+    const payload: ObjectCardSelectPayload = {
+      objectKind: 'ris',
+      sourceType: row.type,
+      displayTitle: this.resolveRisCardTitle(row),
+      backendId: row.id ?? null,
+      rowId: row.rowId != null ? String(row.rowId) : null,
+      rowIndex: row.id ?? null,
+    };
     return {
       title: this.resolveRisCardTitle(row),
       items: row.items.map(i => ({
@@ -1864,6 +2000,8 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
         value: i.value,
       })),
       withAccent: true,
+      cardKey: this.buildObjectCardKeyFromPayload(payload, this.resolveRisCardTitle(row)),
+      selectPayload: payload,
     };
   }
 
@@ -1878,49 +2016,44 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     };
   }
 
-  readonly currentObjectSummaryVm = computed<ObjectPanelSummaryVm>(() => {
-    if (this.activeObjectTab() === 'bs') {
-      const rows =
-        this.bsViewMode() === 'planned'
-          ? this.suggestBsObjectRows()
-          : this.existingBsObjectRows();
-      return rows.length ? this.bsSummaryVm() : this.mockObjectSummaryVm.bs;
-    }
-
-    if (this.activeObjectTab() === 'ris') {
-      const rows = this.activeRisObjectRows();
-      return rows.length ? this.risSummaryVm() : this.mockObjectSummaryVm.ris;
-    }
-
-    const rows = this.activeTerminalObjectRows();
-    return rows.length ? this.terminalSummaryVm() : this.mockObjectSummaryVm.ue;
+  readonly currentObjectSummaryVm = computed<ObjectPanelSummaryVm | null>(() => {
+    const tab = this.activeObjectTab();
+    if (tab === 'bs') return this.bsSummaryVm();
+    if (tab === 'ris') return this.risSummaryVm();
+    return null;
   });
+
+  shouldShowObjectSummaryCard(): boolean {
+    const tab = this.activeObjectTab();
+
+    // BS / RIS 的 summary 在結果頁一律隱藏
+    if (tab === 'bs' || tab === 'ris') {
+      return false;
+    }
+
+    return true;
+  }
 
   readonly currentObjectCards = computed<ObjectPanelCardVm[]>(() => {
     if (this.activeObjectTab() === 'bs') {
-      const rows =
-        this.bsViewMode() === 'planned'
-          ? this.suggestBsObjectRows()
-          : this.existingBsObjectRows();
-      const useRows = rows.length ? rows : this.mockBsCardRows;
+      const rows = this.activeBsObjectRows();
+      const useRows = rows.length ? rows : (this.isSimulationModeEffective() ? [] : this.mockBsCardRows);
       return useRows.map(row => this.buildBsCardVm(row));
     }
 
     if (this.activeObjectTab() === 'ris') {
       const rows = this.activeRisObjectRows();
-      const useRows = rows.length ? rows : this.mockRisCardRows;
-      return useRows.map(row => this.buildRisCardVm(row));
+      if (!rows.length) return [];
+      return rows.map(row => this.buildRisCardVm(row));
     }
 
-    const rows = this.activeTerminalObjectRows();
-    const useRows = rows.length ? rows : this.mockUeCardRows;
-    return useRows.map(row => this.buildUeCardVm(row));
+    return [];
   });
 
   readonly currentObjectEmptyText = computed<string>(() => {
     if (this.activeObjectTab() === 'bs') return this.bsObjectEmptyText();
     if (this.activeObjectTab() === 'ris') return this.risObjectEmptyText();
-    return this.terminalObjectEmptyText();
+    return '';
   });
 
   // ===== [Phase 6] Field analysis（舊系 5G 場域分析欄位血統；卡片式 UI） =====
@@ -2227,21 +2360,36 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     let sumUe = 0;
     let sumDl = 0;
     let sumUl = 0;
+    let hasDlData = false;
+    let hasUlData = false;
+
     for (const r of list) {
       sumUe += Number(r.ueCount) || 0;
-      sumDl += this.parseMbpsNumeric(r.totalDl);
-      sumUl += this.parseMbpsNumeric(r.totalUl);
+      if (r.totalDl && r.totalDl !== '—' && r.totalDl !== '-') {
+        sumDl += this.parseMbpsNumeric(r.totalDl);
+        hasDlData = true;
+      }
+      if (r.totalUl && r.totalUl !== '—' && r.totalUl !== '-') {
+        sumUl += this.parseMbpsNumeric(r.totalUl);
+        hasUlData = true;
+      }
     }
+
+    const totalDlText = hasDlData ? `${sumDl.toFixed(2)} Mbps` : '—';
+    const totalUlText = hasUlData ? `${sumUl.toFixed(2)} Mbps` : '—';
+    const avgDl = sumUe > 0 && hasDlData ? `${(sumDl / sumUe).toFixed(2)} Mbps` : '-';
+    const avgUl = sumUe > 0 && hasUlData ? `${(sumUl / sumUe).toFixed(2)} Mbps` : '-';
+
     return [
       {
         title: '場域總和',
         accent: false,
         items: this.buildBsAnalysisFiveItems({
           ue: String(Math.trunc(sumUe)),
-          totalDl: `${sumDl.toFixed(2)} Mbps`,
-          totalUl: `${sumUl.toFixed(2)} Mbps`,
-          avgDl: '-',
-          avgUl: '-',
+          totalDl: totalDlText,
+          totalUl: totalUlText,
+          avgDl,
+          avgUl,
         }),
       },
     ];
@@ -2285,40 +2433,30 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     );
   });
 
-  /** API-only：resultOutput.coverage */
+  hasUe(): boolean {
+    const coords = this.parsePipeCoordinateText(this.objectInput()?.ueCoordinate);
+    return Array.isArray(coords) && coords.length > 0;
+  }
+
   ueCoverageValue(): string {
     const out = this.ueAnalysisApiSource;
     if (!out) return '—';
-    const ueCov =
-      this.asFiniteNumber(out.ueCoverage) ??
-      this.asFiniteNumber(out.coverage) ??
-      this.asFiniteNumber(out.evaluationResult?.ue?.coverage?.value);
-    if (ueCov != null) return this.formatPct(ueCov);
-    return '—';
+    const v = this.asFiniteNumber(out.ueCoverage);
+    return v != null ? this.formatPct(v) : '—';
   }
 
-  /** API-only：resultOutput.averageSinr */
   ueAverageSinrValue(): string {
     const out = this.ueAnalysisApiSource;
     if (!out) return '—';
-    const v =
-      this.asFiniteNumber(out.ueAverageSinr) ??
-      this.asFiniteNumber(out.averageSinr) ??
-      this.asFiniteNumber(out.evaluationResult?.ue?.sinr?.avg);
-    if (v != null) return this.formatDb(v, 'dB');
-    return '—';
+    const v = this.asFiniteNumber(out.ueAverageSinr);
+    return v != null ? this.formatDb(v, 'dB') : '—';
   }
 
-  /** API-only：resultOutput.averageRsrp */
   ueAverageRsrpValue(): string {
     const out = this.ueAnalysisApiSource;
     if (!out) return '—';
-    const v =
-      this.asFiniteNumber(out.ueAverageRsrp) ??
-      this.asFiniteNumber(out.averageRsrp) ??
-      this.asFiniteNumber(out.evaluationResult?.ue?.rsrp?.avg);
-    if (v != null) return this.formatDb(v, 'dBm');
-    return '—';
+    const v = this.asFiniteNumber(out.ueAverageRsrp);
+    return v != null ? this.formatDb(v, 'dBm') : '—';
   }
 
   // ===== [Phase 4-4] Observe / subfield: zh-TW labels + summary/detail layout + stable sort =====

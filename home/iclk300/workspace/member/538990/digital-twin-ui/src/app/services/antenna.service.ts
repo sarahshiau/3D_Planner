@@ -86,7 +86,7 @@ export class AntennaService {
   constructor(private http: HttpClient, private auth: AuthService) {}
 
   private getSession(): string {
-    return 'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+    return 'son_session_230e4316-2def-401f-b299-1197ed5bf682';
   }
 
   /** 取得天線列表 (GET) */

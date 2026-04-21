@@ -703,7 +703,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // TODO: TEMP_SESSION_REMOVE_AFTER_LOGIN_SYSTEM
   // ========================================================
   private readonly DEV_TEMP_SESSION =
-    'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+    'son_session_230e4316-2def-401f-b299-1197ed5bf682';
 
   // ===== [Step2A][Registry] Scene Object Registry =====
   private sceneObjectRegistry = new Map<string, SceneObjectRegistryEntry>();
@@ -750,8 +750,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private hoveredPickMesh: AbstractMesh | null = null;
   /** Owner root mesh for pinned highlight (never a child pick target). */
   private pinnedPickMesh: AbstractMesh | null = null;
-  private readonly HL_COLOR_HOVER = new Color3(0.2, 0.8, 1.0);
-  private readonly HL_COLOR_PINNED = new Color3(1.0, 0.9, 0.2);
+  private readonly HL_COLOR_HOVER = new Color3(0.5, 0.95, 1.0);
+  private readonly HL_COLOR_PINNED = new Color3(1.0, 1.0, 0.45);
   antennaLabels: AntennaLabelVM[] = [];
   private antennaLabelBeforeRenderObserver: any = null;
 
@@ -839,9 +839,12 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private ensureHighlightLayer(): void {
     if (!this.scene) return;
     if (this.highlightLayer) return;
+
     this.highlightLayer = new HighlightLayer('hl_main', this.scene);
     this.highlightLayer.outerGlow = true;
-    this.highlightLayer.innerGlow = false;
+    this.highlightLayer.innerGlow = true;   // 原本 false，改 true 會更亮
+    this.highlightLayer.blurHorizontalSize = 1.2;
+    this.highlightLayer.blurVerticalSize = 1.2;
   }
 
   private isGlowExcluded(mesh: AbstractMesh | null | undefined): boolean {
@@ -1498,6 +1501,67 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedFieldCard = null;
     this.selectedOwner = null;
     this.selectedContextRowId = null;
+  }
+
+  onObjectCardSelect(payload: any): void {
+    const owner = this.findSceneOwnerByObjectCardPayload(payload);
+    if (!owner) {
+      console.warn('[ObjectCardSelect] owner not found', payload);
+      return;
+    }
+    const isSame = this.pinnedOwnerUniqueId != null && owner.uniqueId === this.pinnedOwnerUniqueId;
+    if (isSame) {
+      this.clearPinnedHighlight();
+      return;
+    }
+    this.applyPinnedHighlight(owner);
+  }
+
+  private findSceneOwnerByObjectCardPayload(payload: any): any | null {
+    // object card kind -> field panel kind
+    const fieldKind =
+      payload.objectKind === 'bs'
+        ? (payload.sourceType === 'candidate' ? 'candidateBs' : 'existingBs')
+        : payload.objectKind === 'ris'
+          ? (payload.sourceType === 'candidate' ? 'candidateRis' : 'intelligentPanel')
+          : null;
+
+    // A. rowId 優先：直接複用既有 field card 血統
+    if (payload.rowId && fieldKind) {
+      const owner = this.findSceneOwnerByFieldRow(fieldKind as any, payload.rowId);
+      if (owner) return owner;
+    }
+
+    // B. backendId fallback（保留）
+    if (payload.objectKind === 'bs') {
+      const allBs = [
+        ...(this.fieldDomainStore.snapshot.existingBs || []),
+        ...(this.fieldDomainStore.snapshot.candidateBs || []),
+      ];
+
+      const row = allBs.find((r: any) => r.id === payload.backendId);
+
+      if (row) {
+        const target = this.getSceneTargetByFieldRow(row);
+        if (target) return this.resolveSceneObjectOwner(target as any) ?? target;
+      }
+    }
+
+    if (payload.objectKind === 'ris') {
+      const allRis = [
+        ...(this.fieldDomainStore.snapshot.intelligentPanels || []),
+        ...(this.fieldDomainStore.snapshot.candidateRis || []),
+      ];
+
+      const row = allRis.find((r: any) => r.id === payload.backendId);
+
+      if (row) {
+        const target = this.getSceneTargetByFieldRow(row);
+        if (target) return this.resolveSceneObjectOwner(target as any) ?? target;
+      }
+    }
+
+    return null;
   }
 
   onSectionCollapsed(sectionId: string): void {

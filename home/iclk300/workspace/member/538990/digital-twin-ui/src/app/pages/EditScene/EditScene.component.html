@@ -1027,10 +1027,12 @@
           [showCustomZoneAnalysisTab]="showCustomZoneAnalysisTab"
           [showObserveAnalysisTab]="showObserveAnalysisTab"
           [analysisSubfields]="analysisSubfields"
+          [executionMode]="goalMode"
           (panelChange)="handleRightPanelChange($event)"
           (saveProject)="onRightSidebarSaveProject()"
           (exportProject)="onRightSidebarExportProject()"
-          (openAnalysis)="handleOpenAnalysis($event)">
+          (openAnalysis)="handleOpenAnalysis($event)"
+          (objectCardSelect)="onObjectCardSelect($event)">
         </app-right-sidebar>
       </div>
     </div>
