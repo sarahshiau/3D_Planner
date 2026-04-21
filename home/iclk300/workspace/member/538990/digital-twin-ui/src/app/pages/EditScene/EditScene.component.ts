@@ -86,6 +86,7 @@ import { BaseTaskPayloadBuilder } from 'src/app/builders/base-task-payload.build
 import { TaskApiService } from 'src/app/services/task-api.service';
 import { SimulationApiService } from 'src/app/services/simulation-api.service';
 import { ResultApiService } from 'src/app/services/result-api.service';
+import { AlertService } from 'src/app/services/alert.service';
 import { BaseTaskPayloadBuilderInput } from 'src/app/models/task-payload.model';
 import { TASK_PAYLOAD_MOCK_DEFAULTS } from 'src/app/mocks/task-payload.mock';
 import { EditTaskPanelComponent } from './components/panels/edit-task-panel/edit-task-panel.component';
@@ -685,6 +686,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   antennaLoadError: string | null = null;
   private antennaPreloadStarted = false;
 
+  // ===== [SAVE_TASK] Save flow state =====
+  saveConfirmOpen = false;
+  saveSource: 'banner' | 'edit-file' | null = null;
+  isSavingTask = false;
+  saveErrorMsg = '';
+  pendingSaveMeta: any = null;
+  lastSavedAt: string | null = null;
+
   // ===== [SIM_API_PHASE1] Component State =====
   lastCompleteCalcResult: any = null;
   latestPlanningSnapshot: any = null;
@@ -995,6 +1004,59 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pinnedOwnerUniqueId = null;
     this.ensureHighlightLayer();
     this.updateHighlight();
+  }
+
+  // ===== [SAVE_TASK] Save flow methods =====
+
+  openSaveConfirm(source: 'banner' | 'edit-file', meta?: any): void {
+    if (this.isSavingTask) return;
+    this.saveSource = source;
+    this.pendingSaveMeta = meta ?? null;
+    this.saveConfirmOpen = true;
+    const message = source === 'banner' ? '是否要儲存目前規劃內容？' : '是否要儲存目前編輯檔案？';
+    this.alertService.question(message).subscribe(confirmed => {
+      this.saveConfirmOpen = false;
+      if (confirmed) {
+        this.onSaveConfirm();
+      } else {
+        this.closeSaveConfirm();
+      }
+    });
+  }
+
+  closeSaveConfirm(): void {
+    this.saveConfirmOpen = false;
+    this.saveSource = null;
+    this.pendingSaveMeta = null;
+  }
+
+  onSaveConfirm(): void {
+    this.saveCurrentTask();
+  }
+
+  async saveCurrentTask(): Promise<void> {
+    if (this.isSavingTask) return;
+    this.isSavingTask = true;
+    this.saveErrorMsg = '';
+    try {
+      const payload = this.buildStoreTaskPayloadForSave();
+      const resp = await firstValueFrom(this.taskApiService.postStoreTask(payload));
+      this.closeSaveConfirm();
+      this.lastSavedAt = new Date().toISOString();
+      console.log('[SaveTask] success', { status: resp.status, lastSavedAt: this.lastSavedAt });
+      this.alertService.success('儲存成功！');
+    } catch (err) {
+      this.saveErrorMsg = err instanceof Error ? err.message : '儲存失敗，請稍後再試';
+      console.error('[SaveTask] error', err);
+      this.alertService.error(this.saveErrorMsg);
+    } finally {
+      this.isSavingTask = false;
+    }
+  }
+
+  buildStoreTaskPayloadForSave(): any {
+    const input = this.collectExecutionInputs();
+    return this.baseTaskPayloadBuilder.build(input);
   }
 
     // ===== [RESULT:A-FEATURE] RightSidebar actions =====
@@ -6017,7 +6079,8 @@ private __antennaPlaceableSeq = 0;
     private baseTaskPayloadBuilder: BaseTaskPayloadBuilder,
     private taskApiService: TaskApiService,
     private simulationApiService: SimulationApiService,
-    private resultApiService: ResultApiService
+    private resultApiService: ResultApiService,
+    private alertService: AlertService
     ) {
       console.log('[DBG] EditScene constructor fired', new Date().toISOString());
       console.log('[DBG] mapPreview injected?', !!this.mapPreview);

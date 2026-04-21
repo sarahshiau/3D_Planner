@@ -1,5 +1,5 @@
 // src/app/panels/edit-file-panel/edit-file-panel.component.ts
-import { Component } from '@angular/core';
+import { Component, Output, EventEmitter } from '@angular/core';
 import { ProjectFileService, SaveProjectPayload } from 'src/app/services/project-file.service';
 
 @Component({
@@ -8,6 +8,8 @@ import { ProjectFileService, SaveProjectPayload } from 'src/app/services/project
   styleUrls: ['./edit-file-panel.component.scss'],
 })
 export class EditFilePanelComponent {
+  @Output() saveClick = new EventEmitter<void>();
+
   projectName = '工業技術研究院';
 
   layers = [
@@ -60,32 +62,8 @@ export class EditFilePanelComponent {
 
   saveProject() {
     if (this.isSaving) return;
-
-    this.isSaving = true;
-    this.lastSaveRequestId = null;
-
-    const payload: SaveProjectPayload = {
-      projectName: this.projectName,
-      layers: this.layers.map(l => ({ ...l })), // 防止外部誤改 reference
-      savedAtISO: new Date().toISOString(),
-    };
-
-    console.log('[EditFilePanel] saveProject clicked');
-    console.log('[EditFilePanel] payload prepared =', payload);
-
-    this.projectFileService.saveProject(payload).subscribe({
-      next: (res) => {
-        console.log('[EditFilePanel] saveProject success =>', res);
-        this.lastSaveRequestId = res.requestId;
-      },
-      error: (err) => {
-        // 目前是 fake API，理論上不會進來，但保留方便你之後換真 API debug
-        console.error('[EditFilePanel] saveProject error =>', err);
-      },
-      complete: () => {
-        this.isSaving = false;
-      },
-    });
+    console.log('[EditFilePanel] saveProject clicked → delegating to parent via saveClick');
+    this.saveClick.emit();
   }
 
   exportProject() {

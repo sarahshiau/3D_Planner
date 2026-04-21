@@ -199,9 +199,9 @@
             <div #babylonMountStageB class="babylon-mount"></div>
             <!-- 中上方 Banner（場域標題 + 位置） -->
             <!-- ✅ [Step 2.1] 僅在模擬完成後顯示熱力圖控制工具列 -->
-            <app-banner 
+            <app-banner
               *ngIf="isSimulationDone"
-              [sceneName]="sceneName" 
+              [sceneName]="sceneName"
               [location]="location"
               (backToEditMode)="onBackToEditMode()"
               [isSimulationDone]="isSimulationDone"
@@ -209,7 +209,8 @@
               (heatmapModeChange)="onHeatmapModeChange($event)"
               (viewFiltersChange)="onViewFiltersChange($event)"
               (coverageThresholdChange)="onCoverageThresholdChange($event)"
-              (dynamicRangeChange)="onDynamicRangeChange($event)">
+              (dynamicRangeChange)="onDynamicRangeChange($event)"
+              (saveClick)="openSaveConfirm('banner')">
             </app-banner>
             <!-- Stage B 右上角：開始運算 -->
             <div class="stage-b-runbar">
@@ -993,7 +994,8 @@
 
 
               <app-edit-file-panel
-                *ngIf="rightPanelType === 'file'">
+                *ngIf="rightPanelType === 'file'"
+                (saveClick)="openSaveConfirm('edit-file', $event)">
               </app-edit-file-panel>
 
               <app-edit-task-panel

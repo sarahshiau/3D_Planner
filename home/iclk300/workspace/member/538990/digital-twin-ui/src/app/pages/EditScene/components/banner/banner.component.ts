@@ -31,6 +31,7 @@ export class BannerComponent implements OnInit {
   @Output() coverageThresholdChange = new EventEmitter<string>();
   @Output() dynamicRangeChange = new EventEmitter<DynamicRange>();
   @Output() backToEditMode = new EventEmitter<void>();
+  @Output() saveClick = new EventEmitter<void>();
 
   // ✅ Banner project actions (UI only)
   isProjectActionsEnabled = true;
@@ -324,6 +325,7 @@ export class BannerComponent implements OnInit {
 
   onSaveProjectClick(): void {
     console.log("[Banner] Save Project clicked");
+    this.saveClick.emit();
   }
 
   onExportProjectClick(): void {
