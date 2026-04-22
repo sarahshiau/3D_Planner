@@ -4491,7 +4491,8 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     width: 0,
     height: 0,
     cutHeights: ['1.05', '', ''],
-    heatmapGrid: '10x10',
+    //解析度調整
+    heatmapGrid: '2x2',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -15901,71 +15902,61 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       if (this.floorMesh) {
         const floorBBForStrongest = this.floorMesh.getBoundingInfo().boundingBox;
         const floorMinForStrongest = floorBBForStrongest.minimumWorld;
-        let scMaxVal = -Infinity;
-        let scMaxRow = -1;
-        let scMaxCol = -1;
-
         const strongestSource = this.plotlyHoverZ ?? [];
-
-        for (let ri = 0; ri < strongestSource.length; ri++) {
-          const row = strongestSource[ri] ?? [];
-          for (let ci = 0; ci < row.length; ci++) {
-            const v = row[ci];
-            if (v == null || !Number.isFinite(v)) continue;
-            if (v > scMaxVal) {
-              scMaxVal = v;
-              scMaxRow = ri;
-              scMaxCol = ci;
-            }
-          }
-        }
         const displayCellSizeX = backend.nx > 0 ? backend.width / backend.nx : backend.cellSize;
         const displayCellSizeZ = backend.nz > 0 ? backend.height / backend.nz : backend.cellSize;
-        
-        const strongestMin = this.plotlyHoverMeta?.min ?? floorMinForStrongest;
-        const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
-        const strongestWorldZ =floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
-        const strongestWorldZReversed = strongestMin.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
 
         // [BS_COORD_SOURCE] Use store row + floorMin for same reference frame as heatmap
         // math.x / math.y are offsets from SW corner; floorMin IS the SW corner in world space
         const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
         const bsRow0 = bsRows[0] ?? null;
-        const bsConvertedX = bsRow0 != null ? floorMinForStrongest.x + bsRow0.x : null;
-        const bsConvertedZ = bsRow0 != null ? floorMinForStrongest.z + bsRow0.y : null;
+        const bsRawWorldX = bsRow0 != null ? floorMinForStrongest.x + bsRow0.x : null;
+        const bsRawWorldZ = bsRow0 != null ? floorMinForStrongest.z + bsRow0.y : null;
 
-        console.log('[BS_COORD_SOURCE]',
-          'source: store existingBs[0]',
-          '| row.x:', bsRow0?.x, 'row.y:', bsRow0?.y,
-          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
-          '| bsConverted(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null'
-        );
-        console.log('[BS_CONVERTED_WORLD_POS]',
-          'rawMathPos(x,y):', bsRow0 ? `(${bsRow0.x}, ${bsRow0.y})` : 'null',
-          '| convertedWorld(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null',
-          '| formula: floorMin + mathOffset'
-        );
-        console.log('[HEATMAP_BS_COMPARE]',
-          'mode:', mode,
-          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
-          '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
-          '| bsConvertedWorld(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null',
-          '| delta(dx,dz):', bsConvertedX != null
-            ? `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ!).toFixed(1)})`
-            : 'n/a',
-          '| cellSize:', backend.cellSize,
-          '| note: delta should be < cellSize if aligned'
-        );
+        const bsCellCol = bsRawWorldX != null ? Math.floor((bsRawWorldX - floorMinForStrongest.x) / displayCellSizeX) : -1;
+        const bsCellRow = bsRawWorldZ != null ? Math.floor((bsRawWorldZ - floorMinForStrongest.z) / displayCellSizeZ) : -1;
+        const hasBsCell = bsCellRow >= 0 && bsCellCol >= 0;
 
-        const bsCellCol = Math.floor((bsConvertedX - floorMinForStrongest.x) / displayCellSizeX);
-        const bsCellRow = Math.floor((bsConvertedZ - floorMinForStrongest.z) / displayCellSizeZ);
-  
-        console.log('[BS_CELL_COMPARE]',
-          '| strongest cell(row,col):', scMaxRow, scMaxCol,
-          '| bs cell(row,col):', bsCellRow, bsCellCol,
-          '| rowDelta:', bsCellRow - scMaxRow,
-          '| colDelta:', bsCellCol - scMaxCol
-        );
+        // Phase 1: find global maxVal
+        let scMaxVal = -Infinity;
+        for (let ri = 0; ri < strongestSource.length; ri++) {
+          const row = strongestSource[ri] ?? [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (v == null || !Number.isFinite(v)) continue;
+            if ((v as number) > scMaxVal) scMaxVal = v as number;
+          }
+        }
+
+        // Phase 2: among all maxVal cells, pick the one closest to bsCell (tie-break)
+        let scMaxRow = -1;
+        let scMaxCol = -1;
+        let scBestDist2 = Infinity;
+        let scCandidateCount = 0;
+        const scTieCandidates: { ri: number; ci: number; dist2: number }[] = [];
+        for (let ri = 0; ri < strongestSource.length; ri++) {
+          const row = strongestSource[ri] ?? [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (v == null || !Number.isFinite(v)) continue;
+            if (Math.abs((v as number) - scMaxVal) > 1e-9) continue;
+            scCandidateCount++;
+            const dist2 = hasBsCell
+              ? (ri - bsCellRow) ** 2 + (ci - bsCellCol) ** 2
+              : (scMaxRow < 0 ? 0 : Infinity);
+            if (scTieCandidates.length < 10) scTieCandidates.push({ ri, ci, dist2 });
+            if (scMaxRow < 0 || dist2 < scBestDist2) {
+              scBestDist2 = dist2;
+              scMaxRow = ri;
+              scMaxCol = ci;
+            }
+          }
+        }
+
+        const strongestMin = this.plotlyHoverMeta?.min ?? floorMinForStrongest;
+        const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
+        const strongestWorldZ = floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+        const strongestWorldZReversed = strongestMin.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
 
         const strongestCellCenterX =
           floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
@@ -15977,12 +15968,124 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         const bsCellCenterZ =
           floorMinForStrongest.z + (bsCellRow + 0.5) * displayCellSizeZ;
 
+        const bsConvertedX = bsCellCenterX;
+        const bsConvertedZ = bsCellCenterZ;
+
+        console.log('[TIE_BREAK_STRONGEST]',
+          '| maxVal:', scMaxVal.toFixed(2),
+          '| candidateCount:', scCandidateCount,
+          '| bsCell(row,col):', bsCellRow, bsCellCol,
+          '| chosenStrongest(row,col):', scMaxRow, scMaxCol,
+          '| chosenDist2:', scBestDist2
+        );
+        console.log('[TIE_BREAK_CANDIDATES]',
+          scTieCandidates.map(c => `[${c.ri},${c.ci}] dist2=${c.dist2}`).join('  ')
+        );
+
+        const floorInfo = this.floorMesh?.getBoundingInfo?.().boundingBox ?? null;
+        const floorMin = floorInfo?.minimumWorld ?? null;
+        const floorMax = floorInfo?.maximumWorld ?? null;
+
+        const floorWidth = floorMin && floorMax ? floorMax.x - floorMin.x : null;
+        const floorDepth = floorMin && floorMax ? floorMax.z - floorMin.z : null;
+
+        console.log('[BS_FLOOR_RANGE_CHECK]',
+          '| row(x,y):', bsRow0 ? `(${bsRow0.x.toFixed(1)}, ${bsRow0.y.toFixed(1)})` : 'null',
+          '| floorMin:', floorMin ? `(${floorMin.x.toFixed(1)}, ${floorMin.z.toFixed(1)})` : 'null',
+          '| floorMax:', floorMax ? `(${floorMax.x.toFixed(1)}, ${floorMax.z.toFixed(1)})` : 'null',
+          '| floorWidthDepth:', floorWidth != null ? `${floorWidth.toFixed(1)}, ${floorDepth!.toFixed(1)}` : 'null',
+          '| rowInRange:',
+            floorWidth != null && bsRow0
+              ? `${bsRow0.x >= 0 && bsRow0.x <= floorWidth}, ${bsRow0.y >= 0 && bsRow0.y <= floorDepth!}`
+              : 'null'
+        );
+
+        console.log('[BS_COORD_SOURCE]',
+          'source: store existingBs[0]',
+          '| row.x:', bsRow0?.x, 'row.y:', bsRow0?.y,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| bsRawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
+          '| bsCell(row,col):', `${bsCellRow}, ${bsCellCol}`,
+          '| bsSnapped(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`
+        );
+        console.log('[BS_CONVERTED_WORLD_POS]',
+          'rawMathPos(x,y):', bsRow0 ? `(${bsRow0.x}, ${bsRow0.y})` : 'null',
+          '| rawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
+          '| snappedCellCenter(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
+          '| formula: floorMin + mathOffset -> snap to cell center'
+        );
+        console.log('[HEATMAP_BS_COMPARE]',
+          'mode:', mode,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
+          '| bsConvertedWorld(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
+          '| delta(dx,dz):', `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ).toFixed(1)})`,
+          '| cellSize:', backend.cellSize,
+          '| note: delta should be < cellSize if aligned'
+        );
+
+        console.log('[BS_CELL_COMPARE]',
+          '| strongest cell(row,col):', scMaxRow, scMaxCol,
+          '| bs cell(row,col):', bsCellRow, bsCellCol,
+          '| rowDelta:', bsCellRow - scMaxRow,
+          '| colDelta:', bsCellCol - scMaxCol
+        );
+
         console.log('[CELL_CENTER_COMPARE]',
           '| strongest cell:', scMaxRow, scMaxCol,
           '| strongest center:', strongestCellCenterX.toFixed(1), strongestCellCenterZ.toFixed(1),
           '| bs cell:', bsCellRow, bsCellCol,
           '| bs center:', bsCellCenterX.toFixed(1), bsCellCenterZ.toFixed(1)
         );
+
+        // ===== [INVESTIGATION] BS vs Strongest value comparison =====
+        const bsValue = bsCellRow >= 0 && bsCellCol >= 0
+          ? ((strongestSource[bsCellRow] ?? [])[bsCellCol] ?? null)
+          : null;
+        console.log('[BS_VS_STRONGEST_VALUE]',
+          '| strongest cell(row,col):', scMaxRow, scMaxCol,
+          '| strongest value:', scMaxVal.toFixed(2),
+          '| bs cell(row,col):', bsCellRow, bsCellCol,
+          '| bs value:', bsValue != null ? (bsValue as number).toFixed(2) : 'null',
+          '| valueDelta:', bsValue != null ? (scMaxVal - (bsValue as number)).toFixed(2) : 'n/a'
+        );
+
+        // ===== [INVESTIGATION] BS 5x5 neighbor values =====
+        const bsNeighbor: string[] = [];
+        for (let dr = -2; dr <= 2; dr++) {
+          const rowParts: string[] = [];
+          for (let dc = -2; dc <= 2; dc++) {
+            const nr = bsCellRow + dr;
+            const nc = bsCellCol + dc;
+            const v = nr >= 0 && nc >= 0 ? ((strongestSource[nr] ?? [])[nc] ?? null) : null;
+            const marker = dr === 0 && dc === 0 ? '*' : ' ';
+            rowParts.push(`${marker}[${nr},${nc}]=${v != null ? (v as number).toFixed(1) : 'null'}`);
+          }
+          bsNeighbor.push(rowParts.join(' '));
+        }
+        console.log('[BS_NEIGHBOR_VALUES] 5x5 centered on bs cell (' + bsCellRow + ',' + bsCellCol + '):\n'
+          + bsNeighbor.join('\n'));
+
+        // ===== [INVESTIGATION] Strongest source matrix info =====
+        const srcRows = strongestSource.length;
+        const srcCols = ((strongestSource as any[])[0] ?? []).length;
+        const _calcInput: any = (this.lastCompleteCalcResult as any)?.input ?? null;
+        const bsListDefaultBsCount = (_calcInput?.bsList?.defaultBs ?? []).length;
+        const availableNewBsNum = _calcInput?.availableNewBsNumber ?? 'unknown';
+        console.log('[STRONGEST_SOURCE_MATRIX]',
+          '| source: this.plotlyHoverZ (= backend.z, full-resolution, NOT downsampled)',
+          '| actualDims(rows,cols):', srcRows, srcCols,
+          '| backend.nz:', backend.nz, '| backend.nx:', backend.nx,
+          '| matchesBackend:', srcRows === backend.nz && srcCols === backend.nx,
+          '| displayMatrix dims(rows,cols):', displayNz, displayNx,
+          '| downsampled:', displayDs.applied,
+          '| rowStep:', displayDs.rowStep, '| colStep:', displayDs.colStep,
+          '| normalized: NO (raw dB/SINR values)',
+          '| bsList.defaultBs count:', bsListDefaultBsCount,
+          '| availableNewBsNumber:', availableNewBsNum,
+          '| NOTE: if bsListCount>1 or availableNewBsNumber>0, backend simulates multiple BSes → strongest may be from a different BS than existingBs[0]'
+        );
+        // ===== END INVESTIGATION =====
       }
 
       console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:start');
