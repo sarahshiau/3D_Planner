@@ -4492,7 +4492,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     height: 0,
     cutHeights: ['1.05', '', ''],
     //解析度調整
-    heatmapGrid: '2x2',
+    heatmapGrid: '1x1',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -4796,6 +4796,9 @@ private __antennaPlaceableSeq = 0;
   // Stage B runtime
   gizmoManager: GizmoManager | null = null;
   floorMesh: Mesh | null = null;
+
+  /** Debug-only marker meshes for building payload reprojection check. Cleared each run. */
+  private buildingReprojectDebugMeshes: AbstractMesh[] = [];
 
   // 你原本既有狀態（保留）
   /** Phase 5: leaving field panel (rightPanelType !== 'field') clears card/gizmo via setter. */
@@ -9109,6 +9112,79 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
 
   private roundFieldNum(value: number, digits = 4): number {
     return Number((value ?? 0).toFixed(digits));
+  }
+
+  private clearBuildingReprojectDebug(): void {
+    console.log('[Building][ReprojectDebug][Clear]', {
+      count: this.buildingReprojectDebugMeshes.length,
+    });
+    for (const m of this.buildingReprojectDebugMeshes) {
+      try { m.dispose(); } catch { /* ignore if already disposed */ }
+    }
+    this.buildingReprojectDebugMeshes = [];
+  }
+
+  private renderBuildingReprojectDebug(args: {
+    bboxCenterWorldX: number;
+    bboxCenterWorldZ: number;
+    floorMinWorldX: number;
+    floorMinWorldZ: number;
+    finalX: number;
+    finalZ: number;
+    worldY: number;
+    meshName: string;
+    osmId: string;
+  }): void {
+    console.log('[Building][ReprojectDebug][Enter]', {
+      enabled: (window as any).__dbgBuildingReproject,
+      limit: (window as any).__dbgBuildingReprojectLimit,
+    });
+    if (!this.scene) return;
+    const { bboxCenterWorldX, bboxCenterWorldZ, floorMinWorldX, floorMinWorldZ,
+            finalX, finalZ, worldY, meshName, osmId } = args;
+
+    const reprojectedSceneX = floorMinWorldX + finalX;
+    const reprojectedSceneZ = floorMinWorldZ + finalZ;
+    const markerY = 20;
+
+    // Green sphere: actual bbox centerWorld position
+    const greenSphere = MeshBuilder.CreateSphere(
+      `__dbg_bldg_green_${meshName}`, { diameter: 4.0 }, this.scene
+    );
+    greenSphere.position = new Vector3(bboxCenterWorldX, markerY, bboxCenterWorldZ);
+    const greenMat = new StandardMaterial(`__dbg_bldg_gmat_${meshName}`, this.scene);
+    greenMat.emissiveColor = new Color3(0, 1, 0);
+    greenMat.disableLighting = true;
+    greenSphere.material = greenMat;
+    this.buildingReprojectDebugMeshes.push(greenSphere);
+
+    // Red sphere: payload x/y reprojected back to scene space
+    const redSphere = MeshBuilder.CreateSphere(
+      `__dbg_bldg_red_${meshName}`, { diameter: 4.0 }, this.scene
+    );
+    redSphere.position = new Vector3(reprojectedSceneX, markerY + 0.5, reprojectedSceneZ);
+    const redMat = new StandardMaterial(`__dbg_bldg_rmat_${meshName}`, this.scene);
+    redMat.emissiveColor = new Color3(1, 0, 0);
+    redMat.disableLighting = true;
+    redSphere.material = redMat;
+    this.buildingReprojectDebugMeshes.push(redSphere);
+
+    console.log('[Building][ReprojectDebug][Created]', {
+      meshName,
+      total: this.buildingReprojectDebugMeshes.length,
+    });
+
+    console.log('[Building][ReprojectCheck]', {
+      meshName,
+      osmId,
+      bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+      payloadLocal: { x: finalX, y: finalZ },
+      reprojectedScene: { x: reprojectedSceneX, z: reprojectedSceneZ },
+      delta: {
+        dx: reprojectedSceneX - bboxCenterWorldX,
+        dz: reprojectedSceneZ - bboxCenterWorldZ,
+      },
+    });
   }
 
   private getDefaultObstacleMaterial(kind: 'primitive' | 'landscape'): string {
@@ -16496,9 +16572,110 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       subfield: [],
     };
 
-    const sceneBuildingMeshes = (this.scene?.meshes ?? []).filter(
-      (m: any) => m?.metadata?.type === 'building'
-    );
+    if ((window as any).__dbgBuildingReproject === true) {
+      this.clearBuildingReprojectDebug();
+    }
+
+    const sceneBuildingMeshes = (this.scene?.meshes ?? [])
+      .filter((m: any) => m?.metadata?.type === 'building')
+      .map((m: any, meshIdx: number) => {
+        // [BuildingCoordPatch] Use floorMesh world bbox min corner as origin so building
+        // obstacle x/y is expressed as offset from the scene's (0,0) left-bottom corner.
+        // finalLocalForMesh.x = centerWorld.x - floorMinX
+        // finalLocalForMesh.z = centerWorld.z - floorMinZ
+        // matches helper pickBuildingObstaclePlaneXY: tuple[0]=flm.x, tuple[1]=flm.z.
+        const floorBb = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+        const floorMinWorldX = floorBb?.minimumWorld?.x ?? 0;
+        const floorMinWorldZ = floorBb?.minimumWorld?.z ?? 0;
+        const mBb = m.getBoundingInfo?.()?.boundingBox ?? null;
+        const bboxCenterWorldX = mBb?.centerWorld?.x ?? (m.position?.x ?? 0);
+        const bboxCenterWorldZ = mBb?.centerWorld?.z ?? (m.position?.z ?? 0);
+        const bboxMinWorldY   = mBb?.minimumWorld?.y ?? (m.position?.y ?? 0);
+        const finalX = bboxCenterWorldX - floorMinWorldX;
+        const finalZ = bboxCenterWorldZ - floorMinWorldZ;
+        console.log('[Building][CoordPatch][FloorMinAudit]', {
+          meshName: m?.name ?? '',
+          osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+          floorMinWorld: { x: floorMinWorldX, z: floorMinWorldZ },
+          bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+          bboxMinWorldY,
+          finalLocalForMesh: { x: finalX, z: finalZ },
+        });
+
+        if (floorBb) {
+          console.log('[Building][RangeCheck][FloorAudit]', {
+            floorMinWorld: {
+              x: floorBb.minimumWorld.x,
+              z: floorBb.minimumWorld.z,
+            },
+            floorMaxWorld: {
+              x: floorBb.maximumWorld.x,
+              z: floorBb.maximumWorld.z,
+            },
+            floorSizeWorld: {
+              width:  floorBb.maximumWorld.x - floorBb.minimumWorld.x,
+              length: floorBb.maximumWorld.z - floorBb.minimumWorld.z,
+            },
+            mapContextWidth:  this.fieldSettingsState?.length,
+            mapContextLength: this.fieldSettingsState?.width,
+            meshName: m?.name ?? '',
+            osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+            bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+            centerInsideFloorWorld:
+              bboxCenterWorldX >= floorBb.minimumWorld.x &&
+              bboxCenterWorldX <= floorBb.maximumWorld.x &&
+              bboxCenterWorldZ >= floorBb.minimumWorld.z &&
+              bboxCenterWorldZ <= floorBb.maximumWorld.z,
+          });
+        }
+
+        const fieldWidth  = Number(this.fieldSettingsState?.length ?? 0);
+        const fieldLength = Number(this.fieldSettingsState?.width  ?? 0);
+        if (fieldWidth > 0 && fieldLength > 0) {
+          const outOfRange = finalX < 0 || finalZ < 0 || finalX > fieldWidth || finalZ > fieldLength;
+          if (outOfRange) {
+            console.warn('[Building][RangeCheck][OUT]', {
+              meshName: m?.name ?? '',
+              osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+              x: finalX,
+              y: finalZ,
+              fieldWidth,
+              fieldLength,
+              floorMinWorld: { x: floorMinWorldX, z: floorMinWorldZ },
+              bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+            });
+          }
+        }
+
+        const dbgLimit: number =
+          typeof (window as any).__dbgBuildingReprojectLimit === 'number'
+            ? (window as any).__dbgBuildingReprojectLimit
+            : 5;
+        if ((window as any).__dbgBuildingReproject === true && meshIdx < dbgLimit) {
+          this.renderBuildingReprojectDebug({
+            bboxCenterWorldX,
+            bboxCenterWorldZ,
+            floorMinWorldX,
+            floorMinWorldZ,
+            finalX,
+            finalZ,
+            worldY: bboxMinWorldY,
+            meshName: m?.name ?? '',
+            osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+          });
+        }
+
+        return {
+          name: m.name,
+          metadata: {
+            ...(m.metadata ?? {}),
+            finalLocalForMesh: { x: finalX, z: finalZ },
+          },
+          getBoundingInfo: typeof m.getBoundingInfo === 'function' ? (m.getBoundingInfo as Function).bind(m) : undefined,
+          getAbsolutePosition: typeof m.getAbsolutePosition === 'function' ? (m.getAbsolutePosition as Function).bind(m) : undefined,
+          position: m.position,
+        };
+      });
     const sampleBuildingMesh: any = sceneBuildingMeshes[0] ?? null;
     if (sampleBuildingMesh) {
       const bb = sampleBuildingMesh.getBoundingInfo?.()?.boundingBox;

@@ -140,6 +140,12 @@ export class ObstacleSerializerBuilder {
       totalObstacleTupleCount,
     });
 
+    const allBuildingTuples = [...buildingRowTuples, ...buildingMeshTuples];
+    console.log('[Building][Obstacle][TuplePreview]', {
+      count: allBuildingTuples.length,
+      preview: allBuildingTuples.slice(0, 3).map(t => this.stringifyTuple(t)),
+    });
+
     return mergedTuples;
   }
 
