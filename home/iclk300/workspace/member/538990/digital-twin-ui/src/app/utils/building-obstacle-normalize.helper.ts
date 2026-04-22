@@ -18,8 +18,8 @@ export type BuildingObstacleTuple = [
   number, // length
   number, // obstacleHeight
   number, // angle
-  string, // material
-  string, // shape
+  number, // materialId
+  number, // shapeId
   string, // color
 ];
 
@@ -69,10 +69,10 @@ export interface NormalizeBuildingObstacleInput {
 }
 
 const BUILDING_DEFAULTS = {
-  material: '水泥',
+  materialId: 2,
   angle: 0,
   baseHeight: 0,
-  shape: 'building',
+  shapeId: 0,
   /** Default building color (same as obstacle primitive / serializer convention). */
   color: '#73805c',
 } as const;
@@ -245,7 +245,7 @@ function normalizeBuildingObstacleCore(
     ? 'metadata'
     : 'default_value';
   resolution.material =
-    row?.material != null || meta['material'] != null ? 'metadata' : 'default_value';
+    (row as any)?.materialId != null || meta['materialId'] != null ? 'metadata' : 'default_value';
   if (angleFromMetadata != null || angleFromRow != null) {
     resolution.angle = 'metadata';
   } else {
@@ -267,6 +267,9 @@ function normalizeBuildingObstacleCore(
     resolutionSummary,
   });
 
+  const rawMaterialId = (row as any)?.materialId ?? meta['materialId'];
+  const materialId = asNum(rawMaterialId) ?? BUILDING_DEFAULTS.materialId;
+
   const tuple: BuildingObstacleTuple = [
     x as number,
     y as number,
@@ -275,8 +278,8 @@ function normalizeBuildingObstacleCore(
     resolvedLength as number,
     resolvedHeight as number,
     resolvedAngle,
-    asStr(row?.material ?? meta['material'], BUILDING_DEFAULTS.material),
-    asStr(row?.shape ?? meta['shape'], BUILDING_DEFAULTS.shape),
+    materialId,
+    resolveBuildingShapeId(row?.shape ?? meta['shape']),
     asStr(row?.color ?? meta['color'], BUILDING_DEFAULTS.color),
   ];
 
@@ -459,4 +462,12 @@ function asStr(value: unknown, fallback: string): string {
   if (typeof value === 'string' && value.trim().length > 0) return value;
   if (value == null) return fallback;
   return String(value);
+}
+
+/** Map building shape string to numeric shape ID expected by the backend. */
+function resolveBuildingShapeId(shape: unknown): number {
+  if (typeof shape === 'string' && (shape === 'circle' || shape === 'sphere')) {
+    return 2;
+  }
+  return 0;
 }

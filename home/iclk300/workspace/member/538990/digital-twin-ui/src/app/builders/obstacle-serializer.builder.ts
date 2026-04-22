@@ -14,8 +14,8 @@ export type ObstacleTuple = [
   number, // length
   number, // obstacleHeight
   number, // angle
-  string, // material
-  string, // shape
+  number, // materialId
+  number, // shapeId
   string, // color
 ];
 
@@ -159,6 +159,9 @@ export class ObstacleSerializerBuilder {
       return null;
     }
 
+    const defaultMaterialId = source === 'landscape' ? 1 : 2;
+    const materialId = this.asNum((row as any).materialId) ?? defaultMaterialId;
+
     return [
       x!,
       y!,
@@ -167,8 +170,8 @@ export class ObstacleSerializerBuilder {
       this.asNum(row.length, 0)!,
       this.asNum(row.height, 0)!,
       this.asNum((row as any).angle ?? (row as any).rotation, 0)!,
-      this.asStr((row as any).material, ''),
-      this.asStr((row as any).shape, source === 'landscape' ? 'landscape' : 'obstacle'),
+      materialId,
+      resolveShapeId((row as any).shape),
       this.asStr((row as any).color, '#73805c'),
     ];
   }
@@ -229,4 +232,12 @@ export class ObstacleSerializerBuilder {
     if (value == null) return fallback;
     return String(value);
   }
+}
+
+/** Map obstacle shape string to numeric shape ID expected by the backend. */
+function resolveShapeId(shape: unknown): number {
+  if (typeof shape === 'string' && (shape === 'circle' || shape === 'sphere')) {
+    return 2;
+  }
+  return 0;
 }

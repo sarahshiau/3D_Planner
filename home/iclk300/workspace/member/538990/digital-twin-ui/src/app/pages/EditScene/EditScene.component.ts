@@ -78,7 +78,7 @@ import {
   CandidateRisFieldRow,
   UeFieldRow,
 } from 'src/app/models/field-domain.model';
-import { Subscription, firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom, timeout, TimeoutError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 
 // ===== [SIM_API_PHASE1] Imports =====
@@ -712,7 +712,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // TODO: TEMP_SESSION_REMOVE_AFTER_LOGIN_SYSTEM
   // ========================================================
   private readonly DEV_TEMP_SESSION =
-    'son_session_0f9fe636-f31a-43bf-9b26-55f5b0a11d35';
+    'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
 
   // ===== [Step2A][Registry] Scene Object Registry =====
   private sceneObjectRegistry = new Map<string, SceneObjectRegistryEntry>();
@@ -1056,7 +1056,9 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
   buildStoreTaskPayloadForSave(): any {
     const input = this.collectExecutionInputs();
-    return this.baseTaskPayloadBuilder.build(input);
+    const payload = this.baseTaskPayloadBuilder.build(input);
+    console.log('[STORETASK_RESOLUTION_CHECK] heatmapGrid:', input.basicField.heatmapGrid, '-> resolution:', payload.resolution);
+    return payload;
   }
 
     // ===== [RESULT:A-FEATURE] RightSidebar actions =====
@@ -3415,7 +3417,9 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     max: Vector3;
     nx: number;
     nz: number;
-    cellSize: number;
+    cellSize: number;      // 原始 backend resolution，保留做 debug
+    cellSizeX: number;     // 顯示層實際每欄寬度 = width / nx
+    cellSizeZ: number;     // 顯示層實際每列高度 = height / nz
     sliceY: number;
   } | null = null;
 
@@ -3788,35 +3792,35 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   //     }
   // }
 
-async onStartCompute(): Promise<void> {
-  console.log('[DBG] onStartCompute click');
+  async onStartCompute(): Promise<void> {
+    console.log('[DBG] onStartCompute click');
 
-  if (!this.guardEditWrite('onStartCompute')) return;
+    if (!this.guardEditWrite('onStartCompute')) return;
 
-  this.distMode = 'sinr';
+    this.distMode = 'sinr';
 
-  this.openComputeLoading();
+    this.openComputeLoading();
 
-  try {
-    console.log('[SIM_API] start runSimulationApiFlow');
+    try {
+      console.log('[SIM_API] start runSimulationApiFlow');
 
-    await this.runSimulationApiFlow();
+      await this.runSimulationApiFlow();
 
-    console.log('[SIM_API] flow success');
+      console.log('[SIM_API] flow success');
 
-    this.closeComputeLoading();
+      this.closeComputeLoading();
 
-  } catch (e: any) {
-    console.error('[SIM_API] flow failed', e);
+    } catch (e: any) {
+      console.error('[SIM_API] flow failed', e);
 
-    this.computeLoading = true;
-    this.computeLoadingError = true;
-    this.computeLoadingErrorMessage =
-      e?.message?.trim()
-        ? e.message
-        : '運算失敗，請再試一次';
+      this.computeLoading = true;
+      this.computeLoadingError = true;
+      this.computeLoadingErrorMessage =
+        e?.message?.trim()
+          ? e.message
+          : '運算失敗，請再試一次';
+    }
   }
-}
 
   // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:HELPER] =====
   // Purpose: Overlay signal rays on top of Plotly heatmap without switching computeMode.
@@ -4487,7 +4491,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     width: 0,
     height: 0,
     cutHeights: ['1.05', '', ''],
-    heatmapGrid: '1x1',
+    heatmapGrid: '10x10',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -11883,8 +11887,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       }
 
       // World -> grid index
-      const rawI = Math.floor((p.x - meta.min.x) / meta.cellSize);
-      const rawJ = Math.floor((p.z - meta.min.z) / meta.cellSize);
+      const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+      const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
+
+      const rawI = Math.floor((p.x - meta.min.x) / cellSizeX);
+      const rawJ = Math.floor((p.z - meta.min.z) / cellSizeZ);
 
       const i = Math.max(0, Math.min(meta.nx - 1, rawI));
       let j = Math.max(0, Math.min(meta.nz - 1, rawJ));
@@ -11956,10 +11963,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
                   : '';
           }
 
+          
+          const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+          const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
+
           this.tooltipData = {
             ...(this.tooltipData as any),
-            positionX: meta.min.x + (i + 0.5) * meta.cellSize,
-            positionZ: meta.min.z + (rawJ + 0.5) * meta.cellSize,
+            positionX: meta.min.x + (i + 0.5) * cellSizeX,
+            positionZ: meta.min.z + (rawJ + 0.5) * cellSizeZ,
             value,
             unit: this.plotlyHoverUnit,
             valueLabel,
@@ -12721,12 +12732,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     // ===== [PLOTLY_HEATMAP:HOVER_CACHE] =====
     // Cache meta + z for Babylon hover tooltip (Plotly DOM is not interactive after toImage)
     this.plotlyHoverMeta = {
-      min: meta.min,
-      max: meta.max,
-      nx: meta.nx,
-      nz: meta.nz,
-      cellSize,
-      sliceY: this.plotlyHeatmapSliceHeight,
+      min: this.plotlyHoverMeta?.min ?? new Vector3(0, 0, 0),
+      max: this.plotlyHoverMeta?.max ?? new Vector3(0, 0, 0),
+      nx: this.plotlyHoverMeta?.nx ?? 0,
+      nz: this.plotlyHoverMeta?.nz ?? 0,
+      cellSize: this.plotlyHoverMeta?.cellSize ?? 1,
+      cellSizeX: this.plotlyHoverMeta?.cellSizeX ?? this.plotlyHoverMeta?.cellSize ?? 1,
+      cellSizeZ: this.plotlyHoverMeta?.cellSizeZ ?? this.plotlyHoverMeta?.cellSize ?? 1,
+      sliceY: this.plotlyHoverMeta?.sliceY ?? 0,
     };
     this.plotlyHoverZ = zRsrp;
     this.plotlyHoverUnit = modeMeta.unit;
@@ -13203,8 +13216,15 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         '__hmPlotlyReverseY is read but layout always sets yaxis.autorange=reversed; change requires code edit.',
     });
 
-    const extentNx = plotWorldRaster?.rawNx ?? nx;
-    const extentNz = plotWorldRaster?.rawNz ?? nz;
+    // Use world dimensions (meters) for pixel aspect ratio so the PNG matches the Babylon floor plane.
+    // When resolution > 1m, rawNx/rawNz (cell count) differs from worldWidth/worldDepth (meters),
+    // causing non-uniform texture stretch and BS-heatmap misalignment. World dims are always correct.
+    const extentNx = (plotWorldRaster?.worldWidth != null && plotWorldRaster.worldWidth > 0)
+      ? plotWorldRaster.worldWidth
+      : (plotWorldRaster?.rawNx ?? nx);
+    const extentNz = (plotWorldRaster?.worldDepth != null && plotWorldRaster.worldDepth > 0)
+      ? plotWorldRaster.worldDepth
+      : (plotWorldRaster?.rawNz ?? nz);
     const minPx = 256;
     let pxW: number;
     let pxH: number;
@@ -13232,6 +13252,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         plotlyPixelHeight: pxH,
       });
     }
+    console.log('[HEATMAP_WORLD_MAPPING] extentSource:', plotWorldRaster?.worldWidth ? 'worldDims' : 'cellCount',
+      '| extentNx:', extentNx, 'extentNz:', extentNz,
+      '| pxW:', pxW, 'pxH:', pxH,
+      '| cellCount(nx,nz):', nx, nz,
+      '| aspectRatio:', (extentNx / extentNz).toFixed(3));
 
     if (traceId != null) {
       console.log('[HEATMAP][PIPELINE_TRACE]', {
@@ -14288,10 +14313,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const root = new TransformNode('[DBG-HEATMAP-POINT-ROOT]', this.scene);
     this.dbgHeatmapPointRoot = root;
 
-    const bsWorld =
-      bs.getAbsolutePosition?.()?.clone?.() ??
-      bs.position?.clone?.() ??
-      null;
+    // Use store row + floorMin (same reference frame as heatmap) instead of mesh.getAbsolutePosition()
+    const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
+    const bsRow0 = bsRows[0] ?? null;
+    const floorBBForDbg = this.floorMesh.getBoundingInfo().boundingBox;
+    const floorMinForDbg = floorBBForDbg.minimumWorld;
+    const bsWorld = bsRow0
+      ? new Vector3(floorMinForDbg.x + bsRow0.x, this.heatmapSliceHeight, floorMinForDbg.z + bsRow0.y)
+      : null;
     if (!bsWorld) return;
 
     const bsMarkerPos = new Vector3(bsWorld.x, this.heatmapSliceHeight + 0.6, bsWorld.z);
@@ -14304,21 +14333,21 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     );
 
     const meta = this.plotlyHoverMeta;
-    const idx = this.hmDbgWorldToGridIndex(
-      meta.min,
-      meta.cellSize,
-      meta.nx,
-      meta.nz,
-      bsWorld.x,
-      bsWorld.z
-    );
+    const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+    const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
 
-    const bsCellCenter = this.getHeatmapSamplePoint(
-      meta.min,
-      idx.i,
-      idx.j,
-      meta.cellSize,
-      this.heatmapSliceHeight
+    const rawFi = (bsWorld.x - meta.min.x) / cellSizeX - 0.5;
+    const rawFj = (bsWorld.z - meta.min.z) / cellSizeZ - 0.5;
+
+    const idx = {
+      i: Math.max(0, Math.min(meta.nx - 1, Math.floor(rawFi))),
+      j: Math.max(0, Math.min(meta.nz - 1, Math.floor(rawFj))),
+    };
+
+    const bsCellCenter = new Vector3(
+      meta.min.x + (idx.i + 0.5) * cellSizeX,
+      this.heatmapSliceHeight,
+      meta.min.z + (idx.j + 0.5) * cellSizeZ
     );
     this.dbgCreateMarkerSphere(
       root,
@@ -14346,9 +14375,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     const strongestCenter =
-      bestI >= 0 && bestJ >= 0
-        ? this.dbgStrongestIndexToWorldCenter(meta.min, meta.cellSize, bestI, bestJ)
-        : null;
+      new Vector3(
+        meta.min.x + (bestI + 0.5) * cellSizeX,
+        this.heatmapSliceHeight,
+        meta.min.z + (bestJ + 0.5) * cellSizeZ
+      );
 
     console.log('[DBG][STRONGEST_FINAL]', {
       strongest: {
@@ -14367,6 +14398,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return;
     }
 
+    console.log('[STRONGEST_MARKER_CREATE]', 'creating backend strongest');
     this.dbgCreateMarkerSphere(
       root,
       '[DBG-HEATMAP-POINT] STRONGEST_CELL_FINAL',
@@ -14653,6 +14685,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       nz,
       cellSize,
     });
+    console.log('[HEATMAP_RESOLUTION_CHECK] input.resolution:', inputMeta?.resolution,
+      '-> resolutionNum:', resolutionNum, '-> cellSize:', cellSize,
+      '| matrix(nx,nz):', nx, nz,
+      '| worldSize(w,h):', resolvedWidth, resolvedHeight,
+      '| expected cells ~= world/cellSize:', (resolvedWidth / cellSize).toFixed(1), 'x', (resolvedHeight / cellSize).toFixed(1));
 
     return {
       z,
@@ -15310,6 +15347,22 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   private async renderBackendHeatmapFromCompleteCalcResult(
     mode: DistributionMode
   ): Promise<boolean> {
+
+    const staleLocalStrongest = this.scene?.getMeshByName('heatmap_dbg_strongest');
+    if (staleLocalStrongest) {
+      console.log('[STRONGEST_MARKER_DISPOSE]', staleLocalStrongest.name);
+      try {
+        staleLocalStrongest.dispose();
+      } catch {}
+    }
+
+    if ((this as any).heatmapDbgStrongestMarker) {
+      try {
+        (this as any).heatmapDbgStrongestMarker.dispose();
+      } catch {}
+      (this as any).heatmapDbgStrongestMarker = null;
+    }
+
     const traceId = Date.now();
     console.log('[HEATMAP][TRACE]', traceId, 'start');
     console.log('[HEATMAP][PIPELINE] renderBackendHeatmapFromCompleteCalcResult start', {
@@ -15329,6 +15382,13 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         { mode }
       );
       return false;
+    }
+
+    // Dispose local-sim strongest marker so it doesn't duplicate with backend heatmap marker
+    if (this.heatmapDbgStrongestMarker && !this.heatmapDbgStrongestMarker.isDisposed()) {
+      console.log('[STRONGEST_MARKER_DISPOSE]', 'disposing local-sim strongest');
+      this.heatmapDbgStrongestMarker.dispose();
+      (this as any).heatmapDbgStrongestMarker = undefined;
     }
 
     const result = this.lastCompleteCalcResult;
@@ -15659,6 +15719,9 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         );
       }
 
+      const displayCellSizeX = nx > 0 ? width / nx : cellSize;
+      const displayCellSizeZ = nz > 0 ? height / nz : cellSize;
+
       this.plotlyHoverMeta = {
         ...(this.plotlyHoverMeta || {
           min: new Vector3(0, 0, 0),
@@ -15666,6 +15729,8 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           nx,
           nz,
           cellSize,
+          cellSizeX: displayCellSizeX,
+          cellSizeZ: displayCellSizeZ,
           sliceY,
         }),
         min: hoverMin ?? new Vector3(0, 0, 0),
@@ -15673,8 +15738,20 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         nx,
         nz,
         cellSize,
+        cellSizeX: displayCellSizeX,
+        cellSizeZ: displayCellSizeZ,
         sliceY,
       } as any;
+
+      console.log('[HEATMAP_DISPLAY_CELL_SIZE]', {
+        width,
+        height,
+        nx,
+        nz,
+        backendCellSize: cellSize,
+        displayCellSizeX,
+        displayCellSizeZ,
+      });
 
       console.log('[HEATMAP][PIPELINE_TRACE]', {
         traceId,
@@ -15819,6 +15896,94 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         });
       }
       // ===== END ORIGIN_DEBUG =====
+
+      // [STRONGEST_COMPARE] — summary for verifying BS vs heatmap max alignment
+      if (this.floorMesh) {
+        const floorBBForStrongest = this.floorMesh.getBoundingInfo().boundingBox;
+        const floorMinForStrongest = floorBBForStrongest.minimumWorld;
+        let scMaxVal = -Infinity;
+        let scMaxRow = -1;
+        let scMaxCol = -1;
+
+        const strongestSource = this.plotlyHoverZ ?? [];
+
+        for (let ri = 0; ri < strongestSource.length; ri++) {
+          const row = strongestSource[ri] ?? [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (v == null || !Number.isFinite(v)) continue;
+            if (v > scMaxVal) {
+              scMaxVal = v;
+              scMaxRow = ri;
+              scMaxCol = ci;
+            }
+          }
+        }
+        const displayCellSizeX = backend.nx > 0 ? backend.width / backend.nx : backend.cellSize;
+        const displayCellSizeZ = backend.nz > 0 ? backend.height / backend.nz : backend.cellSize;
+        
+        const strongestMin = this.plotlyHoverMeta?.min ?? floorMinForStrongest;
+        const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
+        const strongestWorldZ =floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+        const strongestWorldZReversed = strongestMin.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
+
+        // [BS_COORD_SOURCE] Use store row + floorMin for same reference frame as heatmap
+        // math.x / math.y are offsets from SW corner; floorMin IS the SW corner in world space
+        const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
+        const bsRow0 = bsRows[0] ?? null;
+        const bsConvertedX = bsRow0 != null ? floorMinForStrongest.x + bsRow0.x : null;
+        const bsConvertedZ = bsRow0 != null ? floorMinForStrongest.z + bsRow0.y : null;
+
+        console.log('[BS_COORD_SOURCE]',
+          'source: store existingBs[0]',
+          '| row.x:', bsRow0?.x, 'row.y:', bsRow0?.y,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| bsConverted(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null'
+        );
+        console.log('[BS_CONVERTED_WORLD_POS]',
+          'rawMathPos(x,y):', bsRow0 ? `(${bsRow0.x}, ${bsRow0.y})` : 'null',
+          '| convertedWorld(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null',
+          '| formula: floorMin + mathOffset'
+        );
+        console.log('[HEATMAP_BS_COMPARE]',
+          'mode:', mode,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
+          '| bsConvertedWorld(x,z):', bsConvertedX != null ? `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ!.toFixed(1)})` : 'null',
+          '| delta(dx,dz):', bsConvertedX != null
+            ? `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ!).toFixed(1)})`
+            : 'n/a',
+          '| cellSize:', backend.cellSize,
+          '| note: delta should be < cellSize if aligned'
+        );
+
+        const bsCellCol = Math.floor((bsConvertedX - floorMinForStrongest.x) / displayCellSizeX);
+        const bsCellRow = Math.floor((bsConvertedZ - floorMinForStrongest.z) / displayCellSizeZ);
+  
+        console.log('[BS_CELL_COMPARE]',
+          '| strongest cell(row,col):', scMaxRow, scMaxCol,
+          '| bs cell(row,col):', bsCellRow, bsCellCol,
+          '| rowDelta:', bsCellRow - scMaxRow,
+          '| colDelta:', bsCellCol - scMaxCol
+        );
+
+        const strongestCellCenterX =
+          floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
+        const strongestCellCenterZ =
+          floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+
+        const bsCellCenterX =
+          floorMinForStrongest.x + (bsCellCol + 0.5) * displayCellSizeX;
+        const bsCellCenterZ =
+          floorMinForStrongest.z + (bsCellRow + 0.5) * displayCellSizeZ;
+
+        console.log('[CELL_CENTER_COMPARE]',
+          '| strongest cell:', scMaxRow, scMaxCol,
+          '| strongest center:', strongestCellCenterX.toFixed(1), strongestCellCenterZ.toFixed(1),
+          '| bs cell:', bsCellRow, bsCellCol,
+          '| bs center:', bsCellCenterX.toFixed(1), bsCellCenterZ.toFixed(1)
+        );
+      }
 
       console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:start');
       await this.renderPlotlyHeatmap(
@@ -16603,50 +16768,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     return Number.isFinite(n) ? n : null;
   }
 
-  private async pollSimulationProgress(
-    taskId: string,
-    sessionId: string
-  ): Promise<'completed' | 'fallback_result'> {
-    const maxAttempts = 40;
-    const intervalMs = 3000;
-    const url = `/son/progress/${encodeURIComponent(taskId)}/${encodeURIComponent(sessionId)}`;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const res = await firstValueFrom(this.http.get<any>(url));
-        const p = this.extractProgressValue(res);
-        if (p === 1) {
-          console.log('[SIM_API_PHASE3][progress] completed', {
-            taskId,
-            sessionId,
-            attempt,
-            progress: p,
-          });
-          return 'completed';
-        }
-        console.log('[SIM_API_PHASE3][progress] pending', {
-          taskId,
-          sessionId,
-          attempt,
-          progress: p,
-        });
-        await this.sleep(intervalMs);
-      } catch (err: any) {
-        if (this.isLegacyProgressMalformedError(err)) {
-          console.warn(
-            '[SIM_API_PHASE3][progress] legacy malformed progress response, fallback to result',
-            err
-          );
-          return 'fallback_result';
-        }
-        throw err;
-      }
-    }
-
-    throw new Error('Simulation progress polling timeout');
-  }
-
-  private analyzeCompleteCalcResult(completeRes: any): {
+private analyzeCompleteCalcResult(completeRes: any): {
     protocolKey: string;
     unAchieved: boolean;
     unAchievedObj: Record<string, boolean>;
@@ -16671,6 +16793,86 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const unAchieved = Object.values(unAchievedObj).some(Boolean);
     const unusedRis = completeRes?.[protocolKey]?.unusedRis ?? [];
     return { protocolKey, unAchieved, unAchievedObj, unusedRis };
+  }
+
+  private async pollSimulationProgress(
+    taskId: string,
+    sessionId: string
+  ): Promise<'completed' | 'fallback_result'> {
+    const maxAttempts = 40;
+    const intervalMs = 3000;
+    const requestTimeoutMs = 10000;
+    const url = `/son/progress/${encodeURIComponent(taskId)}/${encodeURIComponent(sessionId)}`;
+ 
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        console.log('[SIM_API_PHASE3][progress] request start', {
+          taskId,
+          sessionId,
+          attempt,
+        });
+ 
+        const res = await firstValueFrom(
+          this.http.get<any>(url).pipe(timeout(requestTimeoutMs))
+        );
+ 
+        console.log('[SIM_API_PHASE3][progress] request success', {
+          taskId,
+          sessionId,
+          attempt,
+          res,
+        });
+ 
+        const p = this.extractProgressValue(res);
+ 
+        if (p === 1) {
+          console.log('[SIM_API_PHASE3][progress] completed', {
+            taskId,
+            sessionId,
+            attempt,
+            progress: p,
+          });
+          return 'completed';
+        }
+ 
+        console.log('[SIM_API_PHASE3][progress] pending', {
+          taskId,
+          sessionId,
+          attempt,
+          progress: p,
+        });
+ 
+        await this.sleep(intervalMs);
+      } catch (err: any) {
+        console.error('[SIM_API_PHASE3][progress] error', {
+          taskId,
+          sessionId,
+          attempt,
+          err,
+        });
+ 
+        if (err instanceof TimeoutError || err?.name === 'TimeoutError') {
+          console.warn('[SIM_API_PHASE3][progress] request timeout', {
+            taskId,
+            sessionId,
+            attempt,
+          });
+          continue;
+        }
+ 
+        if (this.isLegacyProgressMalformedError(err)) {
+          console.warn(
+            '[SIM_API_PHASE3][progress] legacy malformed progress response, fallback to result',
+            err
+          );
+          return 'fallback_result';
+        }
+ 
+        throw err;
+      }
+    }
+ 
+    throw new Error('Simulation progress polling timeout');
   }
 
   /**
@@ -16791,6 +16993,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       demoPayload.height = bfSim.width ?? 0;
       demoPayload.altitude = bfSim.height ?? 0;
       demoPayload.resolution = gridMetersSim;
+      console.log('[SIM_RESOLUTION_CHECK] heatmapGrid:', bfSim.heatmapGrid, '-> gridMetersSim:', gridMetersSim, '-> demoPayload.resolution:', demoPayload.resolution);
       demoPayload.mapProtocol = bfSim.networkType ?? demoPayload.mapProtocol;
       demoPayload.lteBand = bfSim.band ?? demoPayload.lteBand;
       demoPayload.taskName =
