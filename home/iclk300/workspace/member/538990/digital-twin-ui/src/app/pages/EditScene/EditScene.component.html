@@ -230,6 +230,11 @@
               (viewFiltersChange)="onViewFiltersChange($event)"
               (coverageThresholdChange)="onCoverageThresholdChange($event)"
               (dynamicRangeChange)="onDynamicRangeChange($event)"
+              [hasTerminals]="hasTerminals"
+              [hasAntennas]="hasAntennas"
+              [hasObserveZones]="hasObserveZones"
+              [hasCustomRegions]="hasCustomRegions"
+              [hasObstacles]="hasObstacles"
               (saveClick)="openSaveConfirm('banner')">
             </app-banner>
             <!-- Stage B 右上角：開始運算 -->

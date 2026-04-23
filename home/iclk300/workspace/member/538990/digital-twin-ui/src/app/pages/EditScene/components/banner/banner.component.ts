@@ -7,6 +7,8 @@ export interface ViewFilters {
   showTerminals: boolean;
   showObstacles: boolean;
   showAntennas: boolean;
+  showObserveZones: boolean;
+  showCustomRegions: boolean;
 }
                        
 export interface DynamicRange {
@@ -38,6 +40,11 @@ export class BannerComponent implements OnInit, OnChanges {
 
   @Input() sliceHeight = 1.5;
   @Input() sliceHeightOptions: number[] = [];
+  @Input() hasTerminals = false;
+  @Input() hasAntennas = false;
+  @Input() hasObserveZones = false;
+  @Input() hasCustomRegions = false;
+  @Input() hasObstacles = false;
   activeHeatmapMode = "sinr";
   isViewDropdownOpen = false;
   @ViewChild("viewBtn", { static: false }) viewBtnRef?: ElementRef<HTMLElement>;
@@ -48,7 +55,9 @@ export class BannerComponent implements OnInit, OnChanges {
   viewFilters: ViewFilters = {
     showTerminals: true,
     showObstacles: true,
-    showAntennas: true
+    showAntennas: true,
+    showObserveZones: true,
+    showCustomRegions: true
   };
 
   coverageThreshold = "rsrp_minus_120";

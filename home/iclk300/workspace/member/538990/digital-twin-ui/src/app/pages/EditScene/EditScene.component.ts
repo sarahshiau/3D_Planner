@@ -105,6 +105,8 @@ import {
 } from 'src/app/builders/bs-legacy-serializer';
 import { getExistingBsFieldDefaults } from 'src/app/models/existing-bs-defaults.helper';
 
+import { ViewFilters } from './components/banner/banner.component';
+
 // 你原本的型別（此處維持）
 export type RightPanelType = 'file' | 'task' | 'field' | null;
 // 用途：左側工具（Edit + Result 共用同一個 leftToolType 來切換 panel）
@@ -641,7 +643,10 @@ export type RegistryCategory =
   | 'intelligentPanel'
   | 'candidateBs'
   | 'candidateRis'
-  | 'ue';
+  | 'ue'
+  | 'observe'
+  | 'zone'
+  | 'obstacle';
 
 /**
  * Entry for a scene object in the registry
@@ -709,6 +714,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   sliceHeight = 1.5;
   sliceHeightOptions: number[] = [];
 
+  private viewFilters: ViewFilters = {
+    showTerminals: true,
+    showObstacles: true,
+    showAntennas: true,
+    showObserveZones: true,
+    showCustomRegions: true,
+  };
+
   // ========================================================
   // ===== [SIM_API_PHASE3][TEMP_SESSION] ====================
   // TEMPORARY HARDCODED SESSION FOR DEVELOPMENT ONLY
@@ -753,6 +766,19 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     const snapshot = this.fieldDomainStore.snapshot;
     return (snapshot?.observes?.length ?? 0) > 0;
   }
+
+  private hasRegistryCategory(category: RegistryCategory): boolean {
+    for (const entry of this.sceneObjectRegistry.values()) {
+      if (entry?.category === category) return true;
+    }
+    return false;
+  }
+
+  get hasTerminals(): boolean { return this.hasRegistryCategory('ue'); }
+  get hasAntennas(): boolean  { return this.hasRegistryCategory('existingBs'); }
+  get hasObserveZones(): boolean { return this.hasRegistryCategory('observe'); }
+  get hasCustomRegions(): boolean { return this.hasRegistryCategory('zone'); }
+  get hasObstacles(): boolean { return this.hasRegistryCategory('obstacle'); }
 
   get analysisSubfields(): any[] {
     return this.fieldDomainStore.snapshot?.subfields ?? [];
@@ -9316,6 +9342,9 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     for (const row of state.candidateBs) activeRowIds.add(row.id);
     for (const row of state.candidateRis) activeRowIds.add(row.id);
     for (const row of state.ueList) activeRowIds.add(row.id);
+    for (const row of state.observes) activeRowIds.add(row.id);
+    for (const row of state.zones) activeRowIds.add(row.id);
+    for (const row of state.obstacles) activeRowIds.add(row.id);
 
     return activeRowIds;
   }
@@ -9941,6 +9970,7 @@ private spawnObstaclePrimitiveAt(kind: string, point: any, placedOn: 'ground' | 
     meshId: mesh.uniqueId,
   });
   this.attachFieldRowMetadata(mesh, obstacleRow.id);
+  this.registerSceneObjectForFieldRow(obstacleRow.id, 'obstacle', mesh, mesh, k);
   console.log('[FieldStore][Obstacle] added row', obstacleRow);
   console.log('[COORD][Spawn->Row][Object]', {
     kind: 'basic-object',
@@ -10122,6 +10152,7 @@ private spawnLandscapeAt(itemId: string, point: any, placedOn: 'ground' | 'build
         'landscape',
         'spawnLandscapeAt'
       );
+      this.registerSceneObjectForFieldRow(obstacleRow.id, 'obstacle', owner, owner, shape);
 
       console.log('[FieldStore][Landscape->Obstacle] added row', obstacleRow);
       console.log('[COORD][Spawn->Row][Object]', {
@@ -10259,6 +10290,13 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
     });
   }
   if (rowId) {
+    this.registerSceneObjectForFieldRow(
+      rowId,
+      rowCategory as RegistryCategory,
+      box,
+      box,
+      regionType
+    );
     this.finalizeOwnerHierarchy(
       box,
       rowId,
@@ -10267,7 +10305,7 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       'spawnRegionBoxAt'
     );
   }
-  
+
   this.debugFieldStore(`Region-${regionType}`);
 
   console.log('[Phase4][Region] spawned', { regionType, placedOn, name: box.name });
@@ -11064,12 +11102,50 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   }
 
   onViewFiltersChange(filters: any): void {
-    console.log('[Banner] 檢視篩選已變更:', filters);
-    // TODO: 在此實現邏輯
-    // filters: { showTerminals, showObstacles, showAntennas }
-    // - 切換終端（UE）的可見性
-    // - 切換障礙物（建築）的可見性
-    // - 切換基地台（天線）的可見性
+    console.log('[ViewFilter][Incoming]', filters);
+    this.viewFilters = { ...this.viewFilters, ...filters };
+    this.applyViewFiltersToScene();
+  }
+
+  private applyViewFiltersToScene(): void {
+    console.log('[ViewFilter][Apply]', this.viewFilters);
+    this.setUeVisible(this.viewFilters.showTerminals);
+    this.setObstaclesVisible(this.viewFilters.showObstacles);
+    this.setExistingBsVisible(this.viewFilters.showAntennas);
+    this.setObserveZonesVisible(this.viewFilters.showObserveZones);
+    this.setCustomRegionsVisible(this.viewFilters.showCustomRegions);
+  }
+
+  private setRegistryCategoryVisible(category: RegistryCategory, visible: boolean): void {
+    let matchedCount = 0;
+    for (const entry of this.sceneObjectRegistry.values()) {
+      if (entry?.category !== category) continue;
+      matchedCount += 1;
+      try {
+        entry.ownerNode?.setEnabled?.(visible);
+      } catch {}
+    }
+    console.log('[ViewFilter][RegistryCategoryToggle]', { category, visible, matchedCount });
+  }
+
+  private setUeVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('ue', visible);
+  }
+
+  private setExistingBsVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('existingBs', visible);
+  }
+
+  private setObserveZonesVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('observe', visible);
+  }
+
+  private setCustomRegionsVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('zone', visible);
+  }
+
+  private setObstaclesVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('obstacle', visible);
   }
 
   onCoverageThresholdChange(threshold: string): void {
