@@ -1142,6 +1142,19 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       meta?.osmId != null ||
       meta?.tags?.building != null ||
       false;
+
+    // 建築物不開啟右鍵功能
+    if (isBuildingCandidate) {
+      return {
+        rowId: null,
+        kind: null,
+        seq: null,
+        displayId: '建築物不支援右鍵功能',
+        isBuildingObstacle: false,
+        row: null,
+      };
+    }
+
     const isObstacleRowId = typeof rowId === 'string' && rowId.startsWith('obs_');
 
     if (type === 'obstacle' || type === 'landscape' || isBuildingCandidate || isObstacleRowId) {
@@ -6622,6 +6635,29 @@ private __antennaPlaceableSeq = 0;
             const pickedMesh = pickResult.pickedMesh as AbstractMesh;
             const owner = this.resolveSceneObjectOwner(pickedMesh as any);
 
+            const ownerMeta = (owner as any)?.metadata ?? {};
+            const ownerType = ownerMeta.type ?? null;
+            const isBuildingCandidate =
+              ownerType === 'building' ||
+              ownerMeta?.osmId != null ||
+              ownerMeta?.tags?.building != null ||
+              false;
+
+            if (isBuildingCandidate) {
+              console.log('[RightClickMenu] blocked for building', {
+                picked: pickedMesh?.name ?? null,
+                owner: (owner as any)?.name ?? null,
+                ownerType,
+                ownerMeta,
+              });
+
+              this.isMenuVisible = false;
+              this.isCurrentlyRightClick = false;
+              this.ctxMenuTargetMesh = null;
+              this.ctxMenuTargetUniqueId = null;
+              return;
+            }
+
             this.setSelectedSceneObject(pickedMesh);
             this.ctxMenuTargetMesh = owner as any;
             this.ctxMenuTargetUniqueId = owner?.uniqueId ?? null;
@@ -7483,7 +7519,7 @@ private __antennaPlaceableSeq = 0;
     const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
     const mesh: any = pick?.pickedMesh;
 
-    // 放置模式下：只 pick 到 ground/building，避免被已放置物件（含 region / tree）擋住
+    // 放置模式下：只 pick 到 ground/building/obstacle，避免被其他已放置物件（含 region / tree）擋住
     const surfacePick =
       this.placementMode !== 'none'
         ? this.scene.pick(
@@ -7491,7 +7527,7 @@ private __antennaPlaceableSeq = 0;
             this.scene.pointerY,
             (m: any) => {
               const t = m?.metadata?.type ?? null;
-              return t === 'ground' || t === 'building';
+              return t === 'ground' || t === 'building' || t === 'obstacle';
             }
           )
         : pick;
@@ -7629,7 +7665,8 @@ private __antennaPlaceableSeq = 0;
   // -------------------- Phase 4: Single-shot capture (use surfacePick) --------------------
   const surfaceType: string | null = surfaceMesh?.metadata?.type ?? null;
   const allowed =
-    surfacePick?.hit === true && (surfaceType === 'ground' || surfaceType === 'building');
+    surfacePick?.hit === true &&
+    (surfaceType === 'ground' || surfaceType === 'building' || surfaceType === 'obstacle');
 
   const capturedMode = this.placementMode;
 

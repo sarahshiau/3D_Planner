@@ -334,6 +334,11 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
     return false;
   }
 
+  // [PreviewFlow v1 re-confirm fix]
+  get canConfirmPreview(): boolean {
+    return !!this.pendingBBox && !this.isPreviewLocked;
+  }
+
   get canConfirmMap(): boolean {
     return !!this.selectedBBox
       && !this.isGenerating
@@ -470,6 +475,7 @@ export class MapPickerComponent implements AfterViewInit, OnDestroy {
 
       this.previewAssets = null;
       this.currentPreviewBBoxKey = null;
+      this.lastFetchedBBox = null;
       this.previewStatus = 'idle';
       this.previewEngine?.resize();
 

@@ -150,12 +150,7 @@
             class="primary"
             type="button"
             (click)="onConfirmPreview()"
-            [disabled]="
-              !pendingBBox ||
-              isPreviewLocked ||
-              previewFlowState === 'preview_cancelling' ||
-              previewFlowState === 'preview_clearing'
-            "
+            [disabled]="!canConfirmPreview"
           >
             預覽確認
           </button>
