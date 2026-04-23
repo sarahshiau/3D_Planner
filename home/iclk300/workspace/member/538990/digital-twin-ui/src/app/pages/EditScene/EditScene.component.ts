@@ -706,6 +706,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ===== Simulation Result =====
   completeCalcResult: any = null; // 先用 any，之後再補 DTO
+  sliceHeight = 1.5;
+  sliceHeightOptions: number[] = [];
 
   // ========================================================
   // ===== [SIM_API_PHASE3][TEMP_SESSION] ====================
@@ -10983,32 +10985,54 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   }
 
 
-  onSliceHeightChange(sliceHeight: number): void {
-    console.log('[Banner] 切面高度已變更:', sliceHeight, 'm');
+  private parseSliceHeightOptionsFromCompleteCalcResult(result: any): number[] {
+    const candidates: number[] = [];
 
-    // 步驟 1：更新內部狀態
-    this.heatmapSliceHeight = sliceHeight;
-
-    // 步驟 2：若平面已存在，更新其高度位置
-    if (this.heatmapPlane) {
-      this.heatmapPlane.position.y = sliceHeight;
-      console.log('[Banner] 熱力圖平面高度已更新至:', sliceHeight, 'm');
-    }
-
-    // 步驟 3：若已有模擬數據，重新計算該高度的訊號值
-    if (this.isSimulationDone && this.gridDataBuffer && this.simulationGrid.length > 0) {
-      const scene = this.scene;
-      const antennas = this.p2_collectSignalNodes(scene).antennas;
-      const blockers = this.p2_collectSignalNodes(scene).blockers;
-
-      if (antennas.length > 0) {
-        console.log('[Banner] 重新計算高度', sliceHeight, '的訊號…');
-        // 重新執行模擬以取得該高度的新數據
-        this.runHeatmapSimulation(scene, antennas, blockers);
-        
-        console.log('[Banner] 訊號重新計算完成 ✓');
+    const rawInputZ = result?.input?.zValue;
+    if (typeof rawInputZ === 'string' && rawInputZ.trim() !== '') {
+      try {
+        const parsed = JSON.parse(rawInputZ);
+        if (Array.isArray(parsed)) {
+          for (const v of parsed) {
+            const n = Number(v);
+            if (Number.isFinite(n)) candidates.push(n);
+          }
+        }
+      } catch (err) {
+        console.warn('[SliceHeight] failed to parse input.zValue', rawInputZ, err);
       }
     }
+
+    const fieldStats = result?.['5GOutput']?.fieldStatistics?.data;
+    if (Array.isArray(fieldStats)) {
+      for (const row of fieldStats) {
+        const n = Number(row?.zValue);
+        if (Number.isFinite(n)) candidates.push(n);
+      }
+    }
+
+    const subStats = result?.['5GOutput']?.subfieldStatistics;
+    if (Array.isArray(subStats)) {
+      for (const row of subStats) {
+        const n = Number(row?.zValue);
+        if (Number.isFinite(n)) candidates.push(n);
+      }
+    }
+
+    return Array.from(new Set(candidates)).sort((a, b) => a - b);
+  }
+
+  onSliceHeightChange(nextHeight: number): void {
+    this.sliceHeight = Number(nextHeight);
+    this.heatmapSliceHeight = this.sliceHeight;
+    console.log('[Heatmap][SliceHeight] changed', this.sliceHeight);
+
+    if (!this.completeCalcResult) {
+      console.warn('[Heatmap][SliceHeight] completeCalcResult not ready');
+      return;
+    }
+
+    this.rerenderHeatmapByCurrentControls();
   }
 
 
@@ -11029,14 +11053,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     if (this.distMode === 'coverage') {
       this.showPlotlyHeatmapPlaneAndColorbar();
       this.hidePlotlyColorbarOnly();
-      void this.requestHeatmapRerender('mode');
+      this.rerenderHeatmapByCurrentControls();
       return;
     }
 
     this.showPlotlyHeatmapPlaneAndColorbar();
     this.showPlotlyColorbarHost();
     this.disposeCoverageOverlay();
-    void this.requestHeatmapRerender('coverage-threshold');
+    this.rerenderHeatmapByCurrentControls();
   }
 
   onViewFiltersChange(filters: any): void {
@@ -11061,7 +11085,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return;
     }
 
-    void this.requestHeatmapRerender('mode');
+    this.rerenderHeatmapByCurrentControls();
   }
 
   private ensureCoverageOverlayRoot(): TransformNode {
@@ -11241,7 +11265,33 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     this.committedRangeByMode[this.distMode] = { min, max };
-    void this.requestHeatmapRerender('confirm');
+    this.rerenderHeatmapByCurrentControls();
+  }
+
+  private rerenderHeatmapByCurrentControls(): void {
+    if (!this.completeCalcResult) return;
+
+    const matrix = this.resolveHeatmapMatrixByModeAndHeight(
+      this.completeCalcResult,
+      this.distMode,
+      this.sliceHeight
+    );
+
+    if (!matrix) {
+      console.warn('[Heatmap][Render] matrix not found', {
+        mode: this.distMode,
+        sliceHeight: this.sliceHeight,
+      });
+      return;
+    }
+
+    console.log('[Heatmap][Rerender]', {
+      mode: this.distMode,
+      sliceHeight: this.sliceHeight,
+    });
+
+    // 接回你原本既有的 Plotly render 流程
+    void this.requestHeatmapRerender('mode');
   }
 
   private async requestHeatmapRerender(reason: 'mode' | 'confirm' | 'coverage-threshold'): Promise<void> {
@@ -14741,6 +14791,33 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     return raw as any[][];
   }
 
+  private parseBackendZValues(raw: unknown): number[] {
+    if (Array.isArray(raw)) {
+      return raw.map(Number).filter((n) => Number.isFinite(n));
+    }
+    if (typeof raw === 'string' && raw.trim() !== '') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map(Number).filter((n) => Number.isFinite(n));
+        }
+      } catch (err) {
+        console.warn('[HEATMAP][Z_LEVELS] failed to parse zValue', raw, err);
+      }
+    }
+    return [];
+  }
+
+  private resolveHeatmapZIndex(zLevels: number[], sliceHeight: number): number {
+    const exact = zLevels.findIndex((v) => Number(v) === Number(sliceHeight));
+    if (exact >= 0) return exact;
+
+    const fuzzy = zLevels.findIndex((v) => Math.abs(Number(v) - Number(sliceHeight)) < 1e-6);
+    if (fuzzy >= 0) return fuzzy;
+
+    return 0;
+  }
+
   // Backend raw 2D grid → canonical heatmap matrix z[j][i] (mode-agnostic).
   private extractBackendHeatmapMatrix(
     rawMap: any,
@@ -14784,6 +14861,10 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return null;
     }
 
+    // Step 1.5: resolve z-level index from input.zValue + current sliceHeight
+    const zLevels = this.parseBackendZValues(result?.input?.zValue);
+    const zIndex = this.resolveHeatmapZIndex(zLevels, this.sliceHeight);
+
     // Step 2: parse cells (iterative only; same rules as legacy map path).
     const parsed: (number | null)[][] = new Array(nx_raw);
     for (let i = 0; i < nx_raw; i++) {
@@ -14796,8 +14877,9 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           if (typeof cell === 'number' && Number.isFinite(cell)) {
             outRow[j] = cell;
           } else if (Array.isArray(cell)) {
-            const first = cell.find((v: any) => Number.isFinite(Number(v)));
-            outRow[j] = first != null ? Number(first) : null;
+            const picked = cell[zIndex];
+            const num = Number(picked);
+            outRow[j] = Number.isFinite(num) ? num : null;
           } else {
             const num = Number(cell);
             outRow[j] = Number.isFinite(num) ? num : null;
@@ -14857,11 +14939,18 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       1;
     const cellSize = Number.isFinite(resolutionNum) && resolutionNum > 0 ? resolutionNum : 1;
 
-    const sliceY =
-      Number(inputMeta?.zValue?.[0]) ||
-      Number(result?.input?.zValue?.[0]) ||
-      Number(this.plotlyHeatmapSliceHeight) ||
-      1.5;
+    const sliceY = Number.isFinite(zLevels[zIndex])
+      ? zLevels[zIndex]
+      : (Number(this.plotlyHeatmapSliceHeight) || 1.5);
+
+    console.log('[HEATMAP][Z_SELECTOR]', {
+      requestedSliceHeight: this.sliceHeight,
+      zLevels,
+      resolvedZIndex: zIndex,
+      resolvedSliceY: sliceY,
+      sampleCellRaw: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0] : rawMap?.[0]?.[0],
+      samplePickedValue: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0][zIndex] : rawMap?.[0]?.[0],
+    });
 
     const widthMeta = Number(inputMeta?.width);
     const heightMeta = Number(inputMeta?.height);
@@ -15096,6 +15185,48 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return null;
     }
     return source as any[][];
+  }
+
+  private hasPerHeightValuesInCellArray(source: any): boolean {
+    if (!Array.isArray(source) || source.length === 0) return false;
+    const firstRow = source.find((row: any) => Array.isArray(row) && row.length > 0);
+    if (!firstRow) return false;
+    const firstCell = firstRow.find((cell: any) => cell != null);
+    return Array.isArray(firstCell);
+  }
+
+  private resolveHeatmapMatrixByModeAndHeight(
+    result: any,
+    mode: string,
+    sliceHeight: number
+  ): any[] | null {
+    console.log('[Heatmap][ResolveMatrix]', { mode, sliceHeight });
+
+    // Coverage derives its matrix internally from rsrp/sinr — no raw source at this layer.
+    if (mode === 'coverage') {
+      return [];
+    }
+
+    const source = this.getBackendHeatmapSourceByMode(result, mode as DistributionMode);
+
+    if (!source) {
+      console.warn('[Heatmap][Render] matrix not found', { mode, sliceHeight });
+      return null;
+    }
+
+    const hasPerHeightCellArray = this.hasPerHeightValuesInCellArray(source);
+
+    console.log('[HEATMAP][PER_HEIGHT_SHAPE]', {
+      mode,
+      sliceHeight,
+      hasPerHeightCellArray,
+    });
+
+    if (!hasPerHeightCellArray) {
+      console.warn('[Heatmap][SliceHeight] source has no per-height cell array', { mode, sliceHeight });
+    }
+
+    return source;
   }
 
   // ===== [Phase 8] Heatmap render cache (per key: mode + range/threshold + slice) =====
@@ -18533,6 +18664,13 @@ private analyzeCompleteCalcResult(completeRes: any): {
       this.completeCalcResult = completeRes;
       this.lastCompleteCalcResult = completeRes;
       this.resultService.setResultData(completeRes as ResultApiResponse);
+
+      this.sliceHeightOptions = this.parseSliceHeightOptionsFromCompleteCalcResult(completeRes);
+      console.log('[SliceHeight][Options]', this.sliceHeightOptions);
+      if (this.sliceHeightOptions.length > 0) {
+        const hasCurrent = this.sliceHeightOptions.includes(this.sliceHeight);
+        this.sliceHeight = hasCurrent ? this.sliceHeight : this.sliceHeightOptions[0];
+      }
 
       console.log('[RESULT_WRITE_BACK]', {
         completeRes,

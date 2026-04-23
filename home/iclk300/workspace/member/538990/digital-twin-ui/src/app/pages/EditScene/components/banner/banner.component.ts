@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, ViewChild, ElementRef, HostListener } from "@angular/core";
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener } from "@angular/core";
 import { Router } from "@angular/router";
 import { ProjectDraftService } from "src/app/services/project-draft.service";
 import { AlertService } from "src/app/services/alert.service";
@@ -19,7 +19,7 @@ export interface DynamicRange {
   templateUrl: "./banner.component.html",
   styleUrls: ["./banner.component.scss"]
 })
-export class BannerComponent implements OnInit {
+export class BannerComponent implements OnInit, OnChanges {
   @Input() sceneName = "工業技術研究院 中興院區";
   @Input() location = "戶外";
 
@@ -36,8 +36,8 @@ export class BannerComponent implements OnInit {
   // ✅ Banner project actions (UI only)
   isProjectActionsEnabled = true;
 
-  sliceHeight = 1.5;
-  readonly sliceHeightOptions = [1.5, 3.5, 10];
+  @Input() sliceHeight = 1.5;
+  @Input() sliceHeightOptions: number[] = [];
   activeHeatmapMode = "sinr";
   isViewDropdownOpen = false;
   @ViewChild("viewBtn", { static: false }) viewBtnRef?: ElementRef<HTMLElement>;
@@ -68,6 +68,16 @@ export class BannerComponent implements OnInit {
     private projectDraftService: ProjectDraftService,
     private alertService: AlertService
   ) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["sliceHeightOptions"]) {
+      const options = this.sliceHeightOptions ?? [];
+      if (options.length > 0 && !options.includes(this.sliceHeight)) {
+        this.sliceHeight = options[0];
+        this.sliceHeightChange.emit(this.sliceHeight);
+      }
+    }
+  }
 
   ngOnInit(): void {
     const projectName = this.projectDraftService.getProjectName();
