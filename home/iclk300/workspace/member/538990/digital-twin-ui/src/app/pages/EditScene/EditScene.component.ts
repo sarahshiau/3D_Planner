@@ -44,6 +44,7 @@ import {
   Texture,
   Material,
   VertexBuffer,
+  PointerDragBehavior,
 } from '@babylonjs/core';
 
 import { HighlightLayer } from '@babylonjs/core/Layers/highlightLayer';
@@ -2063,13 +2064,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
 
-        this.phase2EditingOwner = target;
-        console.log('[CTX][GIZMO] calling attach...');
-        this.phase2AttachGizmo(target);
-
-        if (this.gizmoManager) {
-          this.gizmoManager.scaleGizmoEnabled = true;
-        }
+        console.log('[CTX][GIZMO] entering Gizmo Mode...');
+        this.enterGizmoMode(target);
         break;
       }
       case 'delete':
@@ -4492,7 +4488,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     height: 0,
     cutHeights: ['1.05', '', ''],
     //解析度調整
-    heatmapGrid: '1x1',
+    heatmapGrid: '2x2',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -4572,6 +4568,14 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   private phase2SelectedOwner: AbstractMesh | null = null;
   private phase2EditingOwner: AbstractMesh | null = null;
   // -------------------- End Phase 2.2 --------------------
+
+  /** XZ-plane drag behavior attached to the currently-editing mesh. Null when nothing is editing. */
+  private movePointerDragBehavior: PointerDragBehavior | null = null;
+  /** Mesh that currently owns movePointerDragBehavior; used for reliable detach without relying on Babylon private _attachedNode. */
+  private movePointerDragOwner: AbstractMesh | null = null;
+
+  /** Mutual-exclusion mode: 'drag' = PointerDragBehavior only; 'gizmo' = gizmo only; null = nothing selected. */
+  private transformControlMode: 'drag' | 'gizmo' | null = null;
 
   // -------------------- Spawn defaults (Phase 4/5) --------------------
   // 先 hardcode，之後再參數化
@@ -6258,6 +6262,7 @@ private __antennaPlaceableSeq = 0;
 
   ngOnDestroy(): void {
     this.fieldSceneSyncSub?.unsubscribe();
+    this.detachMovePointerDragBehavior();
 
     // ===== [Patch 6] Cleanup gizmo observers =====
     const posGizmo: any = this.gizmoManager?.gizmos?.positionGizmo;
@@ -7351,8 +7356,13 @@ private __antennaPlaceableSeq = 0;
       // owner-only selection state (picked mesh kept for debug)
       this.setSelectedSceneObject(pickedMesh as any);
 
-      // Blank / non-interactive pick: do not clear gizmo or field-card selection
+      // Blank / non-interactive pick: clear drag + mode, keep gizmo & field-card selection
       if (!ownerNode) {
+        this.detachMovePointerDragBehavior();
+        // Do NOT clear gizmo mode on blank click — gizmo stays open until explicitly closed
+        if (this.transformControlMode !== 'gizmo') {
+          this.transformControlMode = null;
+        }
         this.clearPinnedHighlight();
         this.recomputeActiveCardVM();
         this.phase2LastClickAt = 0;
@@ -7360,7 +7370,8 @@ private __antennaPlaceableSeq = 0;
         return;
       }
 
-      if (this.gizmoManager?.attachedMesh || this.phase2EditingOwner) {
+      // In gizmo mode, do NOT exit editing on object click — gizmo must stay attached
+      if (this.transformControlMode !== 'gizmo' && (this.gizmoManager?.attachedMesh || this.phase2EditingOwner)) {
         this.phase2ExitEditing();
       }
 
@@ -7569,26 +7580,18 @@ private __antennaPlaceableSeq = 0;
       return;
     }
 
-    // 3) Gizmo not open: single-click selects; double-click opens
-    this.phase2SelectedOwner = owner;
-
-    const now2 = performance.now();
-    const withinWindow2 = (now2 - this.phase2LastClickAt) <= this.PHASE2_DBLCLICK_MS;
-    const sameTarget2 =
-      this.phase2LastClickPickId !== null && owner.uniqueId === this.phase2LastClickPickId;
-
-    if (withinWindow2 && sameTarget2) {
-      // double-click → open
-      if (!this.guardEditWrite('pointer:phase2AttachGizmo dblclick')) return;
-      this.phase2AttachGizmo(owner);
-      this.phase2LastClickAt = 0;
-      this.phase2LastClickPickId = null;
+    // 3) Single click: Drag Mode only — blocked while gizmo is active
+    console.log('[TransformMode][Click3]', { transformControlMode: this.transformControlMode, owner: owner?.name ?? null });
+    if (this.transformControlMode === 'gizmo') {
+      // Gizmo is open; keep drag disabled until user explicitly closes gizmo
+      console.log('[TransformMode][Click3] blocked — gizmo mode active');
       return;
     }
-
-    // first click candidate → record and RETURN (critical)
-    this.phase2LastClickAt = now2;
-    this.phase2LastClickPickId = owner.uniqueId;
+    this.phase2SelectedOwner = owner;
+    if (!this.guardEditWrite('pointer:enterDragMode singleclick')) return;
+    this.enterDragMode(owner);
+    this.phase2LastClickAt = 0;
+    this.phase2LastClickPickId = null;
     return;
     // -------------------- End Phase 2 (converged) --------------------
 
@@ -7827,6 +7830,8 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     if (!this.gizmoManager) return;
 
     if (!target) {
+      this.detachMovePointerDragBehavior();
+      this.transformControlMode = null;
       this.gizmoManager.attachToMesh(null);
       this.phase2EditingMesh = null;
       this.phase2EditingOwner = null;
@@ -7840,6 +7845,8 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     const resolvedOwner = this.resolveSceneObjectOwner(target as any) ?? target;
     const owner = resolvedOwner instanceof AbstractMesh ? resolvedOwner : null;
     if (!owner) {
+      this.detachMovePointerDragBehavior();
+      this.transformControlMode = null;
       this.gizmoManager.attachToMesh(null);
       this.phase2EditingMesh = null;
       this.phase2EditingOwner = null;
@@ -7850,13 +7857,15 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
       return;
     }
 
+    // Ensure drag is fully detached before gizmo takes control
+    this.detachMovePointerDragBehavior();
     this.gizmoManager.attachToMesh(owner);
 
     // -------------------- Phase 3: Gizmo scale policy --------------------
     const t = (owner as any)?.metadata?.type ?? null;
 
-    // Move / Rotate: always enabled for editable targets
-    this.gizmoManager.positionGizmoEnabled = true;
+    // Rotate: always enabled. Position (move) gizmo is intentionally OFF — movement is handled by Drag Mode (PointerDragBehavior) exclusively.
+    this.gizmoManager.positionGizmoEnabled = false;
     this.gizmoManager.rotationGizmoEnabled = true;
 
     // Scale: disabled for antenna / terminal; enabled for others
@@ -7869,6 +7878,7 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     this.phase2EditingOwner = owner;
     this.phase2EditingMesh = owner;
     this.selectedOwner = owner;
+    // NOTE: intentionally no attachMovePointerDragBehavior here — gizmo mode is exclusive
 
     console.log('[Gizmo][OwnerAttach]', {
       target: (target as any)?.name ?? null,
@@ -7894,6 +7904,73 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
 
 
   // -------------------- End Phase 2 --------------------
+
+  // -------------------- PointerDragBehavior helpers (XZ mesh-body drag) --------------------
+
+  private detachMovePointerDragBehavior(): void {
+    if (this.movePointerDragBehavior) {
+      try {
+        // Use tracked owner instead of private Babylon _attachedNode for reliability
+        const host = this.movePointerDragOwner;
+        if (host && typeof host.removeBehavior === 'function') {
+          host.removeBehavior(this.movePointerDragBehavior);
+        }
+      } catch { /* ignore disposal errors */ }
+      console.log('[TransformMode][Drag] detachMovePointerDragBehavior', { owner: this.movePointerDragOwner?.name ?? null });
+      this.movePointerDragBehavior = null;
+      this.movePointerDragOwner = null;
+    }
+  }
+
+  private attachMovePointerDragBehavior(owner: AbstractMesh): void {
+    this.detachMovePointerDragBehavior();
+
+    const drag = new PointerDragBehavior({ dragPlaneNormal: new Vector3(0, 1, 0) });
+    drag.detachCameraControls = true;
+
+    drag.onDragEndObservable.add(() => {
+      this.syncSelectedSceneObjectToFieldStore('position');
+    });
+
+    owner.addBehavior(drag);
+    this.movePointerDragBehavior = drag;
+    this.movePointerDragOwner = owner;
+    console.log('[TransformMode][Drag] attachMovePointerDragBehavior', { owner: owner.name });
+  }
+
+  // -------------------- Transform control mode (mutual exclusion) --------------------
+
+  /** Single-click: select + XZ drag only. No gizmo. */
+  private enterDragMode(owner: AbstractMesh): void {
+    if (this.transformControlMode === 'gizmo') {
+      console.log('[TransformMode] enterDragMode blocked — gizmo mode is active', { owner: owner.name });
+      return;
+    }
+    console.log('[TransformMode] enterDragMode → start', { owner: owner.name, prevMode: this.transformControlMode });
+    this.transformControlMode = 'drag';
+    this.detachMovePointerDragBehavior();
+    if (this.gizmoManager) {
+      this.gizmoManager.attachToMesh(null);
+    }
+    this.phase2EditingOwner = owner;
+    this.phase2EditingMesh = owner;
+    this.selectedOwner = owner;
+    this.attachMovePointerDragBehavior(owner);
+    console.log('[TransformMode] enterDragMode → done', { owner: owner.name, mode: this.transformControlMode });
+  }
+
+  /** Right-click menu: open gizmo (rotate+scale only), detach drag. Delegates to phase2AttachGizmo for gizmo policy. */
+  private enterGizmoMode(owner: AbstractMesh): void {
+    console.log('[TransformMode] enterGizmoMode → start', { owner: owner.name, prevMode: this.transformControlMode });
+    this.transformControlMode = 'gizmo';
+    this.detachMovePointerDragBehavior();
+    this.phase2AttachGizmo(owner);
+    console.log('[TransformMode] enterGizmoMode → done', { owner: owner.name, mode: this.transformControlMode, positionGizmo: this.gizmoManager?.positionGizmoEnabled ?? null });
+  }
+
+  // -------------------- End Transform control mode --------------------
+
+  // -------------------- End PointerDragBehavior helpers --------------------
 
   // -------------------- Phase 2.2: exit editing --------------------
   private phase2ExitEditing(): void {
