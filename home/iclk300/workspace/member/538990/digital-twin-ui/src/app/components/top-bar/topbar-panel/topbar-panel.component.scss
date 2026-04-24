@@ -15,8 +15,7 @@
   width: 320px;
   height: calc(100vh - 56px);
 
-  background: rgba(14, 35, 56, 0.98);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: var(--card-bg);
 
   z-index: 2200;
 
@@ -55,7 +54,7 @@
   color: #fff;
   border-radius: 6px;
     &:hover {
-    background: rgba(27, 55, 85, 0.98);
-    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
     }
 }

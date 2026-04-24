@@ -4596,7 +4596,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
    * - landscape: 'tree'
    * - observeZone/customZone: 你按鈕的 id（用於 debug）
    */
-  private phase4PendingItemId: string | null = null;
+  phase4PendingItemId: string | null = null;
 
   // Phase 2: double-click to edit (gizmo)
   private phase2LastClickAt = 0;

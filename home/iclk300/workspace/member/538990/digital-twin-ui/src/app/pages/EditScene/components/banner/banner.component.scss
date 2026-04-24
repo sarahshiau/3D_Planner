@@ -43,9 +43,8 @@
   border-top-right-radius: 40px;
   border-bottom-right-radius: 40px;
   
-  background: rgba(20, 24, 36, 0.9);              // 深色半透明
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+  background: var(--navbar-bg);
+  border-bottom: 1px solid var(--border-default);
 
   /* ⭐ 寬度跟視窗等比例縮放 */
   width: clamp(360px, 45vw, 720px);

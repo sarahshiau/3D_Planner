@@ -447,12 +447,12 @@
             </ng-container>
 
             <div class="object-sub-tabs" *ngIf="activeObjectTab() === 'bs'">
-              <button
+              <!-- <button
                 class="object-sub-btn"
                 (click)="bsViewMode.set('existing')"
                 [class.active]="bsViewMode() === 'existing'">
                 顯示既有基站
-              </button>
+              </button> -->
               <button
                 *ngIf="!isSimulationModeEffective()"
                 class="object-sub-btn"

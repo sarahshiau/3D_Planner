@@ -1225,7 +1225,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   /** 基地台列 id（chosen / input 列皆可能用 ID 大寫） */
   private resolveBsId(row: any): number | null {
     if (!row || typeof row !== 'object') return null;
-    for (const key of ['id', 'ID', 'bsID'] as const) {
+    for (const key of ['seq', 'bsId', 'bsID', 'id', 'ID'] as const) {
       const n = this.asFiniteNumber(row[key]);
       if (n !== null) return Math.trunc(n);
     }
@@ -1319,14 +1319,27 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   /** row.txPower → row.params.txPower → input defaultBs 同 id 的 params.txPower */
   private resolveBsTxPower(row: any): unknown {
-    const direct = row?.txPower ?? row?.params?.txPower;
+    const direct =
+      row?.txPower ??
+      row?.power ??
+      row?.params?.txPower;
+
     if (direct != null && direct !== '') return direct;
+
     const id = this.resolveBsId(row);
     if (id != null) {
       const inputBs = this.findInputDefaultBsById(id);
-      const p = inputBs?.params?.txPower;
+      const p =
+        inputBs?.txPower ??
+        inputBs?.power ??
+        inputBs?.params?.txPower;
       if (p != null && p !== '') return p;
     }
+
+    const input = this.objectInput();
+    const globalTxPower = input?.txPower;
+    if (globalTxPower != null && globalTxPower !== '') return globalTxPower;
+
     return null;
   }
 

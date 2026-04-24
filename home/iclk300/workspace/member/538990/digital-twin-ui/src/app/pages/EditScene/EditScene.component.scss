@@ -418,6 +418,11 @@ app-right-sidebar,
   }
 }
 
+.leftsidepatal-btn.active {
+  background: rgba(174, 183, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
 .btn-icon {
   width: 35px;
   height: 35px;
@@ -845,7 +850,7 @@ app-right-sidebar,
   align-items: center;
   justify-content: space-between;
   padding: 8px 16px;
-  background: rgb(0 61 144 / 60%);
+  background: var(--navbar-bg);
   color: #fff;
 }
 

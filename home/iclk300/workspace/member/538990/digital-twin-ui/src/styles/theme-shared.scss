@@ -1,0 +1,94 @@
+/* ========= 1) VS Code-like Tokens ========= */
+:root {
+  --page-bg: #1E1E1E;
+  --navbar-bg: #252526;
+  --surface-bg: #2D2D30;
+  --card-bg: #252526;
+  --card-hover: #2A2D2E;
+
+  --border-subtle: #2A2A2A;
+  --border-default: #3C3C3C;
+
+  --text-primary: #D4D4D4;
+  --text-secondary: #9DA3A6;
+
+  --accent: #007ACC;
+  --accent-hover: #1A85D6;
+  --accent-soft: rgba(0,122,204,0.15);
+
+  --danger: #F14C4C;
+  --danger-soft: rgba(241,76,76,0.15);
+}
+
+/* ========= 2) Page 基礎 ========= */
+body {
+  background: var(--page-bg) !important;
+  color: var(--text-primary);
+}
+
+/* ========= 3) Navbar ========= */
+// header,
+// nav,
+// [class*='nav'],
+// [class*='header'] {
+//   background: var(--navbar-bg) !important;
+//   border-bottom: 1px solid var(--border-default) !important;
+// }
+
+/* ========= 4) Sidebar ========= */
+// aside,
+// [class*='side'],
+// [class*='menu'],
+// [class*='drawer'] {
+//   background: var(--surface-bg) !important;
+//   border-right: 1px solid var(--border-default) !important;
+// }
+
+/* ========= 5) 卡片 / 列表 ========= */
+[class*='row'],
+tr {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-subtle) !important;
+}
+
+/* ========= 6) 表頭 ========= */
+// [class*='header'],
+// thead {
+//   background: var(--surface-bg) !important;
+//   color: var(--text-secondary) !important;
+// }
+
+// /* ========= 7) Button ========= */
+// button {
+//   border: 1px solid var(--border-default);
+//   color: var(--text-secondary);
+//   background: transparent;
+// }
+
+// button:hover {
+//   background: var(--accent-soft);
+//   color: var(--text-primary);
+// }
+
+/* 主按鈕（如果你有 primary class） */
+[class*='primary'] {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+[class*='primary']:hover {
+  background: var(--accent-hover) !important;
+}
+
+/* ========= 8) Danger ========= */
+[class*='delete'],
+[class*='remove'],
+[class*='danger'] {
+  color: var(--danger) !important;
+}
+
+[class*='delete']:hover,
+[class*='remove']:hover {
+  background: var(--danger-soft) !important;
+}
