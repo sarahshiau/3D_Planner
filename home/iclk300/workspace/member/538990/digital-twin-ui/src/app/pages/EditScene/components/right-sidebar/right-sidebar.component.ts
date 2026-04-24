@@ -2478,10 +2478,38 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   });
 
   readonly subfieldAnalysisVms = computed<SubfieldAnalysisVm[]>(() => {
-    const raw = buildSubfieldAnalysisVms(
-      this.analysisSubfieldsSignal(),
-      this.resultOutput,
-    );
+    const result = (this.resultService.result?.() as any) ?? null;
+    const analysisSubfields = this.analysisSubfieldsSignal();
+
+    // Resolve subfieldStatistics from all known result shapes.
+    const rawStats: any =
+      result?.['5GOutput']?.subfieldStatistics ??
+      result?.output?.subfieldStatistics ??
+      result?.subfieldStatistics ??
+      null;
+    const stats: any[] = Array.isArray(rawStats) ? rawStats : [];
+
+    console.log('[OBS_DEBUG]', {
+      result,
+      stats,
+      analysisSubfields,
+      matched: analysisSubfields.map((s: any) => ({
+        subfieldID: s.subfieldID,
+        stat: stats.find((st: any) =>
+          st.subfieldID === s.subfieldID ||
+          st.subfieldId === s.subfieldID ||
+          st.ID === s.subfieldID ||
+          st.id === s.subfieldID
+        ) ?? null,
+      })),
+    });
+
+    // Merge resolved stats into a synthetic output the builder can consume.
+    const syntheticOutput: any = result != null
+      ? { ...(this.resultOutput ?? {}), subfieldStatistics: stats }
+      : null;
+
+    const raw = buildSubfieldAnalysisVms(analysisSubfields, syntheticOutput);
     return raw.map((vm) => finalizeSubfieldAnalysisVm(vm));
   });
 

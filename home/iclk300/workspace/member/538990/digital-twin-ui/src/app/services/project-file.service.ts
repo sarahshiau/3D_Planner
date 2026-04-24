@@ -17,10 +17,6 @@ export class ProjectFileService {
    * 假 API：不打後端，只印出「像是有打出去」的紀錄，並模擬成功回傳
    */
   saveProject(payload: SaveProjectPayload): Observable<{ ok: boolean; requestId: string }> {
-    // 模擬「打 API」的紀錄（你可以在 console 看到）
-    console.log('[FAKE API] POST /api/projects/save');
-    console.log('[FAKE API] payload =', payload);
-
     // 模擬回傳（延遲 300ms，讓你更像真實 request）
     const mockResponse = {
       ok: true,

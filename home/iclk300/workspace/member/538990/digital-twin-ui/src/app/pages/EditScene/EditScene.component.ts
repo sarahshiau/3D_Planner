@@ -84,6 +84,7 @@ import { HttpClient } from '@angular/common/http';
 
 // ===== [SIM_API_PHASE1] Imports =====
 import { BaseTaskPayloadBuilder } from 'src/app/builders/base-task-payload.builder';
+import { serializeSubfieldPayloadRows } from 'src/app/builders/subfield-payload.serializer';
 import { TaskApiService } from 'src/app/services/task-api.service';
 import { SimulationApiService } from 'src/app/services/simulation-api.service';
 import { ResultApiService } from 'src/app/services/result-api.service';
@@ -2962,6 +2963,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Toggle: clicking the active button again cancels placement mode
+    if (this.phase4PendingItemId === shapeId && this.placementMode !== 'none') {
+      this.placementMode = 'none';
+      this.phase4PendingItemId = null;
+      this.phase4SingleShot = null;
+      return;
+    }
+
     // Phase 2：進入放置前先退出 gizmo（避免 click-chain 殘留）
     if (this.phase2EditingOwner) {
       this.phase2ExitEditing();
@@ -3213,8 +3222,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       { id: 'duplicate', label: '複製物件' },
       { id: 'properties', label: '物件大小/位置設定' },
       { id: 'bsParams', label: '基地台參數' },
-      { id: 'antennaParams', label: '天線參數' },
-      { id: 'addAntenna', label: '新增天線' },
+      // { id: 'antennaParams', label: '天線參數' },
+      // { id: 'addAntenna', label: '新增天線' },
     ],
     ris: [
       { id: 'enterScaleEdit', label: '進入縮放/編輯（Gizmo）' },
@@ -9162,6 +9171,24 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     return Number((((rad ?? 0) * 180) / Math.PI).toFixed(2));
   }
 
+  private buildRectangleVertices(cx: number, cy: number, width: number, length: number, angleDeg: number): [number, number][] {
+    const hw = width / 2;
+    const hl = length / 2;
+    const rad = (angleDeg * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const localCorners: [number, number][] = [
+      [-hw, -hl],
+      [hw, -hl],
+      [hw, hl],
+      [-hw, hl],
+    ];
+    return localCorners.map(([lx, ly]) => [
+      Number((cx + lx * cos - ly * sin).toFixed(4)),
+      Number((cy + lx * sin + ly * cos).toFixed(4)),
+    ]);
+  }
+
   private debugFieldStore(tag: string): void {
     const snapshot = this.fieldDomainStore.snapshot;
     console.log(`[FieldStore][${tag}] snapshot`, snapshot);
@@ -10292,14 +10319,34 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       subfields: this.fieldDomainStore.snapshot?.subfields ?? [],
     });
     console.log('[OBS_CREATE_BEFORE_ADD_SUBFIELD][v1]');
+
+    // Compute real rectangle geometry from mesh bounding box
+    box.computeWorldMatrix(true);
+    const _obsBbox = box.getBoundingInfo()?.boundingBox ?? null;
+    const obsWidth = _obsBbox ? (_obsBbox.maximumWorld.x - _obsBbox.minimumWorld.x) : 50;
+    const obsLength = _obsBbox ? (_obsBbox.maximumWorld.z - _obsBbox.minimumWorld.z) : 50;
+    const obsAngleDeg = this.degFromRad(box.rotation?.y ?? 0);
+    const obsCx = observeRow.x;
+    const obsCy = observeRow.y;
+    const obsVertices = this.buildRectangleVertices(obsCx, obsCy, obsWidth, obsLength, obsAngleDeg);
+
     const subfieldRow = this.fieldDomainStore.addSubfield({
       name: `觀測區域 ${observeRow.seq}`,
-      shapeType: 'circle' as any,
-      radius: 5,
-      rotateAngle: 0,
-      rotateCenter: [observeRow.x, observeRow.y],
-      vertices: [],
+      shapeType: 'rectangle',
+      radius: 0,
+      rotateAngle: obsAngleDeg,
+      rotateCenter: [Number(obsCx.toFixed(4)), Number(obsCy.toFixed(4))],
+      vertices: obsVertices,
       visible: true,
+      sceneObjectId: String(observeRow.meshId ?? box?.uniqueId ?? ''),
+    });
+    console.log('[SUBFIELD_STORE_AFTER_CREATE]', {
+      observeRow,
+      width: obsWidth,
+      length: obsLength,
+      angleDeg: obsAngleDeg,
+      vertices: obsVertices,
+      snapshotSubfields: this.fieldDomainStore.snapshot?.subfields,
     });
     console.log('[OBS_CREATE_AFTER_ADD_SUBFIELD][v1]', {
       subfields: this.fieldDomainStore.snapshot?.subfields ?? [],
@@ -10867,6 +10914,14 @@ onModelButtonClick(shape: any): void {
       resolvedKey,
       goalMode: this.goalMode,
     });
+    return;
+  }
+
+  // Toggle: clicking the active button again cancels placement mode
+  if (this.phase4PendingItemId === resolvedKey && this.placementMode !== 'none') {
+    this.placementMode = 'none';
+    this.phase4PendingItemId = null;
+    this.phase4SingleShot = null;
     return;
   }
 
@@ -18566,6 +18621,51 @@ private analyzeCompleteCalcResult(completeRes: any): {
         finalUseUeCoordinate: demoPayload?.useUeCoordinate ?? null,
       });
 
+      // ===== [PAYLOAD_FINAL_BRIDGE] Phase 2: bridge builtPayload real fields to demoPayload =====
+      // subfieldList: builder computes from observeList + zoneList; mock has a hardcoded shape entry
+      demoPayload.subfieldList = (builtPayload as any).subfieldList ?? [];
+      // field: carries regionalDivision computed from zoneList; mock has a hardcoded region
+      demoPayload.field = (builtPayload as any).field ?? demoPayload.field;
+      // evaluationFunc: builder computes from store thresholds; mock has DEFAULT_EVALUATION_FUNC
+      demoPayload.evaluationFunc = (builtPayload as any).evaluationFunc ?? demoPayload.evaluationFunc;
+      // UE fields: already handled by [UE_FINALIZE][STRICT] above; confirm with ?? form
+      demoPayload.ueCoordinate = (builtPayload as any).ueCoordinate ?? '';
+      demoPayload.ueRxGain = (builtPayload as any).ueRxGain ?? '[]';
+      demoPayload.useUeCoordinate = (builtPayload as any).useUeCoordinate ?? 0;
+      // risList / ris: already bridged in [RIS bridge] above; re-affirm here for consistency
+      demoPayload.risList = (builtPayload as any).risList ?? { defaultRis: [], candidateRis: [] };
+      demoPayload.ris = (builtPayload as any).risList?.defaultRis ?? [];
+
+      console.log('[PAYLOAD_FINAL_BRIDGE]', {
+        built: {
+          subfieldList: (builtPayload as any).subfieldList,
+          field: (builtPayload as any).field,
+          evaluationFunc: (builtPayload as any).evaluationFunc,
+          ueCoordinate: (builtPayload as any).ueCoordinate,
+          risList: (builtPayload as any).risList,
+        },
+        final: {
+          subfieldList: demoPayload.subfieldList,
+          field: demoPayload.field,
+          evaluationFunc: demoPayload.evaluationFunc,
+          ueCoordinate: demoPayload.ueCoordinate,
+          risList: demoPayload.risList,
+        },
+      });
+      // ===== [/PAYLOAD_FINAL_BRIDGE] =====
+
+      // ===== [SUBFIELD_PAYLOAD_FINAL] Phase 4: final subfieldList from snapshot.subfields via serializer =====
+      // Overrides Phase 2 bridge (builtPayload.subfieldList from observes+zones).
+      // snapshot.subfields contains real rectangle geometry written by Phase 3 observe spawn.
+      demoPayload.subfieldList = serializeSubfieldPayloadRows(
+        this.fieldDomainStore.snapshot?.subfields ?? []
+      );
+      console.log('[SUBFIELD_PAYLOAD_FINAL]', {
+        storeSubfields: this.fieldDomainStore.snapshot?.subfields ?? [],
+        finalSubfieldList: demoPayload.subfieldList,
+      });
+      // ===== [/SUBFIELD_PAYLOAD_FINAL] =====
+
       // Step 3: POST storeTask
       // 最終保底：selectedPlanningMode=current 的「現有場域訊號模擬」一定要是 isSimulation=true
       demoPayload.isSimulation = true;
@@ -18624,6 +18724,67 @@ private analyzeCompleteCalcResult(completeRes: any): {
         taskid: demoPayload?.taskid ?? null,
       });
       console.log('[SIM_FLOW_STAGE]', 'before-store-task');
+
+      // ===== [PAYLOAD_SOURCE_AUDIT] builtPayload vs demoPayload before postStoreTask =====
+      console.log('[PAYLOAD_SOURCE_AUDIT]', {
+        // --- subfieldList ---
+        builtSubfieldList: (builtPayload as any)?.subfieldList ?? 'NOT_IN_BUILDER',
+        demoSubfieldList: demoPayload?.subfieldList,
+        subfieldListFromMock: JSON.stringify(demoPayload?.subfieldList) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.subfieldList),
+
+        // --- ueCoordinate / ueRxGain / useUeCoordinate ---
+        builtUeCoordinate: (builtPayload as any)?.ueCoordinate ?? null,
+        demoUeCoordinate: demoPayload?.ueCoordinate,
+        builtUeRxGain: (builtPayload as any)?.ueRxGain ?? null,
+        demoUeRxGain: demoPayload?.ueRxGain,
+        builtUseUeCoordinate: (builtPayload as any)?.useUeCoordinate ?? null,
+        demoUseUeCoordinate: demoPayload?.useUeCoordinate,
+
+        // --- risList / ris ---
+        builtRisListDefaultCount: Array.isArray((builtPayload as any)?.risList?.defaultRis) ? (builtPayload as any).risList.defaultRis.length : 'MISSING',
+        demoRisListDefaultCount: Array.isArray(demoPayload?.risList?.defaultRis) ? demoPayload.risList.defaultRis.length : 'MISSING',
+        demoRisCount: Array.isArray(demoPayload?.ris) ? demoPayload.ris.length : 'MISSING',
+
+        // --- bsList / defaultBs / defaultBsAnt ---
+        builtBsListDefaultBsCount: Array.isArray((builtPayload as any)?.bsList?.defaultBs) ? (builtPayload as any).bsList.defaultBs.length : 'NOT_IN_BUILDER',
+        demoBsListDefaultBsCount: Array.isArray(demoPayload?.bsList?.defaultBs) ? demoPayload.bsList.defaultBs.length : 'MISSING',
+        demoDefaultBs: demoPayload?.defaultBs,
+        demoDefaultBsAnt: demoPayload?.defaultBsAnt,
+        defaultBsFromMock: demoPayload?.defaultBs === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.defaultBs,
+
+        // --- obstacleInfo ---
+        builtObstacleInfoLength: String((builtPayload as any)?.obstacleInfo ?? '').length,
+        demoObstacleInfoLength: String(demoPayload?.obstacleInfo ?? '').length,
+        obstacleInfoMatch: (builtPayload as any)?.obstacleInfo === demoPayload?.obstacleInfo,
+
+        // --- field.regionalDivision ---
+        builtFieldRegionalDivisionCount: Array.isArray((builtPayload as any)?.field?.regionalDivision) ? (builtPayload as any).field.regionalDivision.length : 'NOT_IN_BUILDER',
+        demoFieldRegionalDivisionCount: Array.isArray(demoPayload?.field?.regionalDivision) ? demoPayload.field.regionalDivision.length : 'MISSING',
+        fieldRegionalDivisionFromMock: JSON.stringify(demoPayload?.field?.regionalDivision) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.field?.regionalDivision),
+
+        // --- evaluationFunc ---
+        builtEvaluationFunc: (builtPayload as any)?.evaluationFunc ?? null,
+        demoEvaluationFunc: demoPayload?.evaluationFunc,
+        evaluationFuncFromMock: JSON.stringify(demoPayload?.evaluationFunc) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.evaluationFunc),
+
+        // --- width / height / resolution ---
+        demoWidth: demoPayload?.width,
+        demoHeight: demoPayload?.height,
+        demoResolution: demoPayload?.resolution,
+        widthFromMock: demoPayload?.width === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.width,
+        heightFromMock: demoPayload?.height === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.height,
+
+        // --- mapImage / mapName ---
+        demoMapName: demoPayload?.mapName,
+        demoMapImagePrefix: String(demoPayload?.mapImage ?? '').slice(0, 40),
+        mapNameFromMock: demoPayload?.mapName === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.mapName,
+        mapImageFromMock: demoPayload?.mapImage === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.mapImage,
+
+        // --- postStoreTask variable ---
+        actualArgIsDemo: true, // postStoreTask(demoPayload) — always demoPayload
+      });
+      // ===== [/PAYLOAD_SOURCE_AUDIT] =====
+
       const storeTaskResp = await firstValueFrom(this.taskApiService.postStoreTask(demoPayload));
       console.log('[SIM_API_PHASE3] storeTask response status:', storeTaskResp.status);
 

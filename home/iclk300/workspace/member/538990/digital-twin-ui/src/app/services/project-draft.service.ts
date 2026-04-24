@@ -9,13 +9,11 @@ export class ProjectDraftService {
 
   setCommittedMap(data: CommittedMapData): void {
     this.committedMap = data;
-    console.log('[ProjectDraft] setCommittedMap', data);
   }
 
   consumeCommittedMap(): CommittedMapData | null {
     const data = this.committedMap;
     this.committedMap = null;
-    console.log('[ProjectDraft] consumeCommittedMap', data);
     return data;
   }
 
@@ -29,13 +27,11 @@ export class ProjectDraftService {
     if (meta?.projectName) {
       this.projectName = meta.projectName;
     }
-    console.log('[ProjectDraft] setProjectMeta', meta);
   }
 
   consumeProjectMeta(): any | null {
     const meta = this.projectMeta;
     this.projectMeta = null;
-    console.log('[ProjectDraft] consumeProjectMeta', meta);
     return meta;
   }
 
@@ -54,13 +50,11 @@ export class ProjectDraftService {
   setProjectName(name: string): void {
     if (name && name.trim()) {
       this.projectName = name;
-      console.log('[ProjectDraft] setProjectName', name);
     }
   }
 
   clear(): void {
     this.committedMap = null;
     this.projectName = '工業技術研究院 中興院區';
-    console.log('[ProjectDraft] cleared');
   }
 }

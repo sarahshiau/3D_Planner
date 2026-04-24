@@ -28,11 +28,6 @@ export class AntennaPatternXlsxService {
    * @throws Error if file cannot be loaded or data is invalid
    */
   async loadDefaultTemplate(): Promise<PatternSheet> {
-    console.log(
-        '[AntennaPatternXlsxService] Loading template:',
-        this.TEMPLATE_URL
-    );
-
     const arrayBuffer = await firstValueFrom(
         this.http.get(this.TEMPLATE_URL, { responseType: 'arraybuffer' })
     );
@@ -86,16 +81,6 @@ export class AntennaPatternXlsxService {
     // Convert sheet to 2D array for easier searching
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
 
-    // Debug: preview first 20 rows (columns A-F)
-    console.log('[XLSX][preview rows 1..20]', rows.slice(0, 20).map(r => ({
-      A: String(r?.[0] ?? ''),
-      B: String(r?.[1] ?? ''),
-      C: String(r?.[2] ?? ''),
-      D: String(r?.[3] ?? ''),
-      E: String(r?.[4] ?? ''),
-      F: String(r?.[5] ?? ''),
-    })));
-
     // Parse metadata from A1, A2, A3
     const meta = this.parseMetadata(sheet, sheetName);
 
@@ -104,8 +89,6 @@ export class AntennaPatternXlsxService {
 
     // Find vertical header (Theta anywhere in sheet)
     const { rowIndex: vHeaderRow, colIndex: thetaColIndex } = this.findHeaderRowAndCol(rows, 'Theta (deg)');
-
-    console.log('[XLSX] sheet=', sheetName, 'hHeaderRow=', hHeaderRow, 'phiCol=', phiColIndex, 'vHeaderRow=', vHeaderRow, 'thetaCol=', thetaColIndex);
 
     // Parse horizontal pattern (phiCol, phiCol+1)
     const horizontal = this.parseHorizontalPattern(rows, hHeaderRow, phiColIndex);
@@ -280,26 +263,6 @@ export class AntennaPatternXlsxService {
         `Horizontal pattern: Expected ${this.EXPECTED_ROWS} rows, got ${phiDeg.length} (header at row ${hHeaderRow + 1})`
       );
     }
-
-    // ---- DBG: phi sequence sanity ----
-    const first10 = phiDeg.slice(0, 10);
-    const last10 = phiDeg.slice(-10);
-    let breaks = 0;
-    for (let i = 1; i < phiDeg.length; i++) {
-      if (phiDeg[i] < phiDeg[i - 1]) breaks++;
-    }
-    const idx0 = phiDeg.indexOf(0);
-    const idx270 = phiDeg.indexOf(270);
-
-    console.log('[XLSX][phiDeg]', {
-      first10,
-      last10,
-      breaks,       // 0 代表單調遞增；1 通常代表 270..359,0..269 這種 wrap
-      idx0,
-      idx270,
-      min: Math.min(...phiDeg),
-      max: Math.max(...phiDeg),
-    });
 
     return { phiDeg, gainDb };
   }

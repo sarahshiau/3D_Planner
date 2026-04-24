@@ -182,18 +182,6 @@ function buildPinOutline2D(W: number, H: number, arcSegments: number): BABYLON.V
   outline.push(...tipToShoulderL.slice(1));              // tip -> left shoulder
   outline.push(...leftToShoulder.slice(1));              // left shoulder -> left end
 
-  // [PIN][DBG] outline extremes
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const p of outline) {
-    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-  }
-  console.log('[PinShape2D][BBOX]', { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY });
-
-  // print a few points near the tip (lowest Y)
-  const sorted = [...outline].sort((a,b)=>a.y-b.y);
-  console.log('[PinShape2D][TIP_PTS]', sorted.slice(0, 8));
-
   return outline;
 }
 
