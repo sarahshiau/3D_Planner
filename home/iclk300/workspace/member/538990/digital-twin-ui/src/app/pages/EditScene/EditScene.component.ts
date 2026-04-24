@@ -4529,7 +4529,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     height: 0,
     cutHeights: ['1.05', '', ''],
     //解析度調整
-    heatmapGrid: '2x2',
+    heatmapGrid: '4x4',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -6194,6 +6194,7 @@ private __antennaPlaceableSeq = 0;
     // Subscribe to field domain store for panel→scene sync
     this.fieldSceneSyncSub = this.fieldDomainStore.state$.subscribe((state: FieldDomainState) => {
       if (this.isApplyingFieldStoreToScene) return;
+      if (this.isGizmoDragging) return;
 
       this.syncFieldRowsToScene(state);
     });
@@ -7116,7 +7117,14 @@ private __antennaPlaceableSeq = 0;
         const move = forward.scale(forwardInput).add(right.scale(strafeInput));
         if (move.lengthSquared() > 1e-6) {
           move.normalize();
-          const horizontalSpeed = Math.max(0.8, this.sceneScale * 0.003);
+          //水平移動速度與場景大小成正比，確保大場景也能快速移動，小場景又不會太快失控
+          //參數意義：
+          // - this.sceneScale: 根據場景大小自動調整速度，確保大場景能快速移動，小場景不會太快
+          // - 0.001: 經過測試的調整係數，確保在常見場景大小下有良好體驗
+          // - Math.max(0.1, ...): 設置最低速度為 0.1，避免極小場景移動過慢
+          //參數調整方式:
+          // - 如果發現大場景移動仍然過慢，可以增加係數（如 0.002）；如果小場景移動過快，可以減少係數（如 0.0005）
+          const horizontalSpeed = Math.max(0.1, this.sceneScale * 0.001);
           this.fpsCamera.cameraDirection.addInPlace(move.scale(horizontalSpeed * dt));
         }
       }
@@ -7939,6 +7947,24 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
 
     console.log('[Phase3][GizmoPolicy]', { type: t, allowScale });
     // -------------------- End Phase 3 --------------------
+
+    // Re-bind rotation drag observers on the new gizmo instance created by rotationGizmoEnabled = true.
+    // The instance from init-time bindFieldStoreSyncToGizmos() was disposed when rotationGizmoEnabled = false ran during init.
+    const rotGizmoNew: any = this.gizmoManager.gizmos?.rotationGizmo;
+    if (rotGizmoNew) {
+      if (this.rotationDragEndObserver && rotGizmoNew.onDragEndObservable) {
+        rotGizmoNew.onDragEndObservable.remove(this.rotationDragEndObserver);
+      }
+      if (rotGizmoNew.onDragStartObservable) {
+        rotGizmoNew.onDragStartObservable.add(() => { this.isGizmoDragging = true; });
+      }
+      if (rotGizmoNew.onDragEndObservable) {
+        this.rotationDragEndObserver = rotGizmoNew.onDragEndObservable.add(() => {
+          this.isGizmoDragging = false;
+          this.syncSelectedSceneObjectToFieldStore('rotation');
+        });
+      }
+    }
 
     this.phase2EditingOwner = owner;
     this.phase2EditingMesh = owner;

@@ -39,7 +39,8 @@
   <!-- ✅ 永遠顯示 Topbar（StageA 也要有） -->
   <app-top-bar></app-top-bar>
   <!-- ✅ 常駐 Babylon Canvas：不會因 stage 切換被銷毀 -->
-  <div #babylonHost class="babylon-host" [class.is-edit]="true" (click)="onCanvasClick()">
+  <div #babylonHost class="babylon-host" [class.is-edit]="true" (click)="onCanvasClick()"
+       [style.cursor]="placementMode !== 'none' ? 'crosshair' : ''">
     <canvas #renderCanvas class="shared-canvas"></canvas>
     <!-- Plotly Colorbar Overlay -->
     <div class="plotly-colorbar-host">
