@@ -143,25 +143,38 @@
 
 </div>
 <div class="dropdown-menu view-dropdown-menu" *ngIf="isViewDropdownOpen" [ngStyle]="viewMenuStyle">
-  <!-- ✅ 這段請從你原本的 dropdown-menu 原封不動貼過來 -->
-  <label class="checkbox-item">
+  <label class="checkbox-item" *ngIf="hasTerminals">
     <input type="checkbox"
       [(ngModel)]="viewFilters.showTerminals"
       (change)="onViewFilterChange()">
     <span>顯示終端</span>
   </label>
 
-  <label class="checkbox-item">
+  <label class="checkbox-item" *ngIf="hasObstacles">
     <input type="checkbox"
       [(ngModel)]="viewFilters.showObstacles"
       (change)="onViewFilterChange()">
     <span>顯示障礙物</span>
   </label>
 
-  <label class="checkbox-item">
+  <label class="checkbox-item" *ngIf="hasAntennas">
     <input type="checkbox"
       [(ngModel)]="viewFilters.showAntennas"
       (change)="onViewFilterChange()">
     <span>顯示基地台</span>
+  </label>
+
+  <label class="checkbox-item" *ngIf="hasObserveZones">
+    <input type="checkbox"
+      [(ngModel)]="viewFilters.showObserveZones"
+      (change)="onViewFilterChange()">
+    <span>顯示觀測區域</span>
+  </label>
+
+  <label class="checkbox-item" *ngIf="hasCustomRegions">
+    <input type="checkbox"
+      [(ngModel)]="viewFilters.showCustomRegions"
+      (change)="onViewFilterChange()">
+    <span>顯示自訂分區</span>
   </label>
 </div>

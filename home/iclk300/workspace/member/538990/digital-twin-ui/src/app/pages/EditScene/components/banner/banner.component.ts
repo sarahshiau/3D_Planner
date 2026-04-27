@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, ViewChild, ElementRef, HostListener } from "@angular/core";
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, ViewChild, ElementRef, HostListener } from "@angular/core";
 import { Router } from "@angular/router";
 import { ProjectDraftService } from "src/app/services/project-draft.service";
 import { AlertService } from "src/app/services/alert.service";
@@ -7,6 +7,8 @@ export interface ViewFilters {
   showTerminals: boolean;
   showObstacles: boolean;
   showAntennas: boolean;
+  showObserveZones: boolean;
+  showCustomRegions: boolean;
 }
                        
 export interface DynamicRange {
@@ -19,7 +21,7 @@ export interface DynamicRange {
   templateUrl: "./banner.component.html",
   styleUrls: ["./banner.component.scss"]
 })
-export class BannerComponent implements OnInit {
+export class BannerComponent implements OnInit, OnChanges {
   @Input() sceneName = "工業技術研究院 中興院區";
   @Input() location = "戶外";
 
@@ -31,12 +33,18 @@ export class BannerComponent implements OnInit {
   @Output() coverageThresholdChange = new EventEmitter<string>();
   @Output() dynamicRangeChange = new EventEmitter<DynamicRange>();
   @Output() backToEditMode = new EventEmitter<void>();
+  @Output() saveClick = new EventEmitter<void>();
 
   // ✅ Banner project actions (UI only)
   isProjectActionsEnabled = true;
 
-  sliceHeight = 1.5;
-  readonly sliceHeightOptions = [1.5, 3.5, 10];
+  @Input() sliceHeight = 1.5;
+  @Input() sliceHeightOptions: number[] = [];
+  @Input() hasTerminals = false;
+  @Input() hasAntennas = false;
+  @Input() hasObserveZones = false;
+  @Input() hasCustomRegions = false;
+  @Input() hasObstacles = false;
   activeHeatmapMode = "sinr";
   isViewDropdownOpen = false;
   @ViewChild("viewBtn", { static: false }) viewBtnRef?: ElementRef<HTMLElement>;
@@ -47,7 +55,9 @@ export class BannerComponent implements OnInit {
   viewFilters: ViewFilters = {
     showTerminals: true,
     showObstacles: true,
-    showAntennas: true
+    showAntennas: true,
+    showObserveZones: true,
+    showCustomRegions: true
   };
 
   coverageThreshold = "rsrp_minus_120";
@@ -67,6 +77,16 @@ export class BannerComponent implements OnInit {
     private projectDraftService: ProjectDraftService,
     private alertService: AlertService
   ) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["sliceHeightOptions"]) {
+      const options = this.sliceHeightOptions ?? [];
+      if (options.length > 0 && !options.includes(this.sliceHeight)) {
+        this.sliceHeight = options[0];
+        this.sliceHeightChange.emit(this.sliceHeight);
+      }
+    }
+  }
 
   ngOnInit(): void {
     const projectName = this.projectDraftService.getProjectName();
@@ -324,6 +344,7 @@ export class BannerComponent implements OnInit {
 
   onSaveProjectClick(): void {
     console.log("[Banner] Save Project clicked");
+    this.saveClick.emit();
   }
 
   onExportProjectClick(): void {

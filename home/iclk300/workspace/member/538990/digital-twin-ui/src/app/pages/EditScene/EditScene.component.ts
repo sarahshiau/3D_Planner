@@ -44,6 +44,7 @@ import {
   Texture,
   Material,
   VertexBuffer,
+  PointerDragBehavior,
 } from '@babylonjs/core';
 
 import { HighlightLayer } from '@babylonjs/core/Layers/highlightLayer';
@@ -78,14 +79,16 @@ import {
   CandidateRisFieldRow,
   UeFieldRow,
 } from 'src/app/models/field-domain.model';
-import { Subscription, firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom, timeout, TimeoutError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 
 // ===== [SIM_API_PHASE1] Imports =====
 import { BaseTaskPayloadBuilder } from 'src/app/builders/base-task-payload.builder';
+import { serializeSubfieldPayloadRows } from 'src/app/builders/subfield-payload.serializer';
 import { TaskApiService } from 'src/app/services/task-api.service';
 import { SimulationApiService } from 'src/app/services/simulation-api.service';
 import { ResultApiService } from 'src/app/services/result-api.service';
+import { AlertService } from 'src/app/services/alert.service';
 import { BaseTaskPayloadBuilderInput } from 'src/app/models/task-payload.model';
 import { TASK_PAYLOAD_MOCK_DEFAULTS } from 'src/app/mocks/task-payload.mock';
 import { EditTaskPanelComponent } from './components/panels/edit-task-panel/edit-task-panel.component';
@@ -102,6 +105,8 @@ import {
   buildBsListDefaultBsFromRows,
 } from 'src/app/builders/bs-legacy-serializer';
 import { getExistingBsFieldDefaults } from 'src/app/models/existing-bs-defaults.helper';
+
+import { ViewFilters } from './components/banner/banner.component';
 
 // 你原本的型別（此處維持）
 export type RightPanelType = 'file' | 'task' | 'field' | null;
@@ -639,7 +644,10 @@ export type RegistryCategory =
   | 'intelligentPanel'
   | 'candidateBs'
   | 'candidateRis'
-  | 'ue';
+  | 'ue'
+  | 'observe'
+  | 'zone'
+  | 'obstacle';
 
 /**
  * Entry for a scene object in the registry
@@ -685,6 +693,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   antennaLoadError: string | null = null;
   private antennaPreloadStarted = false;
 
+  // ===== [SAVE_TASK] Save flow state =====
+  saveConfirmOpen = false;
+  saveSource: 'banner' | 'edit-file' | null = null;
+  isSavingTask = false;
+  saveErrorMsg = '';
+  pendingSaveMeta: any = null;
+  lastSavedAt: string | null = null;
+
   // ===== [SIM_API_PHASE1] Component State =====
   lastCompleteCalcResult: any = null;
   latestPlanningSnapshot: any = null;
@@ -696,6 +712,16 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // ===== Simulation Result =====
   completeCalcResult: any = null; // 先用 any，之後再補 DTO
+  sliceHeight = 1.5;
+  sliceHeightOptions: number[] = [];
+
+  private viewFilters: ViewFilters = {
+    showTerminals: true,
+    showObstacles: true,
+    showAntennas: true,
+    showObserveZones: true,
+    showCustomRegions: true,
+  };
 
   // ========================================================
   // ===== [SIM_API_PHASE3][TEMP_SESSION] ====================
@@ -703,7 +729,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // TODO: TEMP_SESSION_REMOVE_AFTER_LOGIN_SYSTEM
   // ========================================================
   private readonly DEV_TEMP_SESSION =
-    'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+    'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
 
   // ===== [Step2A][Registry] Scene Object Registry =====
   private sceneObjectRegistry = new Map<string, SceneObjectRegistryEntry>();
@@ -742,6 +768,19 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     return (snapshot?.observes?.length ?? 0) > 0;
   }
 
+  private hasRegistryCategory(category: RegistryCategory): boolean {
+    for (const entry of this.sceneObjectRegistry.values()) {
+      if (entry?.category === category) return true;
+    }
+    return false;
+  }
+
+  get hasTerminals(): boolean { return this.hasRegistryCategory('ue'); }
+  get hasAntennas(): boolean  { return this.hasRegistryCategory('existingBs'); }
+  get hasObserveZones(): boolean { return this.hasRegistryCategory('observe'); }
+  get hasCustomRegions(): boolean { return this.hasRegistryCategory('zone'); }
+  get hasObstacles(): boolean { return this.hasRegistryCategory('obstacle'); }
+
   get analysisSubfields(): any[] {
     return this.fieldDomainStore.snapshot?.subfields ?? [];
   }
@@ -750,8 +789,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private hoveredPickMesh: AbstractMesh | null = null;
   /** Owner root mesh for pinned highlight (never a child pick target). */
   private pinnedPickMesh: AbstractMesh | null = null;
-  private readonly HL_COLOR_HOVER = new Color3(0.2, 0.8, 1.0);
-  private readonly HL_COLOR_PINNED = new Color3(1.0, 0.9, 0.2);
+  private readonly HL_COLOR_HOVER = new Color3(0.5, 0.95, 1.0);
+  private readonly HL_COLOR_PINNED = new Color3(1.0, 1.0, 0.45);
   antennaLabels: AntennaLabelVM[] = [];
   private antennaLabelBeforeRenderObserver: any = null;
 
@@ -839,9 +878,12 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   private ensureHighlightLayer(): void {
     if (!this.scene) return;
     if (this.highlightLayer) return;
+
     this.highlightLayer = new HighlightLayer('hl_main', this.scene);
     this.highlightLayer.outerGlow = true;
-    this.highlightLayer.innerGlow = false;
+    this.highlightLayer.innerGlow = true;   // 原本 false，改 true 會更亮
+    this.highlightLayer.blurHorizontalSize = 1.2;
+    this.highlightLayer.blurVerticalSize = 1.2;
   }
 
   private isGlowExcluded(mesh: AbstractMesh | null | undefined): boolean {
@@ -994,6 +1036,61 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.updateHighlight();
   }
 
+  // ===== [SAVE_TASK] Save flow methods =====
+
+  openSaveConfirm(source: 'banner' | 'edit-file', meta?: any): void {
+    if (this.isSavingTask) return;
+    this.saveSource = source;
+    this.pendingSaveMeta = meta ?? null;
+    this.saveConfirmOpen = true;
+    const message = source === 'banner' ? '是否要儲存目前規劃內容？' : '是否要儲存目前編輯檔案？';
+    this.alertService.question(message).subscribe(confirmed => {
+      this.saveConfirmOpen = false;
+      if (confirmed) {
+        this.onSaveConfirm();
+      } else {
+        this.closeSaveConfirm();
+      }
+    });
+  }
+
+  closeSaveConfirm(): void {
+    this.saveConfirmOpen = false;
+    this.saveSource = null;
+    this.pendingSaveMeta = null;
+  }
+
+  onSaveConfirm(): void {
+    this.saveCurrentTask();
+  }
+
+  async saveCurrentTask(): Promise<void> {
+    if (this.isSavingTask) return;
+    this.isSavingTask = true;
+    this.saveErrorMsg = '';
+    try {
+      const payload = this.buildStoreTaskPayloadForSave();
+      const resp = await firstValueFrom(this.taskApiService.postStoreTask(payload));
+      this.closeSaveConfirm();
+      this.lastSavedAt = new Date().toISOString();
+      console.log('[SaveTask] success', { status: resp.status, lastSavedAt: this.lastSavedAt });
+      this.alertService.success('儲存成功！');
+    } catch (err) {
+      this.saveErrorMsg = err instanceof Error ? err.message : '儲存失敗，請稍後再試';
+      console.error('[SaveTask] error', err);
+      this.alertService.error(this.saveErrorMsg);
+    } finally {
+      this.isSavingTask = false;
+    }
+  }
+
+  buildStoreTaskPayloadForSave(): any {
+    const input = this.collectExecutionInputs();
+    const payload = this.baseTaskPayloadBuilder.build(input);
+    console.log('[STORETASK_RESOLUTION_CHECK] heatmapGrid:', input.basicField.heatmapGrid, '-> resolution:', payload.resolution);
+    return payload;
+  }
+
     // ===== [RESULT:A-FEATURE] RightSidebar actions =====
   onRightSidebarSaveProject(): void {
     // MVP：目前只做 UI 成功提示（RightSidebar 已顯示），這裡保留 log 方便驗收
@@ -1074,6 +1171,19 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       meta?.osmId != null ||
       meta?.tags?.building != null ||
       false;
+
+    // 建築物不開啟右鍵功能
+    if (isBuildingCandidate) {
+      return {
+        rowId: null,
+        kind: null,
+        seq: null,
+        displayId: '建築物不支援右鍵功能',
+        isBuildingObstacle: false,
+        row: null,
+      };
+    }
+
     const isObstacleRowId = typeof rowId === 'string' && rowId.startsWith('obs_');
 
     if (type === 'obstacle' || type === 'landscape' || isBuildingCandidate || isObstacleRowId) {
@@ -1498,6 +1608,67 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedFieldCard = null;
     this.selectedOwner = null;
     this.selectedContextRowId = null;
+  }
+
+  onObjectCardSelect(payload: any): void {
+    const owner = this.findSceneOwnerByObjectCardPayload(payload);
+    if (!owner) {
+      console.warn('[ObjectCardSelect] owner not found', payload);
+      return;
+    }
+    const isSame = this.pinnedOwnerUniqueId != null && owner.uniqueId === this.pinnedOwnerUniqueId;
+    if (isSame) {
+      this.clearPinnedHighlight();
+      return;
+    }
+    this.applyPinnedHighlight(owner);
+  }
+
+  private findSceneOwnerByObjectCardPayload(payload: any): any | null {
+    // object card kind -> field panel kind
+    const fieldKind =
+      payload.objectKind === 'bs'
+        ? (payload.sourceType === 'candidate' ? 'candidateBs' : 'existingBs')
+        : payload.objectKind === 'ris'
+          ? (payload.sourceType === 'candidate' ? 'candidateRis' : 'intelligentPanel')
+          : null;
+
+    // A. rowId 優先：直接複用既有 field card 血統
+    if (payload.rowId && fieldKind) {
+      const owner = this.findSceneOwnerByFieldRow(fieldKind as any, payload.rowId);
+      if (owner) return owner;
+    }
+
+    // B. backendId fallback（保留）
+    if (payload.objectKind === 'bs') {
+      const allBs = [
+        ...(this.fieldDomainStore.snapshot.existingBs || []),
+        ...(this.fieldDomainStore.snapshot.candidateBs || []),
+      ];
+
+      const row = allBs.find((r: any) => r.id === payload.backendId);
+
+      if (row) {
+        const target = this.getSceneTargetByFieldRow(row);
+        if (target) return this.resolveSceneObjectOwner(target as any) ?? target;
+      }
+    }
+
+    if (payload.objectKind === 'ris') {
+      const allRis = [
+        ...(this.fieldDomainStore.snapshot.intelligentPanels || []),
+        ...(this.fieldDomainStore.snapshot.candidateRis || []),
+      ];
+
+      const row = allRis.find((r: any) => r.id === payload.backendId);
+
+      if (row) {
+        const target = this.getSceneTargetByFieldRow(row);
+        if (target) return this.resolveSceneObjectOwner(target as any) ?? target;
+      }
+    }
+
+    return null;
   }
 
   onSectionCollapsed(sectionId: string): void {
@@ -1935,13 +2106,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
 
-        this.phase2EditingOwner = target;
-        console.log('[CTX][GIZMO] calling attach...');
-        this.phase2AttachGizmo(target);
-
-        if (this.gizmoManager) {
-          this.gizmoManager.scaleGizmoEnabled = true;
-        }
+        console.log('[CTX][GIZMO] entering Gizmo Mode...');
+        this.enterGizmoMode(target);
         break;
       }
       case 'delete':
@@ -2797,6 +2963,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Toggle: clicking the active button again cancels placement mode
+    if (this.phase4PendingItemId === shapeId && this.placementMode !== 'none') {
+      this.placementMode = 'none';
+      this.phase4PendingItemId = null;
+      this.phase4SingleShot = null;
+      return;
+    }
+
     // Phase 2：進入放置前先退出 gizmo（避免 click-chain 殘留）
     if (this.phase2EditingOwner) {
       this.phase2ExitEditing();
@@ -2951,9 +3125,14 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   // --- loading overlay ---
-  private setLoading(on: boolean, message = ''): void {
+  private setLoading(on: boolean, message = '載入中...'): void {
     this.loading = on;
-    this.loadingMessage = message;
+    this.loadingMessage = message || '載入中...';
+
+    if (on) {
+      this.loadingError = false;
+      this.loadingErrorMessage = '';
+    }
   }
 
   // --- 新增：左側面板所需的按鈕清單 ---
@@ -3043,8 +3222,8 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       { id: 'duplicate', label: '複製物件' },
       { id: 'properties', label: '物件大小/位置設定' },
       { id: 'bsParams', label: '基地台參數' },
-      { id: 'antennaParams', label: '天線參數' },
-      { id: 'addAntenna', label: '新增天線' },
+      // { id: 'antennaParams', label: '天線參數' },
+      // { id: 'addAntenna', label: '新增天線' },
     ],
     ris: [
       { id: 'enterScaleEdit', label: '進入縮放/編輯（Gizmo）' },
@@ -3284,7 +3463,9 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     max: Vector3;
     nx: number;
     nz: number;
-    cellSize: number;
+    cellSize: number;      // 原始 backend resolution，保留做 debug
+    cellSizeX: number;     // 顯示層實際每欄寬度 = width / nx
+    cellSizeZ: number;     // 顯示層實際每列高度 = height / nz
     sliceY: number;
   } | null = null;
 
@@ -3361,300 +3542,330 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // -------------------- 開始運算 --------------------
+  // async onStartCompute(): Promise<void> {
+  //   console.log('[UI][StartCompute] ENTER onStartCompute', {
+  //     time: new Date().toISOString(),
+  //     viewMode: this.resultService.viewMode(),
+  //     computeMode: this.computeMode,
+  //   });
+
+  //   if (!this.guardEditWrite('onStartCompute')) return;
+
+  //   this.distMode = 'sinr';
+
+  //   // ===== [SIM_API_PHASE3] API flow gate =====
+  //   console.log('[SIM_API_PHASE3] Gate triggered, entering API flow');
+  //   return this.runSimulationApiFlow();
+
+  //   // ===== [COMPUTEMODE:OVERRIDE] =====
+  //   // Allow runtime override via window.__computeModeOverride
+    
+  //   // ===== [WP6][ANCHOR:START_COMPUTE_LOADING] =====
+  //   this.computeLoading = true;
+  //   this.startComputeProgressTicker();
+
+  //   const scene = this.scene;
+  //   if (!scene) {
+  //     console.warn('[SignalHeatRay][P1] abort: this.scene is null/undefined');
+  //     return;
+  //   }
+
+  //   try {
+  //     const forced = (window as any).__computeModeOverride;
+  //     if (forced === 'plotly-heatmap' || forced === 'signal-heat-ray') {
+  //       this.computeMode = forced;
+  //     }
+
+  //     console.log('[StartCompute] gate check', { computeMode: this.computeMode, heatmapResolutionMode: this.heatmapResolutionMode });
+  //     console.log('[ComputeMode][DBG]', {
+  //       computeMode: this.computeMode,
+  //       override: (window as any).__computeModeOverride,
+  //       enableRayOverlay: (window as any).__enableRayOverlay,
+  //     });
+  //     console.log('[HM][DEBUG] after gate check', {
+  //       computeMode: this.computeMode,
+  //     });
+
+  //     // ===== [COMPUTE_MODE:GATE] =====
+  //     // Route to Plotly heatmap flow if in plotly-heatmap mode
+  //     if (this.computeMode === 'plotly-heatmap') {
+  //       console.log('[HM][CHK] ENTER heatmap branch');
+  //       // Phase 5.4C: Dev-only batch mode (3x resolution modes)
+  //       const batch = (window as any).__hmBatch === true;
+  //       if (batch) {
+  //         const originalMode = this.heatmapResolutionMode;
+  //         // Run preview (10m)
+  //         this.heatmapResolutionMode = 'preview';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Run standard (5m)
+  //         this.heatmapResolutionMode = 'standard';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Run detail (3m)
+  //         this.heatmapResolutionMode = 'detail';
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
+  //         // Overlay rays ONLY after the final (detail) heatmap render in batch mode
+  //         this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/batch/detail');
+  //         // ===============================================
+  //         await new Promise(r => setTimeout(r, 50));
+
+  //         // Restore original mode
+  //         this.heatmapResolutionMode = originalMode;
+  //         console.log('[Heatmap][DBG] batch mode complete', { restoredMode: this.heatmapResolutionMode });
+  //       } else {
+  //         console.log('[HM][CHK] BEFORE heatmap render');
+  //         await this.runPlotlyHeatmapFlow();
+  //         console.log('[HM][CHK] AFTER heatmap render');
+  //         // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
+  //         // Overlay rays after single heatmap render in non-batch mode
+  //         this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/single');
+  //         // ===============================================
+  //       }
+
+  //       this.resultService.setResultData(RESULT_API_MOCK);
+  //       this.resultService.setResultMvp(RESULT_MVP_MOCK);
+  //       this.rightPanelType = null;
+  //       console.log('[SignalHeatRay][Overlay] done (if enabled) before entering result mode');
+  //       console.log('[Phase1] enter result mode after plotly heatmap');
+  //       return;
+  //     }
+
+  //     console.log('[SignalHeatRay][P1] StartCompute clicked', {
+  //       time: new Date().toISOString(),
+  //     });
+
+  //     // ✅ [Commit -1.2] 清理 legacy heatmap 資源
+  //     this.disposeLegacyHeatmapAssets();
+
+  //     // ✅ 清理舊有射線數據，確保乾淨狀態
+  //     this.clearSignalRays();
+
+  //     console.log('[SignalHeatRay][P1] scene ok', {
+  //       meshCount: scene.meshes?.length ?? -1,
+  //     });
+
+  //     // Phase 1: mesh role scan (by metadata.type)
+  //     let antenna = 0;
+  //     let terminal = 0;
+  //     let blocker = 0;
+
+  //     for (const m of scene.meshes) {
+  //       const t = (m as any)?.metadata?.type;
+  //       if (t === 'antenna') antenna++;
+  //       else if (t === 'terminal') terminal++;
+  //       else if (t === 'building' || t === 'obstacle') blocker++;
+  //     }
+
+  //     console.log('[SignalHeatRay][P1] scan result', { antenna, terminal, blocker });
+
+  //     // Phase 1: still do NOT compute rays, do NOT render
+  //     // Phase 0：結果頁跳轉維持停用
+  //     // this.router.navigate(['/result']);
+    
+  //     // ===== [SIGRAY:P2:LINK_GEOMETRY] =====
+  //     // Purpose: Build a single link (A0 -> T0). Terminal determines ray direction.
+  //     // Inputs: scene.meshes, metadata.type, mesh absolute positions
+  //     // Outputs: from/to/distance/dir logs
+  //     // Exit: return if missing antenna/terminal or invalid positions
+  //     // Rollback: comment this block to keep only Phase 1 logs.
+  //     // ====================================
+  //     const { antennas, terminals, blockers } = this.p2_collectSignalNodes(scene);
+
+  //     console.log('[SignalHeatRay][P2] nodes', {
+  //       antenna: antennas.length,
+  //       terminal: terminals.length,
+  //       blocker: blockers.length,
+  //     });
+
+  //     // ✅ 檢查是否有基地台（終端不是必需的，熱力圖模擬只需要基地台）
+  //     if (antennas.length === 0) {
+  //       console.warn('[SignalHeatRay][P2] abort: need at least 1 antenna');
+  //       return;
+  //     }
+
+  //     // ✅ 條件判斷：僅當同時有終端時才計算 Phase 2 link 資料
+  //     if (antennas.length > 0 && terminals.length > 0) {
+  //       const a0 = antennas[0];
+  //       const t0 = terminals[0];
+
+  //       const from = a0.getAbsolutePosition?.()?.clone?.() ?? a0.position?.clone?.();
+  //       const to = t0.getAbsolutePosition?.()?.clone?.() ?? t0.position?.clone?.();
+
+  //       if (!from || !to) {
+  //         console.warn('[SignalHeatRay][P2] abort: cannot read positions', { from, to });
+  //         return;
+  //       }
+
+  //       const vec = to.subtract(from);
+  //       const distanceM = vec.length();
+  //       const dir = vec.normalize();
+
+  //       console.log('[SignalHeatRay][P2] link(A0->T0)', {
+  //         antennaId: a0.uniqueId,
+  //         terminalId: t0.uniqueId,
+  //         from: from.toString?.() ?? from,
+  //         to: to.toString?.() ?? to,
+  //         distanceM,
+  //         dir: dir.toString?.() ?? dir,
+  //       });
+  //     } else {
+  //       console.log('[SignalHeatRay][P2] skip link calculation: no terminal available');
+  //     }
+
+  //   // ===== [SIGRAY:P4.4:FANOUT_ALL_ANTENNAS] =====
+  //   // Purpose: render rays for ALL antennas (v1 multi-BS support)
+  //   // Rollback: comment this block to disable ray fanout.
+  //   // =============================================
+  //   if (terminals.length === 0) {
+  //     console.warn('[SignalHeatRay][P4.4] skip: no terminals -> no rays rendered');
+  //   } else {
+  //     this.p4_computeFanoutFromAntennas(scene, antennas, terminals, blockers);
+  //   }
+
+  //   // ✅ [Commit -1.1] 停用 legacy heatmap pipeline 入口
+  //   console.log('[Heatmap][Plotly] start compute (legacy heatmap disabled)');
+  //   // this.runHeatmapSimulation(scene, antennas, blockers);
+
+  //   // ===== [GRIDBUILDER:PHASE1.3] =====
+  //   // Purpose: Validate grid metadata and sample points (world grid verification)
+  //   // ====================================
+  //   if (this.floorMesh) {
+  //     const gridMeta = this.buildHeatmapGridMeta(this.floorMesh, this.plotlyHeatmapCellSize);
+
+  //     // Heatmap corner world points (for explicit (i,j)->(x,z) mapping)
+  //     const nx = gridMeta.nx;
+  //     const nz = gridMeta.nz;
+  //     const p00 = this.getHeatmapSamplePoint(gridMeta.min, 0, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p10 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p01 = this.getHeatmapSamplePoint(gridMeta.min, 0, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+  //     const p11 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
+
+  //     console.log('[DBG][HeatmapCorners]', {
+  //       nx,
+  //       nz,
+  //       corner_00: { i: 0, j: 0, x: p00.x, z: p00.z },
+  //       corner_10: { i: nx - 1, j: 0, x: p10.x, z: p10.z },
+  //       corner_01: { i: 0, j: nz - 1, x: p01.x, z: p01.z },
+  //       corner_11: { i: nx - 1, j: nz - 1, x: p11.x, z: p11.z },
+  //     });
+
+  //     // Sample three reference points: (0,0), (nx/2, nz/2), (nx-1, nz-1)
+  //     const pMid = this.getHeatmapSamplePoint(
+  //       gridMeta.min,
+  //       Math.floor(nx / 2),
+  //       Math.floor(nz / 2),
+  //       this.plotlyHeatmapCellSize,
+  //       this.plotlyHeatmapSliceHeight
+  //     );
+
+  //     console.log('[Heatmap][Grid] sample points', {
+  //       p00_0_0: p00.toString?.() ?? p00,
+  //       pMid: pMid.toString?.() ?? pMid,
+  //       p11_max: p11.toString?.() ?? p11,
+  //     });
+
+  //     // Optional: antenna world -> heatmap grid index debug
+  //     try {
+  //       if ((window as any).__hmDebugWorldToIndex === true && scene) {
+  //         const { antennas } = this.p2_collectSignalNodes(scene);
+  //         const a0 = antennas[0] ?? null;
+  //         if (a0 && typeof a0.getAbsolutePosition === 'function') {
+  //           const pos = a0.getAbsolutePosition();
+  //           const idx = this.hmDbgWorldToGridIndex(gridMeta.min, this.plotlyHeatmapCellSize, gridMeta.nx, gridMeta.nz, pos.x, pos.z);
+  //           console.log('[DBG][WorldToHeatmapIndex]', {
+  //             antennaName: a0.name,
+  //             worldX: pos.x,
+  //             worldZ: pos.z,
+  //             i: idx.i,
+  //             j: idx.j,
+  //             nx,
+  //             nz,
+  //           });
+  //         }
+  //       }
+  //     } catch (e) {
+  //       console.warn('[DBG][WorldToHeatmapIndex] failed', e);
+  //     }
+
+  //     // ===== [DEBUG:GRIDBUILDER] =====
+  //     // Purpose: Visualize grid sample points with debug spheres
+  //     // ====================================
+  //     const enableMarkers = (window as any).__hmDebugMarkers === true;
+  //     if ((this.DEBUG_HEATMAP_GRID || enableMarkers) && scene) {
+  //       const debugSpheres = [
+  //         { pos: p00, name: '[DBG-HM-CORNER] 00', color: new Color3(1, 0, 0) }, // red
+  //         { pos: p10, name: '[DBG-HM-CORNER] 10', color: new Color3(0, 1, 0) }, // green
+  //         { pos: p01, name: '[DBG-HM-CORNER] 01', color: new Color3(0, 0, 1) }, // blue
+  //         { pos: p11, name: '[DBG-HM-CORNER] 11', color: new Color3(1, 1, 0) }, // yellow
+  //       ];
+
+  //       for (const { pos, name, color } of debugSpheres) {
+  //         const sphere = MeshBuilder.CreateSphere(name, { diameter: 0.3 }, scene);
+  //         sphere.position = pos;
+  //         sphere.material = new StandardMaterial(name + '_mat', scene);
+  //         (sphere.material as StandardMaterial).emissiveColor = color;
+  //       }
+
+  //       console.log('[Heatmap][Grid] debug corner markers created', { nx, nz });
+  //     }
+  //   } else {
+  //       console.warn('[Heatmap][Grid] abort: no floorMesh');
+  //     }
+
+  //     // ✅ 標記模擬完成，啟用 Banner 熱力圖控制工具列
+  //     this.isSimulationDone = true;
+
+  //     console.log('[SignalHeatRay][A-final] setResultMvp -> result mode');
+
+  //     this.resultService.setResultData(RESULT_API_MOCK);
+  //     this.resultService.setResultMvp(RESULT_MVP_MOCK);
+  //   } finally {
+  //     this.stopComputeProgressTicker();
+  //     this.computeProgressPercent = 100;
+  //     await new Promise(res => setTimeout(res, 120));
+
+  //       this.computeLoading = false;
+  //     }
+  // }
+
   async onStartCompute(): Promise<void> {
-    console.log('[UI][StartCompute] ENTER onStartCompute', {
-      time: new Date().toISOString(),
-      viewMode: this.resultService.viewMode(),
-      computeMode: this.computeMode,
-    });
+    console.log('[DBG] onStartCompute click');
 
     if (!this.guardEditWrite('onStartCompute')) return;
 
     this.distMode = 'sinr';
 
-    // ===== [SIM_API_PHASE3] API flow gate =====
-    console.log('[SIM_API_PHASE3] Gate triggered, entering API flow');
-    return this.runSimulationApiFlow();
-
-    // ===== [COMPUTEMODE:OVERRIDE] =====
-    // Allow runtime override via window.__computeModeOverride
-    
-    // ===== [WP6][ANCHOR:START_COMPUTE_LOADING] =====
-    this.computeLoading = true;
-    this.startComputeProgressTicker();
-
-    const scene = this.scene;
-    if (!scene) {
-      console.warn('[SignalHeatRay][P1] abort: this.scene is null/undefined');
-      return;
-    }
+    this.openComputeLoading();
 
     try {
-      const forced = (window as any).__computeModeOverride;
-      if (forced === 'plotly-heatmap' || forced === 'signal-heat-ray') {
-        this.computeMode = forced;
-      }
+      console.log('[SIM_API] start runSimulationApiFlow');
 
-      console.log('[StartCompute] gate check', { computeMode: this.computeMode, heatmapResolutionMode: this.heatmapResolutionMode });
-      console.log('[ComputeMode][DBG]', {
-        computeMode: this.computeMode,
-        override: (window as any).__computeModeOverride,
-        enableRayOverlay: (window as any).__enableRayOverlay,
-      });
-      console.log('[HM][DEBUG] after gate check', {
-        computeMode: this.computeMode,
-      });
+      await this.runSimulationApiFlow();
 
-      // ===== [COMPUTE_MODE:GATE] =====
-      // Route to Plotly heatmap flow if in plotly-heatmap mode
-      if (this.computeMode === 'plotly-heatmap') {
-        console.log('[HM][CHK] ENTER heatmap branch');
-        // Phase 5.4C: Dev-only batch mode (3x resolution modes)
-        const batch = (window as any).__hmBatch === true;
-        if (batch) {
-          const originalMode = this.heatmapResolutionMode;
-          // Run preview (10m)
-          this.heatmapResolutionMode = 'preview';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          await new Promise(r => setTimeout(r, 50));
+      console.log('[SIM_API] flow success');
 
-          // Run standard (5m)
-          this.heatmapResolutionMode = 'standard';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          await new Promise(r => setTimeout(r, 50));
+      this.closeComputeLoading();
 
-          // Run detail (3m)
-          this.heatmapResolutionMode = 'detail';
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
-          // Overlay rays ONLY after the final (detail) heatmap render in batch mode
-          this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/batch/detail');
-          // ===============================================
-          await new Promise(r => setTimeout(r, 50));
+    } catch (e: any) {
+      console.error('[SIM_API] flow failed', e);
 
-          // Restore original mode
-          this.heatmapResolutionMode = originalMode;
-          console.log('[Heatmap][DBG] batch mode complete', { restoredMode: this.heatmapResolutionMode });
-        } else {
-          console.log('[HM][CHK] BEFORE heatmap render');
-          await this.runPlotlyHeatmapFlow();
-          console.log('[HM][CHK] AFTER heatmap render');
-          // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:CALL] =====
-          // Overlay rays after single heatmap render in non-batch mode
-          this.overlaySignalRaysAfterHeatmap(scene, 'plotly-heatmap/single');
-          // ===============================================
-        }
-
-        this.resultService.setResultData(RESULT_API_MOCK);
-        this.resultService.setResultMvp(RESULT_MVP_MOCK);
-        this.rightPanelType = null;
-        console.log('[SignalHeatRay][Overlay] done (if enabled) before entering result mode');
-        console.log('[Phase1] enter result mode after plotly heatmap');
-        return;
-      }
-
-      console.log('[SignalHeatRay][P1] StartCompute clicked', {
-        time: new Date().toISOString(),
-      });
-
-      // ✅ [Commit -1.2] 清理 legacy heatmap 資源
-      this.disposeLegacyHeatmapAssets();
-
-      // ✅ 清理舊有射線數據，確保乾淨狀態
-      this.clearSignalRays();
-
-      console.log('[SignalHeatRay][P1] scene ok', {
-        meshCount: scene.meshes?.length ?? -1,
-      });
-
-      // Phase 1: mesh role scan (by metadata.type)
-      let antenna = 0;
-      let terminal = 0;
-      let blocker = 0;
-
-      for (const m of scene.meshes) {
-        const t = (m as any)?.metadata?.type;
-        if (t === 'antenna') antenna++;
-        else if (t === 'terminal') terminal++;
-        else if (t === 'building' || t === 'obstacle') blocker++;
-      }
-
-      console.log('[SignalHeatRay][P1] scan result', { antenna, terminal, blocker });
-
-      // Phase 1: still do NOT compute rays, do NOT render
-      // Phase 0：結果頁跳轉維持停用
-      // this.router.navigate(['/result']);
-    
-      // ===== [SIGRAY:P2:LINK_GEOMETRY] =====
-      // Purpose: Build a single link (A0 -> T0). Terminal determines ray direction.
-      // Inputs: scene.meshes, metadata.type, mesh absolute positions
-      // Outputs: from/to/distance/dir logs
-      // Exit: return if missing antenna/terminal or invalid positions
-      // Rollback: comment this block to keep only Phase 1 logs.
-      // ====================================
-      const { antennas, terminals, blockers } = this.p2_collectSignalNodes(scene);
-
-      console.log('[SignalHeatRay][P2] nodes', {
-        antenna: antennas.length,
-        terminal: terminals.length,
-        blocker: blockers.length,
-      });
-
-      // ✅ 檢查是否有基地台（終端不是必需的，熱力圖模擬只需要基地台）
-      if (antennas.length === 0) {
-        console.warn('[SignalHeatRay][P2] abort: need at least 1 antenna');
-        return;
-      }
-
-      // ✅ 條件判斷：僅當同時有終端時才計算 Phase 2 link 資料
-      if (antennas.length > 0 && terminals.length > 0) {
-        const a0 = antennas[0];
-        const t0 = terminals[0];
-
-        const from = a0.getAbsolutePosition?.()?.clone?.() ?? a0.position?.clone?.();
-        const to = t0.getAbsolutePosition?.()?.clone?.() ?? t0.position?.clone?.();
-
-        if (!from || !to) {
-          console.warn('[SignalHeatRay][P2] abort: cannot read positions', { from, to });
-          return;
-        }
-
-        const vec = to.subtract(from);
-        const distanceM = vec.length();
-        const dir = vec.normalize();
-
-        console.log('[SignalHeatRay][P2] link(A0->T0)', {
-          antennaId: a0.uniqueId,
-          terminalId: t0.uniqueId,
-          from: from.toString?.() ?? from,
-          to: to.toString?.() ?? to,
-          distanceM,
-          dir: dir.toString?.() ?? dir,
-        });
-      } else {
-        console.log('[SignalHeatRay][P2] skip link calculation: no terminal available');
-      }
-
-    // ===== [SIGRAY:P4.4:FANOUT_ALL_ANTENNAS] =====
-    // Purpose: render rays for ALL antennas (v1 multi-BS support)
-    // Rollback: comment this block to disable ray fanout.
-    // =============================================
-    if (terminals.length === 0) {
-      console.warn('[SignalHeatRay][P4.4] skip: no terminals -> no rays rendered');
-    } else {
-      this.p4_computeFanoutFromAntennas(scene, antennas, terminals, blockers);
+      this.computeLoading = true;
+      this.computeLoadingError = true;
+      this.computeLoadingErrorMessage =
+        e?.message?.trim()
+          ? e.message
+          : '運算失敗，請再試一次';
     }
-
-    // ✅ [Commit -1.1] 停用 legacy heatmap pipeline 入口
-    console.log('[Heatmap][Plotly] start compute (legacy heatmap disabled)');
-    // this.runHeatmapSimulation(scene, antennas, blockers);
-
-    // ===== [GRIDBUILDER:PHASE1.3] =====
-    // Purpose: Validate grid metadata and sample points (world grid verification)
-    // ====================================
-    if (this.floorMesh) {
-      const gridMeta = this.buildHeatmapGridMeta(this.floorMesh, this.plotlyHeatmapCellSize);
-
-      // Heatmap corner world points (for explicit (i,j)->(x,z) mapping)
-      const nx = gridMeta.nx;
-      const nz = gridMeta.nz;
-      const p00 = this.getHeatmapSamplePoint(gridMeta.min, 0, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p10 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, 0, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p01 = this.getHeatmapSamplePoint(gridMeta.min, 0, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-      const p11 = this.getHeatmapSamplePoint(gridMeta.min, nx - 1, nz - 1, this.plotlyHeatmapCellSize, this.plotlyHeatmapSliceHeight);
-
-      console.log('[DBG][HeatmapCorners]', {
-        nx,
-        nz,
-        corner_00: { i: 0, j: 0, x: p00.x, z: p00.z },
-        corner_10: { i: nx - 1, j: 0, x: p10.x, z: p10.z },
-        corner_01: { i: 0, j: nz - 1, x: p01.x, z: p01.z },
-        corner_11: { i: nx - 1, j: nz - 1, x: p11.x, z: p11.z },
-      });
-
-      // Sample three reference points: (0,0), (nx/2, nz/2), (nx-1, nz-1)
-      const pMid = this.getHeatmapSamplePoint(
-        gridMeta.min,
-        Math.floor(nx / 2),
-        Math.floor(nz / 2),
-        this.plotlyHeatmapCellSize,
-        this.plotlyHeatmapSliceHeight
-      );
-
-      console.log('[Heatmap][Grid] sample points', {
-        p00_0_0: p00.toString?.() ?? p00,
-        pMid: pMid.toString?.() ?? pMid,
-        p11_max: p11.toString?.() ?? p11,
-      });
-
-      // Optional: antenna world -> heatmap grid index debug
-      try {
-        if ((window as any).__hmDebugWorldToIndex === true && scene) {
-          const { antennas } = this.p2_collectSignalNodes(scene);
-          const a0 = antennas[0] ?? null;
-          if (a0 && typeof a0.getAbsolutePosition === 'function') {
-            const pos = a0.getAbsolutePosition();
-            const idx = this.hmDbgWorldToGridIndex(gridMeta.min, this.plotlyHeatmapCellSize, gridMeta.nx, gridMeta.nz, pos.x, pos.z);
-            console.log('[DBG][WorldToHeatmapIndex]', {
-              antennaName: a0.name,
-              worldX: pos.x,
-              worldZ: pos.z,
-              i: idx.i,
-              j: idx.j,
-              nx,
-              nz,
-            });
-          }
-        }
-      } catch (e) {
-        console.warn('[DBG][WorldToHeatmapIndex] failed', e);
-      }
-
-      // ===== [DEBUG:GRIDBUILDER] =====
-      // Purpose: Visualize grid sample points with debug spheres
-      // ====================================
-      const enableMarkers = (window as any).__hmDebugMarkers === true;
-      if ((this.DEBUG_HEATMAP_GRID || enableMarkers) && scene) {
-        const debugSpheres = [
-          { pos: p00, name: '[DBG-HM-CORNER] 00', color: new Color3(1, 0, 0) }, // red
-          { pos: p10, name: '[DBG-HM-CORNER] 10', color: new Color3(0, 1, 0) }, // green
-          { pos: p01, name: '[DBG-HM-CORNER] 01', color: new Color3(0, 0, 1) }, // blue
-          { pos: p11, name: '[DBG-HM-CORNER] 11', color: new Color3(1, 1, 0) }, // yellow
-        ];
-
-        for (const { pos, name, color } of debugSpheres) {
-          const sphere = MeshBuilder.CreateSphere(name, { diameter: 0.3 }, scene);
-          sphere.position = pos;
-          sphere.material = new StandardMaterial(name + '_mat', scene);
-          (sphere.material as StandardMaterial).emissiveColor = color;
-        }
-
-        console.log('[Heatmap][Grid] debug corner markers created', { nx, nz });
-      }
-    } else {
-        console.warn('[Heatmap][Grid] abort: no floorMesh');
-      }
-
-      // ✅ 標記模擬完成，啟用 Banner 熱力圖控制工具列
-      this.isSimulationDone = true;
-
-      console.log('[SignalHeatRay][A-final] setResultMvp -> result mode');
-
-      this.resultService.setResultData(RESULT_API_MOCK);
-      this.resultService.setResultMvp(RESULT_MVP_MOCK);
-    } finally {
-      this.stopComputeProgressTicker();
-      this.computeProgressPercent = 100;
-      await new Promise(res => setTimeout(res, 120));
-
-        this.computeLoading = false;
-      }
   }
 
   // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:HELPER] =====
@@ -4245,15 +4456,27 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   loading = false;
   loadingMessage = '';
 
+  loadingError = false;
+  loadingErrorMessage = '';
   // ===== [SIM_API_PHASE5][COMPUTE_LOADING_STATE] =====
   computeLoading = false;
-  computeLoadingText = '運算中...';
-  computeLoadingPercent = 0;
-  private computeLoadingTarget = 0;
-  private computeLoadingTimer: any = null;
+  computeLoadingError = false;
+  computeLoadingErrorMessage = '';
 
   // [WP6][ANCHOR:T1] Compute loading state (separate from map/building loading)
   computeProgressPercent = 0;
+
+  private openComputeLoading(): void {
+    this.computeLoading = true;
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
+  }
+
+  private closeComputeLoading(): void {
+    this.computeLoading = false;
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
+  }
 
   private __computeProgressTimer: any = null;
 
@@ -4283,45 +4506,15 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   }
 
   // ===== [SIM_API_PHASE5][COMPUTE_LOADING_PROGRESS] =====
-  private startComputeLoadingProgress(): void {
-    this.stopComputeLoadingProgress();
-    this.computeLoadingPercent = 0;
-    this.computeLoadingTarget = 0;
-
-    this.computeLoadingTimer = window.setInterval(() => {
-      if (!this.computeLoading) return;
-
-      if (this.computeLoadingPercent < this.computeLoadingTarget) {
-        const next = this.computeLoadingPercent + 1;
-        this.computeLoadingPercent = next > this.computeLoadingTarget
-          ? this.computeLoadingTarget
-          : next;
-      }
-    }, 80);
-  }
-
-  private setComputeLoadingTarget(percent: number): void {
-    const safe = Math.max(0, Math.min(99, Math.floor(percent)));
-    if (safe > this.computeLoadingTarget) {
-      this.computeLoadingTarget = safe;
-    }
-  }
-
-  private stopComputeLoadingProgress(): void {
-    if (this.computeLoadingTimer != null) {
-      window.clearInterval(this.computeLoadingTimer);
-      this.computeLoadingTimer = null;
-    }
-  }
-
-  private async finishComputeLoadingProgress(): Promise<void> {
-    this.computeLoadingTarget = 100;
-    this.computeLoadingPercent = 100;
-    await new Promise(resolve => setTimeout(resolve, 180));
+ retryStartCompute(): void {
+    this.computeLoadingError = false;
+    this.computeLoadingErrorMessage = '';
     this.computeLoading = false;
-    this.stopComputeLoadingProgress();
-  }
 
+    queueMicrotask(() => {
+      void this.onStartCompute();
+    });
+  }
 
   // -------------------- Two-stage workflow state --------------------
   stage: 'edit' = 'edit';
@@ -4344,7 +4537,8 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     width: 0,
     height: 0,
     cutHeights: ['1.05', '', ''],
-    heatmapGrid: '1x1',
+    //解析度調整
+    heatmapGrid: '4x4',
     rsrpThreshold: SIMULATION_SEED_FALLBACK.rsrpThreshold,
     sinrThreshold: SIMULATION_SEED_FALLBACK.sinrThreshold,
   };
@@ -4411,7 +4605,7 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
    * - landscape: 'tree'
    * - observeZone/customZone: 你按鈕的 id（用於 debug）
    */
-  private phase4PendingItemId: string | null = null;
+  phase4PendingItemId: string | null = null;
 
   // Phase 2: double-click to edit (gizmo)
   private phase2LastClickAt = 0;
@@ -4424,6 +4618,14 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
   private phase2SelectedOwner: AbstractMesh | null = null;
   private phase2EditingOwner: AbstractMesh | null = null;
   // -------------------- End Phase 2.2 --------------------
+
+  /** XZ-plane drag behavior attached to the currently-editing mesh. Null when nothing is editing. */
+  private movePointerDragBehavior: PointerDragBehavior | null = null;
+  /** Mesh that currently owns movePointerDragBehavior; used for reliable detach without relying on Babylon private _attachedNode. */
+  private movePointerDragOwner: AbstractMesh | null = null;
+
+  /** Mutual-exclusion mode: 'drag' = PointerDragBehavior only; 'gizmo' = gizmo only; null = nothing selected. */
+  private transformControlMode: 'drag' | 'gizmo' | null = null;
 
   // -------------------- Spawn defaults (Phase 4/5) --------------------
   // 先 hardcode，之後再參數化
@@ -4648,6 +4850,9 @@ private __antennaPlaceableSeq = 0;
   // Stage B runtime
   gizmoManager: GizmoManager | null = null;
   floorMesh: Mesh | null = null;
+
+  /** Debug-only marker meshes for building payload reprojection check. Cleared each run. */
+  private buildingReprojectDebugMeshes: AbstractMesh[] = [];
 
   // 你原本既有狀態（保留）
   /** Phase 5: leaving field panel (rightPanelType !== 'field') clears card/gizmo via setter. */
@@ -5953,7 +6158,8 @@ private __antennaPlaceableSeq = 0;
     private baseTaskPayloadBuilder: BaseTaskPayloadBuilder,
     private taskApiService: TaskApiService,
     private simulationApiService: SimulationApiService,
-    private resultApiService: ResultApiService
+    private resultApiService: ResultApiService,
+    private alertService: AlertService
     ) {
       console.log('[DBG] EditScene constructor fired', new Date().toISOString());
       console.log('[DBG] mapPreview injected?', !!this.mapPreview);
@@ -5997,6 +6203,7 @@ private __antennaPlaceableSeq = 0;
     // Subscribe to field domain store for panel→scene sync
     this.fieldSceneSyncSub = this.fieldDomainStore.state$.subscribe((state: FieldDomainState) => {
       if (this.isApplyingFieldStoreToScene) return;
+      if (this.isGizmoDragging) return;
 
       this.syncFieldRowsToScene(state);
     });
@@ -6106,6 +6313,7 @@ private __antennaPlaceableSeq = 0;
 
   ngOnDestroy(): void {
     this.fieldSceneSyncSub?.unsubscribe();
+    this.detachMovePointerDragBehavior();
 
     // ===== [Patch 6] Cleanup gizmo observers =====
     const posGizmo: any = this.gizmoManager?.gizmos?.positionGizmo;
@@ -6465,6 +6673,29 @@ private __antennaPlaceableSeq = 0;
             const pickedMesh = pickResult.pickedMesh as AbstractMesh;
             const owner = this.resolveSceneObjectOwner(pickedMesh as any);
 
+            const ownerMeta = (owner as any)?.metadata ?? {};
+            const ownerType = ownerMeta.type ?? null;
+            const isBuildingCandidate =
+              ownerType === 'building' ||
+              ownerMeta?.osmId != null ||
+              ownerMeta?.tags?.building != null ||
+              false;
+
+            if (isBuildingCandidate) {
+              console.log('[RightClickMenu] blocked for building', {
+                picked: pickedMesh?.name ?? null,
+                owner: (owner as any)?.name ?? null,
+                ownerType,
+                ownerMeta,
+              });
+
+              this.isMenuVisible = false;
+              this.isCurrentlyRightClick = false;
+              this.ctxMenuTargetMesh = null;
+              this.ctxMenuTargetUniqueId = null;
+              return;
+            }
+
             this.setSelectedSceneObject(pickedMesh);
             this.ctxMenuTargetMesh = owner as any;
             this.ctxMenuTargetUniqueId = owner?.uniqueId ?? null;
@@ -6733,16 +6964,11 @@ private __antennaPlaceableSeq = 0;
   }
 
   private async bootstrapCommittedMapIntoStageB(): Promise<void> {
-    // const committed = this.draft.consumeCommittedMap();
-
     console.log('[EditScene][DBG] bootstrap enter');
 
     let meta = this.draft.consumeProjectMeta?.() ?? null;
     let committed = this.draft.consumeCommittedMap?.() ?? null;
 
-    // =====================
-    // DEBUG ONLY (TEMP)
-    // =====================
     if (this.DEBUG_STAY_IN_EDITSCENE) {
       if (!meta) {
         const debugMeta = {
@@ -6754,13 +6980,12 @@ private __antennaPlaceableSeq = 0;
           createdAtISO: new Date().toISOString(),
         };
         this.draft.setProjectMeta?.(debugMeta);
-        console.log('[EditScene][DEBUG] injected projectMeta', debugMeta);
-        meta = debugMeta; // ✅ 更新本地變數
+        meta = debugMeta;
       }
 
       if (!committed) {
         const debugCommitted = {
-          provider: 'osm' as const,  // ✅ 修正型別
+          provider: 'osm' as const,
           zoom: 17,
           committedAtISO: new Date().toISOString(),
           bbox: {
@@ -6771,11 +6996,10 @@ private __antennaPlaceableSeq = 0;
           },
         };
         this.draft.setCommittedMap?.(debugCommitted);
-        console.log('[EditScene][DEBUG] injected committedMapData', debugCommitted);
-        committed = debugCommitted; // ✅ 更新本地變數
+        committed = debugCommitted;
       }
     }
-    // =====================
+
     if (!committed?.bbox) {
       console.warn('[EditScene][Phase3] no committed bbox -> redirect to /project/new');
       this.router.navigate(['/project/new']);
@@ -6783,25 +7007,26 @@ private __antennaPlaceableSeq = 0;
     }
 
     this.initFieldSettingsFromProjectMeta(meta);
-    // 防止 cutHeights 被洗掉：只在 cutHeights 缺失或三格都空時補回預設
+
     if (
       !this.fieldSettingsState.cutHeights ||
       this.fieldSettingsState.cutHeights.every(v => v == null || String(v).trim() === '')
     ) {
       this.fieldSettingsState.cutHeights = ['1.05', '', ''];
     }
+
     this.applyCommittedMapMeta(committed);
-    // 防止 applyCommittedMapMeta 後 cutHeights 被洗掉（同上：三格都空時補回）
+
     if (
       !this.fieldSettingsState.cutHeights ||
       this.fieldSettingsState.cutHeights.every(v => v == null || String(v).trim() === '')
     ) {
       this.fieldSettingsState.cutHeights = ['1.05', '', ''];
     }
+
     this.sceneName = this.fieldSettingsState.projectName || this.sceneName;
 
-    // 1. 開始前開啟
-    this.setLoading(true, '準備場景中…');
+    this.setLoading(true, '載入中...');
 
     try {
       const { south, west, north, east } = committed.bbox;
@@ -6810,29 +7035,51 @@ private __antennaPlaceableSeq = 0;
         (L as any).latLng(north, east)
       );
 
-      // 2. 更新文字但不要關閉 loading
-      this.loadingMessage = '生成地圖與建築中…';
-      
-      const assets = await this.mapPreview.generate(this.scene!, bounds, committed.zoom ?? 17);
+      const assets = await this.mapPreview.generate(
+        this.scene!,
+        bounds,
+        committed.zoom ?? 17
+      );
+
+      if (!assets?.ground) {
+        throw new Error('地圖或建築生成失敗：缺少 ground mesh');
+      }
 
       this.committedMapData = assets;
-      this.floorMesh = assets?.ground ?? null;
+      this.floorMesh = assets.ground;
 
       try { this.coord.commitAnchor?.(committed.bbox); } catch {}
       try { this.empowerCommittedMapMeshes?.(); } catch {}
 
       const canvas = this.renderCanvas?.nativeElement;
-      if (canvas && this.floorMesh) {
-        this.initEditStageRuntime(this.floorMesh, canvas);
+      if (!canvas || !this.floorMesh) {
+        throw new Error('場景初始化失敗：缺少 canvas 或 floorMesh');
       }
 
-    } catch (e) {
-      console.error('[EditScene] bootstrap failed', e);
-    } finally {
-      // 3. 確保所有異步操作（包含 Mesh 生成）結束後才關閉
-      this.setLoading(false);
-    }
+    await this.initEditStageRuntime(this.floorMesh, canvas);
+    this.setLoading(false);
 
+    } catch (e: any) {
+      console.error('[EditScene] bootstrap failed', e);
+
+      this.loading = true;
+      this.loadingError = true;
+      this.loadingMessage = '載入中...';
+      this.loadingErrorMessage =
+        e?.message?.trim()
+          ? e.message
+          : '地圖載入失敗，請再試一次';
+    }
+  }
+
+  retryBootstrapLoading(): void {
+    this.loadingError = false;
+    this.loadingErrorMessage = '';
+    this.loading = false;
+
+    queueMicrotask(() => {
+      void this.bootstrapCommittedMapIntoStageB();
+    });
   }
 
   // -------------------- Stage B Enter --------------------
@@ -6879,7 +7126,14 @@ private __antennaPlaceableSeq = 0;
         const move = forward.scale(forwardInput).add(right.scale(strafeInput));
         if (move.lengthSquared() > 1e-6) {
           move.normalize();
-          const horizontalSpeed = Math.max(0.8, this.sceneScale * 0.003);
+          //水平移動速度與場景大小成正比，確保大場景也能快速移動，小場景又不會太快失控
+          //參數意義：
+          // - this.sceneScale: 根據場景大小自動調整速度，確保大場景能快速移動，小場景不會太快
+          // - 0.001: 經過測試的調整係數，確保在常見場景大小下有良好體驗
+          // - Math.max(0.1, ...): 設置最低速度為 0.1，避免極小場景移動過慢
+          //參數調整方式:
+          // - 如果發現大場景移動仍然過慢，可以增加係數（如 0.002）；如果小場景移動過快，可以減少係數（如 0.0005）
+          const horizontalSpeed = Math.max(0.1, this.sceneScale * 0.001);
           this.fpsCamera.cameraDirection.addInPlace(move.scale(horizontalSpeed * dt));
         }
       }
@@ -6938,7 +7192,7 @@ private __antennaPlaceableSeq = 0;
   }
 
   // -------------------- Stage B Runtime Init --------------------
-  private initEditStageRuntime(groundMesh: Mesh, canvas: HTMLCanvasElement): void {
+  private async initEditStageRuntime(groundMesh: Mesh, canvas: HTMLCanvasElement): Promise<void> {
     this.scene.activeCamera = this.fpsCamera;
     (this.scene as any).cameraToUseForPointers = this.fpsCamera;
     this.scene.activeCameras = [this.fpsCamera];
@@ -6956,9 +7210,12 @@ private __antennaPlaceableSeq = 0;
     this.floorMesh.isPickable = true;
     console.log('[StageB][Init] floorMesh set =', this.floorMesh.name);
     // ✅ StageB DOM（*ngIf）需要一個 tick 才會出現 mount 點
-    setTimeout(() => {
-      this.mountBabylonHostToCurrentStage();
-    }, 0);
+    await new Promise<void>((resolve) => {
+      setTimeout(() => {
+        this.mountBabylonHostToCurrentStage();
+        resolve();
+      }, 0);
+    });
 
 
     // 2) fpsCamera
@@ -7180,8 +7437,13 @@ private __antennaPlaceableSeq = 0;
       // owner-only selection state (picked mesh kept for debug)
       this.setSelectedSceneObject(pickedMesh as any);
 
-      // Blank / non-interactive pick: do not clear gizmo or field-card selection
+      // Blank / non-interactive pick: clear drag + mode, keep gizmo & field-card selection
       if (!ownerNode) {
+        this.detachMovePointerDragBehavior();
+        // Do NOT clear gizmo mode on blank click — gizmo stays open until explicitly closed
+        if (this.transformControlMode !== 'gizmo') {
+          this.transformControlMode = null;
+        }
         this.clearPinnedHighlight();
         this.recomputeActiveCardVM();
         this.phase2LastClickAt = 0;
@@ -7189,7 +7451,8 @@ private __antennaPlaceableSeq = 0;
         return;
       }
 
-      if (this.gizmoManager?.attachedMesh || this.phase2EditingOwner) {
+      // In gizmo mode, do NOT exit editing on object click — gizmo must stay attached
+      if (this.transformControlMode !== 'gizmo' && (this.gizmoManager?.attachedMesh || this.phase2EditingOwner)) {
         this.phase2ExitEditing();
       }
 
@@ -7301,7 +7564,7 @@ private __antennaPlaceableSeq = 0;
     const pick = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
     const mesh: any = pick?.pickedMesh;
 
-    // 放置模式下：只 pick 到 ground/building，避免被已放置物件（含 region / tree）擋住
+    // 放置模式下：只 pick 到 ground/building/obstacle，避免被其他已放置物件（含 region / tree）擋住
     const surfacePick =
       this.placementMode !== 'none'
         ? this.scene.pick(
@@ -7309,7 +7572,7 @@ private __antennaPlaceableSeq = 0;
             this.scene.pointerY,
             (m: any) => {
               const t = m?.metadata?.type ?? null;
-              return t === 'ground' || t === 'building';
+              return t === 'ground' || t === 'building' || t === 'obstacle';
             }
           )
         : pick;
@@ -7398,26 +7661,18 @@ private __antennaPlaceableSeq = 0;
       return;
     }
 
-    // 3) Gizmo not open: single-click selects; double-click opens
-    this.phase2SelectedOwner = owner;
-
-    const now2 = performance.now();
-    const withinWindow2 = (now2 - this.phase2LastClickAt) <= this.PHASE2_DBLCLICK_MS;
-    const sameTarget2 =
-      this.phase2LastClickPickId !== null && owner.uniqueId === this.phase2LastClickPickId;
-
-    if (withinWindow2 && sameTarget2) {
-      // double-click → open
-      if (!this.guardEditWrite('pointer:phase2AttachGizmo dblclick')) return;
-      this.phase2AttachGizmo(owner);
-      this.phase2LastClickAt = 0;
-      this.phase2LastClickPickId = null;
+    // 3) Single click: Drag Mode only — blocked while gizmo is active
+    console.log('[TransformMode][Click3]', { transformControlMode: this.transformControlMode, owner: owner?.name ?? null });
+    if (this.transformControlMode === 'gizmo') {
+      // Gizmo is open; keep drag disabled until user explicitly closes gizmo
+      console.log('[TransformMode][Click3] blocked — gizmo mode active');
       return;
     }
-
-    // first click candidate → record and RETURN (critical)
-    this.phase2LastClickAt = now2;
-    this.phase2LastClickPickId = owner.uniqueId;
+    this.phase2SelectedOwner = owner;
+    if (!this.guardEditWrite('pointer:enterDragMode singleclick')) return;
+    this.enterDragMode(owner);
+    this.phase2LastClickAt = 0;
+    this.phase2LastClickPickId = null;
     return;
     // -------------------- End Phase 2 (converged) --------------------
 
@@ -7455,7 +7710,8 @@ private __antennaPlaceableSeq = 0;
   // -------------------- Phase 4: Single-shot capture (use surfacePick) --------------------
   const surfaceType: string | null = surfaceMesh?.metadata?.type ?? null;
   const allowed =
-    surfacePick?.hit === true && (surfaceType === 'ground' || surfaceType === 'building');
+    surfacePick?.hit === true &&
+    (surfaceType === 'ground' || surfaceType === 'building' || surfaceType === 'obstacle');
 
   const capturedMode = this.placementMode;
 
@@ -7656,6 +7912,8 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     if (!this.gizmoManager) return;
 
     if (!target) {
+      this.detachMovePointerDragBehavior();
+      this.transformControlMode = null;
       this.gizmoManager.attachToMesh(null);
       this.phase2EditingMesh = null;
       this.phase2EditingOwner = null;
@@ -7669,6 +7927,8 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     const resolvedOwner = this.resolveSceneObjectOwner(target as any) ?? target;
     const owner = resolvedOwner instanceof AbstractMesh ? resolvedOwner : null;
     if (!owner) {
+      this.detachMovePointerDragBehavior();
+      this.transformControlMode = null;
       this.gizmoManager.attachToMesh(null);
       this.phase2EditingMesh = null;
       this.phase2EditingOwner = null;
@@ -7679,13 +7939,15 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
       return;
     }
 
+    // Ensure drag is fully detached before gizmo takes control
+    this.detachMovePointerDragBehavior();
     this.gizmoManager.attachToMesh(owner);
 
     // -------------------- Phase 3: Gizmo scale policy --------------------
     const t = (owner as any)?.metadata?.type ?? null;
 
-    // Move / Rotate: always enabled for editable targets
-    this.gizmoManager.positionGizmoEnabled = true;
+    // Rotate: always enabled. Position (move) gizmo is intentionally OFF — movement is handled by Drag Mode (PointerDragBehavior) exclusively.
+    this.gizmoManager.positionGizmoEnabled = false;
     this.gizmoManager.rotationGizmoEnabled = true;
 
     // Scale: disabled for antenna / terminal; enabled for others
@@ -7695,9 +7957,28 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
     console.log('[Phase3][GizmoPolicy]', { type: t, allowScale });
     // -------------------- End Phase 3 --------------------
 
+    // Re-bind rotation drag observers on the new gizmo instance created by rotationGizmoEnabled = true.
+    // The instance from init-time bindFieldStoreSyncToGizmos() was disposed when rotationGizmoEnabled = false ran during init.
+    const rotGizmoNew: any = this.gizmoManager.gizmos?.rotationGizmo;
+    if (rotGizmoNew) {
+      if (this.rotationDragEndObserver && rotGizmoNew.onDragEndObservable) {
+        rotGizmoNew.onDragEndObservable.remove(this.rotationDragEndObserver);
+      }
+      if (rotGizmoNew.onDragStartObservable) {
+        rotGizmoNew.onDragStartObservable.add(() => { this.isGizmoDragging = true; });
+      }
+      if (rotGizmoNew.onDragEndObservable) {
+        this.rotationDragEndObserver = rotGizmoNew.onDragEndObservable.add(() => {
+          this.isGizmoDragging = false;
+          this.syncSelectedSceneObjectToFieldStore('rotation');
+        });
+      }
+    }
+
     this.phase2EditingOwner = owner;
     this.phase2EditingMesh = owner;
     this.selectedOwner = owner;
+    // NOTE: intentionally no attachMovePointerDragBehavior here — gizmo mode is exclusive
 
     console.log('[Gizmo][OwnerAttach]', {
       target: (target as any)?.name ?? null,
@@ -7723,6 +8004,73 @@ if (shot?.mode === 'observeZone' || shot?.mode === 'customZone') {
 
 
   // -------------------- End Phase 2 --------------------
+
+  // -------------------- PointerDragBehavior helpers (XZ mesh-body drag) --------------------
+
+  private detachMovePointerDragBehavior(): void {
+    if (this.movePointerDragBehavior) {
+      try {
+        // Use tracked owner instead of private Babylon _attachedNode for reliability
+        const host = this.movePointerDragOwner;
+        if (host && typeof host.removeBehavior === 'function') {
+          host.removeBehavior(this.movePointerDragBehavior);
+        }
+      } catch { /* ignore disposal errors */ }
+      console.log('[TransformMode][Drag] detachMovePointerDragBehavior', { owner: this.movePointerDragOwner?.name ?? null });
+      this.movePointerDragBehavior = null;
+      this.movePointerDragOwner = null;
+    }
+  }
+
+  private attachMovePointerDragBehavior(owner: AbstractMesh): void {
+    this.detachMovePointerDragBehavior();
+
+    const drag = new PointerDragBehavior({ dragPlaneNormal: new Vector3(0, 1, 0) });
+    drag.detachCameraControls = true;
+
+    drag.onDragEndObservable.add(() => {
+      this.syncSelectedSceneObjectToFieldStore('position');
+    });
+
+    owner.addBehavior(drag);
+    this.movePointerDragBehavior = drag;
+    this.movePointerDragOwner = owner;
+    console.log('[TransformMode][Drag] attachMovePointerDragBehavior', { owner: owner.name });
+  }
+
+  // -------------------- Transform control mode (mutual exclusion) --------------------
+
+  /** Single-click: select + XZ drag only. No gizmo. */
+  private enterDragMode(owner: AbstractMesh): void {
+    if (this.transformControlMode === 'gizmo') {
+      console.log('[TransformMode] enterDragMode blocked — gizmo mode is active', { owner: owner.name });
+      return;
+    }
+    console.log('[TransformMode] enterDragMode → start', { owner: owner.name, prevMode: this.transformControlMode });
+    this.transformControlMode = 'drag';
+    this.detachMovePointerDragBehavior();
+    if (this.gizmoManager) {
+      this.gizmoManager.attachToMesh(null);
+    }
+    this.phase2EditingOwner = owner;
+    this.phase2EditingMesh = owner;
+    this.selectedOwner = owner;
+    this.attachMovePointerDragBehavior(owner);
+    console.log('[TransformMode] enterDragMode → done', { owner: owner.name, mode: this.transformControlMode });
+  }
+
+  /** Right-click menu: open gizmo (rotate+scale only), detach drag. Delegates to phase2AttachGizmo for gizmo policy. */
+  private enterGizmoMode(owner: AbstractMesh): void {
+    console.log('[TransformMode] enterGizmoMode → start', { owner: owner.name, prevMode: this.transformControlMode });
+    this.transformControlMode = 'gizmo';
+    this.detachMovePointerDragBehavior();
+    this.phase2AttachGizmo(owner);
+    console.log('[TransformMode] enterGizmoMode → done', { owner: owner.name, mode: this.transformControlMode, positionGizmo: this.gizmoManager?.positionGizmoEnabled ?? null });
+  }
+
+  // -------------------- End Transform control mode --------------------
+
+  // -------------------- End PointerDragBehavior helpers --------------------
 
   // -------------------- Phase 2.2: exit editing --------------------
   private phase2ExitEditing(): void {
@@ -8823,6 +9171,24 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     return Number((((rad ?? 0) * 180) / Math.PI).toFixed(2));
   }
 
+  private buildRectangleVertices(cx: number, cy: number, width: number, length: number, angleDeg: number): [number, number][] {
+    const hw = width / 2;
+    const hl = length / 2;
+    const rad = (angleDeg * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const localCorners: [number, number][] = [
+      [-hw, -hl],
+      [hw, -hl],
+      [hw, hl],
+      [-hw, hl],
+    ];
+    return localCorners.map(([lx, ly]) => [
+      Number((cx + lx * cos - ly * sin).toFixed(4)),
+      Number((cy + lx * sin + ly * cos).toFixed(4)),
+    ]);
+  }
+
   private debugFieldStore(tag: string): void {
     const snapshot = this.fieldDomainStore.snapshot;
     console.log(`[FieldStore][${tag}] snapshot`, snapshot);
@@ -8943,6 +9309,79 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     return Number((value ?? 0).toFixed(digits));
   }
 
+  private clearBuildingReprojectDebug(): void {
+    console.log('[Building][ReprojectDebug][Clear]', {
+      count: this.buildingReprojectDebugMeshes.length,
+    });
+    for (const m of this.buildingReprojectDebugMeshes) {
+      try { m.dispose(); } catch { /* ignore if already disposed */ }
+    }
+    this.buildingReprojectDebugMeshes = [];
+  }
+
+  private renderBuildingReprojectDebug(args: {
+    bboxCenterWorldX: number;
+    bboxCenterWorldZ: number;
+    floorMinWorldX: number;
+    floorMinWorldZ: number;
+    finalX: number;
+    finalZ: number;
+    worldY: number;
+    meshName: string;
+    osmId: string;
+  }): void {
+    console.log('[Building][ReprojectDebug][Enter]', {
+      enabled: (window as any).__dbgBuildingReproject,
+      limit: (window as any).__dbgBuildingReprojectLimit,
+    });
+    if (!this.scene) return;
+    const { bboxCenterWorldX, bboxCenterWorldZ, floorMinWorldX, floorMinWorldZ,
+            finalX, finalZ, worldY, meshName, osmId } = args;
+
+    const reprojectedSceneX = floorMinWorldX + finalX;
+    const reprojectedSceneZ = floorMinWorldZ + finalZ;
+    const markerY = 20;
+
+    // Green sphere: actual bbox centerWorld position
+    const greenSphere = MeshBuilder.CreateSphere(
+      `__dbg_bldg_green_${meshName}`, { diameter: 4.0 }, this.scene
+    );
+    greenSphere.position = new Vector3(bboxCenterWorldX, markerY, bboxCenterWorldZ);
+    const greenMat = new StandardMaterial(`__dbg_bldg_gmat_${meshName}`, this.scene);
+    greenMat.emissiveColor = new Color3(0, 1, 0);
+    greenMat.disableLighting = true;
+    greenSphere.material = greenMat;
+    this.buildingReprojectDebugMeshes.push(greenSphere);
+
+    // Red sphere: payload x/y reprojected back to scene space
+    const redSphere = MeshBuilder.CreateSphere(
+      `__dbg_bldg_red_${meshName}`, { diameter: 4.0 }, this.scene
+    );
+    redSphere.position = new Vector3(reprojectedSceneX, markerY + 0.5, reprojectedSceneZ);
+    const redMat = new StandardMaterial(`__dbg_bldg_rmat_${meshName}`, this.scene);
+    redMat.emissiveColor = new Color3(1, 0, 0);
+    redMat.disableLighting = true;
+    redSphere.material = redMat;
+    this.buildingReprojectDebugMeshes.push(redSphere);
+
+    console.log('[Building][ReprojectDebug][Created]', {
+      meshName,
+      total: this.buildingReprojectDebugMeshes.length,
+    });
+
+    console.log('[Building][ReprojectCheck]', {
+      meshName,
+      osmId,
+      bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+      payloadLocal: { x: finalX, y: finalZ },
+      reprojectedScene: { x: reprojectedSceneX, z: reprojectedSceneZ },
+      delta: {
+        dx: reprojectedSceneX - bboxCenterWorldX,
+        dz: reprojectedSceneZ - bboxCenterWorldZ,
+      },
+    });
+  }
+
   private getDefaultObstacleMaterial(kind: 'primitive' | 'landscape'): string {
     return kind === 'landscape' ? 'Wood' : '304牆壁_殼';
   }
@@ -8956,6 +9395,9 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     for (const row of state.candidateBs) activeRowIds.add(row.id);
     for (const row of state.candidateRis) activeRowIds.add(row.id);
     for (const row of state.ueList) activeRowIds.add(row.id);
+    for (const row of state.observes) activeRowIds.add(row.id);
+    for (const row of state.zones) activeRowIds.add(row.id);
+    for (const row of state.obstacles) activeRowIds.add(row.id);
 
     return activeRowIds;
   }
@@ -9581,6 +10023,7 @@ private spawnObstaclePrimitiveAt(kind: string, point: any, placedOn: 'ground' | 
     meshId: mesh.uniqueId,
   });
   this.attachFieldRowMetadata(mesh, obstacleRow.id);
+  this.registerSceneObjectForFieldRow(obstacleRow.id, 'obstacle', mesh, mesh, k);
   console.log('[FieldStore][Obstacle] added row', obstacleRow);
   console.log('[COORD][Spawn->Row][Object]', {
     kind: 'basic-object',
@@ -9762,6 +10205,7 @@ private spawnLandscapeAt(itemId: string, point: any, placedOn: 'ground' | 'build
         'landscape',
         'spawnLandscapeAt'
       );
+      this.registerSceneObjectForFieldRow(obstacleRow.id, 'obstacle', owner, owner, shape);
 
       console.log('[FieldStore][Landscape->Obstacle] added row', obstacleRow);
       console.log('[COORD][Spawn->Row][Object]', {
@@ -9875,14 +10319,34 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       subfields: this.fieldDomainStore.snapshot?.subfields ?? [],
     });
     console.log('[OBS_CREATE_BEFORE_ADD_SUBFIELD][v1]');
+
+    // Compute real rectangle geometry from mesh bounding box
+    box.computeWorldMatrix(true);
+    const _obsBbox = box.getBoundingInfo()?.boundingBox ?? null;
+    const obsWidth = _obsBbox ? (_obsBbox.maximumWorld.x - _obsBbox.minimumWorld.x) : 50;
+    const obsLength = _obsBbox ? (_obsBbox.maximumWorld.z - _obsBbox.minimumWorld.z) : 50;
+    const obsAngleDeg = this.degFromRad(box.rotation?.y ?? 0);
+    const obsCx = observeRow.x;
+    const obsCy = observeRow.y;
+    const obsVertices = this.buildRectangleVertices(obsCx, obsCy, obsWidth, obsLength, obsAngleDeg);
+
     const subfieldRow = this.fieldDomainStore.addSubfield({
       name: `觀測區域 ${observeRow.seq}`,
-      shapeType: 'circle' as any,
-      radius: 5,
-      rotateAngle: 0,
-      rotateCenter: [observeRow.x, observeRow.y],
-      vertices: [],
+      shapeType: 'rectangle',
+      radius: 0,
+      rotateAngle: obsAngleDeg,
+      rotateCenter: [Number(obsCx.toFixed(4)), Number(obsCy.toFixed(4))],
+      vertices: obsVertices,
       visible: true,
+      sceneObjectId: String(observeRow.meshId ?? box?.uniqueId ?? ''),
+    });
+    console.log('[SUBFIELD_STORE_AFTER_CREATE]', {
+      observeRow,
+      width: obsWidth,
+      length: obsLength,
+      angleDeg: obsAngleDeg,
+      vertices: obsVertices,
+      snapshotSubfields: this.fieldDomainStore.snapshot?.subfields,
     });
     console.log('[OBS_CREATE_AFTER_ADD_SUBFIELD][v1]', {
       subfields: this.fieldDomainStore.snapshot?.subfields ?? [],
@@ -9899,6 +10363,13 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
     });
   }
   if (rowId) {
+    this.registerSceneObjectForFieldRow(
+      rowId,
+      rowCategory as RegistryCategory,
+      box,
+      box,
+      regionType
+    );
     this.finalizeOwnerHierarchy(
       box,
       rowId,
@@ -9907,7 +10378,7 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       'spawnRegionBoxAt'
     );
   }
-  
+
   this.debugFieldStore(`Region-${regionType}`);
 
   console.log('[Phase4][Region] spawned', { regionType, placedOn, name: box.name });
@@ -10446,6 +10917,14 @@ onModelButtonClick(shape: any): void {
     return;
   }
 
+  // Toggle: clicking the active button again cancels placement mode
+  if (this.phase4PendingItemId === resolvedKey && this.placementMode !== 'none') {
+    this.placementMode = 'none';
+    this.phase4PendingItemId = null;
+    this.phase4SingleShot = null;
+    return;
+  }
+
   // 記住 pending item id（景觀物件會用到；其他也留作 debug）
   this.phase4PendingItemId = resolvedKey;
 
@@ -10625,32 +11104,54 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   }
 
 
-  onSliceHeightChange(sliceHeight: number): void {
-    console.log('[Banner] 切面高度已變更:', sliceHeight, 'm');
+  private parseSliceHeightOptionsFromCompleteCalcResult(result: any): number[] {
+    const candidates: number[] = [];
 
-    // 步驟 1：更新內部狀態
-    this.heatmapSliceHeight = sliceHeight;
-
-    // 步驟 2：若平面已存在，更新其高度位置
-    if (this.heatmapPlane) {
-      this.heatmapPlane.position.y = sliceHeight;
-      console.log('[Banner] 熱力圖平面高度已更新至:', sliceHeight, 'm');
-    }
-
-    // 步驟 3：若已有模擬數據，重新計算該高度的訊號值
-    if (this.isSimulationDone && this.gridDataBuffer && this.simulationGrid.length > 0) {
-      const scene = this.scene;
-      const antennas = this.p2_collectSignalNodes(scene).antennas;
-      const blockers = this.p2_collectSignalNodes(scene).blockers;
-
-      if (antennas.length > 0) {
-        console.log('[Banner] 重新計算高度', sliceHeight, '的訊號…');
-        // 重新執行模擬以取得該高度的新數據
-        this.runHeatmapSimulation(scene, antennas, blockers);
-        
-        console.log('[Banner] 訊號重新計算完成 ✓');
+    const rawInputZ = result?.input?.zValue;
+    if (typeof rawInputZ === 'string' && rawInputZ.trim() !== '') {
+      try {
+        const parsed = JSON.parse(rawInputZ);
+        if (Array.isArray(parsed)) {
+          for (const v of parsed) {
+            const n = Number(v);
+            if (Number.isFinite(n)) candidates.push(n);
+          }
+        }
+      } catch (err) {
+        console.warn('[SliceHeight] failed to parse input.zValue', rawInputZ, err);
       }
     }
+
+    const fieldStats = result?.['5GOutput']?.fieldStatistics?.data;
+    if (Array.isArray(fieldStats)) {
+      for (const row of fieldStats) {
+        const n = Number(row?.zValue);
+        if (Number.isFinite(n)) candidates.push(n);
+      }
+    }
+
+    const subStats = result?.['5GOutput']?.subfieldStatistics;
+    if (Array.isArray(subStats)) {
+      for (const row of subStats) {
+        const n = Number(row?.zValue);
+        if (Number.isFinite(n)) candidates.push(n);
+      }
+    }
+
+    return Array.from(new Set(candidates)).sort((a, b) => a - b);
+  }
+
+  onSliceHeightChange(nextHeight: number): void {
+    this.sliceHeight = Number(nextHeight);
+    this.heatmapSliceHeight = this.sliceHeight;
+    console.log('[Heatmap][SliceHeight] changed', this.sliceHeight);
+
+    if (!this.completeCalcResult) {
+      console.warn('[Heatmap][SliceHeight] completeCalcResult not ready');
+      return;
+    }
+
+    this.rerenderHeatmapByCurrentControls();
   }
 
 
@@ -10671,23 +11172,61 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     if (this.distMode === 'coverage') {
       this.showPlotlyHeatmapPlaneAndColorbar();
       this.hidePlotlyColorbarOnly();
-      void this.requestHeatmapRerender('mode');
+      this.rerenderHeatmapByCurrentControls();
       return;
     }
 
     this.showPlotlyHeatmapPlaneAndColorbar();
     this.showPlotlyColorbarHost();
     this.disposeCoverageOverlay();
-    void this.requestHeatmapRerender('coverage-threshold');
+    this.rerenderHeatmapByCurrentControls();
   }
 
   onViewFiltersChange(filters: any): void {
-    console.log('[Banner] 檢視篩選已變更:', filters);
-    // TODO: 在此實現邏輯
-    // filters: { showTerminals, showObstacles, showAntennas }
-    // - 切換終端（UE）的可見性
-    // - 切換障礙物（建築）的可見性
-    // - 切換基地台（天線）的可見性
+    console.log('[ViewFilter][Incoming]', filters);
+    this.viewFilters = { ...this.viewFilters, ...filters };
+    this.applyViewFiltersToScene();
+  }
+
+  private applyViewFiltersToScene(): void {
+    console.log('[ViewFilter][Apply]', this.viewFilters);
+    this.setUeVisible(this.viewFilters.showTerminals);
+    this.setObstaclesVisible(this.viewFilters.showObstacles);
+    this.setExistingBsVisible(this.viewFilters.showAntennas);
+    this.setObserveZonesVisible(this.viewFilters.showObserveZones);
+    this.setCustomRegionsVisible(this.viewFilters.showCustomRegions);
+  }
+
+  private setRegistryCategoryVisible(category: RegistryCategory, visible: boolean): void {
+    let matchedCount = 0;
+    for (const entry of this.sceneObjectRegistry.values()) {
+      if (entry?.category !== category) continue;
+      matchedCount += 1;
+      try {
+        entry.ownerNode?.setEnabled?.(visible);
+      } catch {}
+    }
+    console.log('[ViewFilter][RegistryCategoryToggle]', { category, visible, matchedCount });
+  }
+
+  private setUeVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('ue', visible);
+  }
+
+  private setExistingBsVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('existingBs', visible);
+  }
+
+  private setObserveZonesVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('observe', visible);
+  }
+
+  private setCustomRegionsVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('zone', visible);
+  }
+
+  private setObstaclesVisible(visible: boolean): void {
+    this.setRegistryCategoryVisible('obstacle', visible);
   }
 
   onCoverageThresholdChange(threshold: string): void {
@@ -10703,7 +11242,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return;
     }
 
-    void this.requestHeatmapRerender('mode');
+    this.rerenderHeatmapByCurrentControls();
   }
 
   private ensureCoverageOverlayRoot(): TransformNode {
@@ -10883,7 +11422,33 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     this.committedRangeByMode[this.distMode] = { min, max };
-    void this.requestHeatmapRerender('confirm');
+    this.rerenderHeatmapByCurrentControls();
+  }
+
+  private rerenderHeatmapByCurrentControls(): void {
+    if (!this.completeCalcResult) return;
+
+    const matrix = this.resolveHeatmapMatrixByModeAndHeight(
+      this.completeCalcResult,
+      this.distMode,
+      this.sliceHeight
+    );
+
+    if (!matrix) {
+      console.warn('[Heatmap][Render] matrix not found', {
+        mode: this.distMode,
+        sliceHeight: this.sliceHeight,
+      });
+      return;
+    }
+
+    console.log('[Heatmap][Rerender]', {
+      mode: this.distMode,
+      sliceHeight: this.sliceHeight,
+    });
+
+    // 接回你原本既有的 Plotly render 流程
+    void this.requestHeatmapRerender('mode');
   }
 
   private async requestHeatmapRerender(reason: 'mode' | 'confirm' | 'coverage-threshold'): Promise<void> {
@@ -11720,8 +12285,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       }
 
       // World -> grid index
-      const rawI = Math.floor((p.x - meta.min.x) / meta.cellSize);
-      const rawJ = Math.floor((p.z - meta.min.z) / meta.cellSize);
+      const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+      const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
+
+      const rawI = Math.floor((p.x - meta.min.x) / cellSizeX);
+      const rawJ = Math.floor((p.z - meta.min.z) / cellSizeZ);
 
       const i = Math.max(0, Math.min(meta.nx - 1, rawI));
       let j = Math.max(0, Math.min(meta.nz - 1, rawJ));
@@ -11793,10 +12361,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
                   : '';
           }
 
+          
+          const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+          const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
+
           this.tooltipData = {
             ...(this.tooltipData as any),
-            positionX: meta.min.x + (i + 0.5) * meta.cellSize,
-            positionZ: meta.min.z + (rawJ + 0.5) * meta.cellSize,
+            positionX: meta.min.x + (i + 0.5) * cellSizeX,
+            positionZ: meta.min.z + (rawJ + 0.5) * cellSizeZ,
             value,
             unit: this.plotlyHoverUnit,
             valueLabel,
@@ -12558,12 +13130,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     // ===== [PLOTLY_HEATMAP:HOVER_CACHE] =====
     // Cache meta + z for Babylon hover tooltip (Plotly DOM is not interactive after toImage)
     this.plotlyHoverMeta = {
-      min: meta.min,
-      max: meta.max,
-      nx: meta.nx,
-      nz: meta.nz,
-      cellSize,
-      sliceY: this.plotlyHeatmapSliceHeight,
+      min: this.plotlyHoverMeta?.min ?? new Vector3(0, 0, 0),
+      max: this.plotlyHoverMeta?.max ?? new Vector3(0, 0, 0),
+      nx: this.plotlyHoverMeta?.nx ?? 0,
+      nz: this.plotlyHoverMeta?.nz ?? 0,
+      cellSize: this.plotlyHoverMeta?.cellSize ?? 1,
+      cellSizeX: this.plotlyHoverMeta?.cellSizeX ?? this.plotlyHoverMeta?.cellSize ?? 1,
+      cellSizeZ: this.plotlyHoverMeta?.cellSizeZ ?? this.plotlyHoverMeta?.cellSize ?? 1,
+      sliceY: this.plotlyHoverMeta?.sliceY ?? 0,
     };
     this.plotlyHoverZ = zRsrp;
     this.plotlyHoverUnit = modeMeta.unit;
@@ -13040,8 +13614,15 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         '__hmPlotlyReverseY is read but layout always sets yaxis.autorange=reversed; change requires code edit.',
     });
 
-    const extentNx = plotWorldRaster?.rawNx ?? nx;
-    const extentNz = plotWorldRaster?.rawNz ?? nz;
+    // Use world dimensions (meters) for pixel aspect ratio so the PNG matches the Babylon floor plane.
+    // When resolution > 1m, rawNx/rawNz (cell count) differs from worldWidth/worldDepth (meters),
+    // causing non-uniform texture stretch and BS-heatmap misalignment. World dims are always correct.
+    const extentNx = (plotWorldRaster?.worldWidth != null && plotWorldRaster.worldWidth > 0)
+      ? plotWorldRaster.worldWidth
+      : (plotWorldRaster?.rawNx ?? nx);
+    const extentNz = (plotWorldRaster?.worldDepth != null && plotWorldRaster.worldDepth > 0)
+      ? plotWorldRaster.worldDepth
+      : (plotWorldRaster?.rawNz ?? nz);
     const minPx = 256;
     let pxW: number;
     let pxH: number;
@@ -13069,6 +13650,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         plotlyPixelHeight: pxH,
       });
     }
+    console.log('[HEATMAP_WORLD_MAPPING] extentSource:', plotWorldRaster?.worldWidth ? 'worldDims' : 'cellCount',
+      '| extentNx:', extentNx, 'extentNz:', extentNz,
+      '| pxW:', pxW, 'pxH:', pxH,
+      '| cellCount(nx,nz):', nx, nz,
+      '| aspectRatio:', (extentNx / extentNz).toFixed(3));
 
     if (traceId != null) {
       console.log('[HEATMAP][PIPELINE_TRACE]', {
@@ -14125,10 +14711,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const root = new TransformNode('[DBG-HEATMAP-POINT-ROOT]', this.scene);
     this.dbgHeatmapPointRoot = root;
 
-    const bsWorld =
-      bs.getAbsolutePosition?.()?.clone?.() ??
-      bs.position?.clone?.() ??
-      null;
+    // Use store row + floorMin (same reference frame as heatmap) instead of mesh.getAbsolutePosition()
+    const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
+    const bsRow0 = bsRows[0] ?? null;
+    const floorBBForDbg = this.floorMesh.getBoundingInfo().boundingBox;
+    const floorMinForDbg = floorBBForDbg.minimumWorld;
+    const bsWorld = bsRow0
+      ? new Vector3(floorMinForDbg.x + bsRow0.x, this.heatmapSliceHeight, floorMinForDbg.z + bsRow0.y)
+      : null;
     if (!bsWorld) return;
 
     const bsMarkerPos = new Vector3(bsWorld.x, this.heatmapSliceHeight + 0.6, bsWorld.z);
@@ -14141,21 +14731,21 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     );
 
     const meta = this.plotlyHoverMeta;
-    const idx = this.hmDbgWorldToGridIndex(
-      meta.min,
-      meta.cellSize,
-      meta.nx,
-      meta.nz,
-      bsWorld.x,
-      bsWorld.z
-    );
+    const cellSizeX = (meta as any).cellSizeX ?? meta.cellSize;
+    const cellSizeZ = (meta as any).cellSizeZ ?? meta.cellSize;
 
-    const bsCellCenter = this.getHeatmapSamplePoint(
-      meta.min,
-      idx.i,
-      idx.j,
-      meta.cellSize,
-      this.heatmapSliceHeight
+    const rawFi = (bsWorld.x - meta.min.x) / cellSizeX - 0.5;
+    const rawFj = (bsWorld.z - meta.min.z) / cellSizeZ - 0.5;
+
+    const idx = {
+      i: Math.max(0, Math.min(meta.nx - 1, Math.floor(rawFi))),
+      j: Math.max(0, Math.min(meta.nz - 1, Math.floor(rawFj))),
+    };
+
+    const bsCellCenter = new Vector3(
+      meta.min.x + (idx.i + 0.5) * cellSizeX,
+      this.heatmapSliceHeight,
+      meta.min.z + (idx.j + 0.5) * cellSizeZ
     );
     this.dbgCreateMarkerSphere(
       root,
@@ -14183,9 +14773,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     const strongestCenter =
-      bestI >= 0 && bestJ >= 0
-        ? this.dbgStrongestIndexToWorldCenter(meta.min, meta.cellSize, bestI, bestJ)
-        : null;
+      new Vector3(
+        meta.min.x + (bestI + 0.5) * cellSizeX,
+        this.heatmapSliceHeight,
+        meta.min.z + (bestJ + 0.5) * cellSizeZ
+      );
 
     console.log('[DBG][STRONGEST_FINAL]', {
       strongest: {
@@ -14204,6 +14796,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return;
     }
 
+    console.log('[STRONGEST_MARKER_CREATE]', 'creating backend strongest');
     this.dbgCreateMarkerSphere(
       root,
       '[DBG-HEATMAP-POINT] STRONGEST_CELL_FINAL',
@@ -14355,6 +14948,33 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     return raw as any[][];
   }
 
+  private parseBackendZValues(raw: unknown): number[] {
+    if (Array.isArray(raw)) {
+      return raw.map(Number).filter((n) => Number.isFinite(n));
+    }
+    if (typeof raw === 'string' && raw.trim() !== '') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map(Number).filter((n) => Number.isFinite(n));
+        }
+      } catch (err) {
+        console.warn('[HEATMAP][Z_LEVELS] failed to parse zValue', raw, err);
+      }
+    }
+    return [];
+  }
+
+  private resolveHeatmapZIndex(zLevels: number[], sliceHeight: number): number {
+    const exact = zLevels.findIndex((v) => Number(v) === Number(sliceHeight));
+    if (exact >= 0) return exact;
+
+    const fuzzy = zLevels.findIndex((v) => Math.abs(Number(v) - Number(sliceHeight)) < 1e-6);
+    if (fuzzy >= 0) return fuzzy;
+
+    return 0;
+  }
+
   // Backend raw 2D grid → canonical heatmap matrix z[j][i] (mode-agnostic).
   private extractBackendHeatmapMatrix(
     rawMap: any,
@@ -14398,6 +15018,10 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return null;
     }
 
+    // Step 1.5: resolve z-level index from input.zValue + current sliceHeight
+    const zLevels = this.parseBackendZValues(result?.input?.zValue);
+    const zIndex = this.resolveHeatmapZIndex(zLevels, this.sliceHeight);
+
     // Step 2: parse cells (iterative only; same rules as legacy map path).
     const parsed: (number | null)[][] = new Array(nx_raw);
     for (let i = 0; i < nx_raw; i++) {
@@ -14410,8 +15034,9 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           if (typeof cell === 'number' && Number.isFinite(cell)) {
             outRow[j] = cell;
           } else if (Array.isArray(cell)) {
-            const first = cell.find((v: any) => Number.isFinite(Number(v)));
-            outRow[j] = first != null ? Number(first) : null;
+            const picked = cell[zIndex];
+            const num = Number(picked);
+            outRow[j] = Number.isFinite(num) ? num : null;
           } else {
             const num = Number(cell);
             outRow[j] = Number.isFinite(num) ? num : null;
@@ -14471,11 +15096,18 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       1;
     const cellSize = Number.isFinite(resolutionNum) && resolutionNum > 0 ? resolutionNum : 1;
 
-    const sliceY =
-      Number(inputMeta?.zValue?.[0]) ||
-      Number(result?.input?.zValue?.[0]) ||
-      Number(this.plotlyHeatmapSliceHeight) ||
-      1.5;
+    const sliceY = Number.isFinite(zLevels[zIndex])
+      ? zLevels[zIndex]
+      : (Number(this.plotlyHeatmapSliceHeight) || 1.5);
+
+    console.log('[HEATMAP][Z_SELECTOR]', {
+      requestedSliceHeight: this.sliceHeight,
+      zLevels,
+      resolvedZIndex: zIndex,
+      resolvedSliceY: sliceY,
+      sampleCellRaw: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0] : rawMap?.[0]?.[0],
+      samplePickedValue: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0][zIndex] : rawMap?.[0]?.[0],
+    });
 
     const widthMeta = Number(inputMeta?.width);
     const heightMeta = Number(inputMeta?.height);
@@ -14490,6 +15122,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       nz,
       cellSize,
     });
+    console.log('[HEATMAP_RESOLUTION_CHECK] input.resolution:', inputMeta?.resolution,
+      '-> resolutionNum:', resolutionNum, '-> cellSize:', cellSize,
+      '| matrix(nx,nz):', nx, nz,
+      '| worldSize(w,h):', resolvedWidth, resolvedHeight,
+      '| expected cells ~= world/cellSize:', (resolvedWidth / cellSize).toFixed(1), 'x', (resolvedHeight / cellSize).toFixed(1));
 
     return {
       z,
@@ -14705,6 +15342,48 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return null;
     }
     return source as any[][];
+  }
+
+  private hasPerHeightValuesInCellArray(source: any): boolean {
+    if (!Array.isArray(source) || source.length === 0) return false;
+    const firstRow = source.find((row: any) => Array.isArray(row) && row.length > 0);
+    if (!firstRow) return false;
+    const firstCell = firstRow.find((cell: any) => cell != null);
+    return Array.isArray(firstCell);
+  }
+
+  private resolveHeatmapMatrixByModeAndHeight(
+    result: any,
+    mode: string,
+    sliceHeight: number
+  ): any[] | null {
+    console.log('[Heatmap][ResolveMatrix]', { mode, sliceHeight });
+
+    // Coverage derives its matrix internally from rsrp/sinr — no raw source at this layer.
+    if (mode === 'coverage') {
+      return [];
+    }
+
+    const source = this.getBackendHeatmapSourceByMode(result, mode as DistributionMode);
+
+    if (!source) {
+      console.warn('[Heatmap][Render] matrix not found', { mode, sliceHeight });
+      return null;
+    }
+
+    const hasPerHeightCellArray = this.hasPerHeightValuesInCellArray(source);
+
+    console.log('[HEATMAP][PER_HEIGHT_SHAPE]', {
+      mode,
+      sliceHeight,
+      hasPerHeightCellArray,
+    });
+
+    if (!hasPerHeightCellArray) {
+      console.warn('[Heatmap][SliceHeight] source has no per-height cell array', { mode, sliceHeight });
+    }
+
+    return source;
   }
 
   // ===== [Phase 8] Heatmap render cache (per key: mode + range/threshold + slice) =====
@@ -15147,6 +15826,22 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   private async renderBackendHeatmapFromCompleteCalcResult(
     mode: DistributionMode
   ): Promise<boolean> {
+
+    const staleLocalStrongest = this.scene?.getMeshByName('heatmap_dbg_strongest');
+    if (staleLocalStrongest) {
+      console.log('[STRONGEST_MARKER_DISPOSE]', staleLocalStrongest.name);
+      try {
+        staleLocalStrongest.dispose();
+      } catch {}
+    }
+
+    if ((this as any).heatmapDbgStrongestMarker) {
+      try {
+        (this as any).heatmapDbgStrongestMarker.dispose();
+      } catch {}
+      (this as any).heatmapDbgStrongestMarker = null;
+    }
+
     const traceId = Date.now();
     console.log('[HEATMAP][TRACE]', traceId, 'start');
     console.log('[HEATMAP][PIPELINE] renderBackendHeatmapFromCompleteCalcResult start', {
@@ -15166,6 +15861,13 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         { mode }
       );
       return false;
+    }
+
+    // Dispose local-sim strongest marker so it doesn't duplicate with backend heatmap marker
+    if (this.heatmapDbgStrongestMarker && !this.heatmapDbgStrongestMarker.isDisposed()) {
+      console.log('[STRONGEST_MARKER_DISPOSE]', 'disposing local-sim strongest');
+      this.heatmapDbgStrongestMarker.dispose();
+      (this as any).heatmapDbgStrongestMarker = undefined;
     }
 
     const result = this.lastCompleteCalcResult;
@@ -15496,6 +16198,9 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         );
       }
 
+      const displayCellSizeX = nx > 0 ? width / nx : cellSize;
+      const displayCellSizeZ = nz > 0 ? height / nz : cellSize;
+
       this.plotlyHoverMeta = {
         ...(this.plotlyHoverMeta || {
           min: new Vector3(0, 0, 0),
@@ -15503,6 +16208,8 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           nx,
           nz,
           cellSize,
+          cellSizeX: displayCellSizeX,
+          cellSizeZ: displayCellSizeZ,
           sliceY,
         }),
         min: hoverMin ?? new Vector3(0, 0, 0),
@@ -15510,8 +16217,20 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         nx,
         nz,
         cellSize,
+        cellSizeX: displayCellSizeX,
+        cellSizeZ: displayCellSizeZ,
         sliceY,
       } as any;
+
+      console.log('[HEATMAP_DISPLAY_CELL_SIZE]', {
+        width,
+        height,
+        nx,
+        nz,
+        backendCellSize: cellSize,
+        displayCellSizeX,
+        displayCellSizeZ,
+      });
 
       console.log('[HEATMAP][PIPELINE_TRACE]', {
         traceId,
@@ -15656,6 +16375,196 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         });
       }
       // ===== END ORIGIN_DEBUG =====
+
+      // [STRONGEST_COMPARE] — summary for verifying BS vs heatmap max alignment
+      if (this.floorMesh) {
+        const floorBBForStrongest = this.floorMesh.getBoundingInfo().boundingBox;
+        const floorMinForStrongest = floorBBForStrongest.minimumWorld;
+        const strongestSource = this.plotlyHoverZ ?? [];
+        const displayCellSizeX = backend.nx > 0 ? backend.width / backend.nx : backend.cellSize;
+        const displayCellSizeZ = backend.nz > 0 ? backend.height / backend.nz : backend.cellSize;
+
+        // [BS_COORD_SOURCE] Use store row + floorMin for same reference frame as heatmap
+        // math.x / math.y are offsets from SW corner; floorMin IS the SW corner in world space
+        const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
+        const bsRow0 = bsRows[0] ?? null;
+        const bsRawWorldX = bsRow0 != null ? floorMinForStrongest.x + bsRow0.x : null;
+        const bsRawWorldZ = bsRow0 != null ? floorMinForStrongest.z + bsRow0.y : null;
+
+        const bsCellCol = bsRawWorldX != null ? Math.floor((bsRawWorldX - floorMinForStrongest.x) / displayCellSizeX) : -1;
+        const bsCellRow = bsRawWorldZ != null ? Math.floor((bsRawWorldZ - floorMinForStrongest.z) / displayCellSizeZ) : -1;
+        const hasBsCell = bsCellRow >= 0 && bsCellCol >= 0;
+
+        // Phase 1: find global maxVal
+        let scMaxVal = -Infinity;
+        for (let ri = 0; ri < strongestSource.length; ri++) {
+          const row = strongestSource[ri] ?? [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (v == null || !Number.isFinite(v)) continue;
+            if ((v as number) > scMaxVal) scMaxVal = v as number;
+          }
+        }
+
+        // Phase 2: among all maxVal cells, pick the one closest to bsCell (tie-break)
+        let scMaxRow = -1;
+        let scMaxCol = -1;
+        let scBestDist2 = Infinity;
+        let scCandidateCount = 0;
+        const scTieCandidates: { ri: number; ci: number; dist2: number }[] = [];
+        for (let ri = 0; ri < strongestSource.length; ri++) {
+          const row = strongestSource[ri] ?? [];
+          for (let ci = 0; ci < row.length; ci++) {
+            const v = row[ci];
+            if (v == null || !Number.isFinite(v)) continue;
+            if (Math.abs((v as number) - scMaxVal) > 1e-9) continue;
+            scCandidateCount++;
+            const dist2 = hasBsCell
+              ? (ri - bsCellRow) ** 2 + (ci - bsCellCol) ** 2
+              : (scMaxRow < 0 ? 0 : Infinity);
+            if (scTieCandidates.length < 10) scTieCandidates.push({ ri, ci, dist2 });
+            if (scMaxRow < 0 || dist2 < scBestDist2) {
+              scBestDist2 = dist2;
+              scMaxRow = ri;
+              scMaxCol = ci;
+            }
+          }
+        }
+
+        const strongestMin = this.plotlyHoverMeta?.min ?? floorMinForStrongest;
+        const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
+        const strongestWorldZ = floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+        const strongestWorldZReversed = strongestMin.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
+
+        const strongestCellCenterX =
+          floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
+        const strongestCellCenterZ =
+          floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+
+        const bsCellCenterX =
+          floorMinForStrongest.x + (bsCellCol + 0.5) * displayCellSizeX;
+        const bsCellCenterZ =
+          floorMinForStrongest.z + (bsCellRow + 0.5) * displayCellSizeZ;
+
+        const bsConvertedX = bsCellCenterX;
+        const bsConvertedZ = bsCellCenterZ;
+
+        console.log('[TIE_BREAK_STRONGEST]',
+          '| maxVal:', scMaxVal.toFixed(2),
+          '| candidateCount:', scCandidateCount,
+          '| bsCell(row,col):', bsCellRow, bsCellCol,
+          '| chosenStrongest(row,col):', scMaxRow, scMaxCol,
+          '| chosenDist2:', scBestDist2
+        );
+        console.log('[TIE_BREAK_CANDIDATES]',
+          scTieCandidates.map(c => `[${c.ri},${c.ci}] dist2=${c.dist2}`).join('  ')
+        );
+
+        const floorInfo = this.floorMesh?.getBoundingInfo?.().boundingBox ?? null;
+        const floorMin = floorInfo?.minimumWorld ?? null;
+        const floorMax = floorInfo?.maximumWorld ?? null;
+
+        const floorWidth = floorMin && floorMax ? floorMax.x - floorMin.x : null;
+        const floorDepth = floorMin && floorMax ? floorMax.z - floorMin.z : null;
+
+        console.log('[BS_FLOOR_RANGE_CHECK]',
+          '| row(x,y):', bsRow0 ? `(${bsRow0.x.toFixed(1)}, ${bsRow0.y.toFixed(1)})` : 'null',
+          '| floorMin:', floorMin ? `(${floorMin.x.toFixed(1)}, ${floorMin.z.toFixed(1)})` : 'null',
+          '| floorMax:', floorMax ? `(${floorMax.x.toFixed(1)}, ${floorMax.z.toFixed(1)})` : 'null',
+          '| floorWidthDepth:', floorWidth != null ? `${floorWidth.toFixed(1)}, ${floorDepth!.toFixed(1)}` : 'null',
+          '| rowInRange:',
+            floorWidth != null && bsRow0
+              ? `${bsRow0.x >= 0 && bsRow0.x <= floorWidth}, ${bsRow0.y >= 0 && bsRow0.y <= floorDepth!}`
+              : 'null'
+        );
+
+        console.log('[BS_COORD_SOURCE]',
+          'source: store existingBs[0]',
+          '| row.x:', bsRow0?.x, 'row.y:', bsRow0?.y,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| bsRawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
+          '| bsCell(row,col):', `${bsCellRow}, ${bsCellCol}`,
+          '| bsSnapped(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`
+        );
+        console.log('[BS_CONVERTED_WORLD_POS]',
+          'rawMathPos(x,y):', bsRow0 ? `(${bsRow0.x}, ${bsRow0.y})` : 'null',
+          '| rawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
+          '| snappedCellCenter(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
+          '| formula: floorMin + mathOffset -> snap to cell center'
+        );
+        console.log('[HEATMAP_BS_COMPARE]',
+          'mode:', mode,
+          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+          '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
+          '| bsConvertedWorld(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
+          '| delta(dx,dz):', `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ).toFixed(1)})`,
+          '| cellSize:', backend.cellSize,
+          '| note: delta should be < cellSize if aligned'
+        );
+
+        console.log('[BS_CELL_COMPARE]',
+          '| strongest cell(row,col):', scMaxRow, scMaxCol,
+          '| bs cell(row,col):', bsCellRow, bsCellCol,
+          '| rowDelta:', bsCellRow - scMaxRow,
+          '| colDelta:', bsCellCol - scMaxCol
+        );
+
+        console.log('[CELL_CENTER_COMPARE]',
+          '| strongest cell:', scMaxRow, scMaxCol,
+          '| strongest center:', strongestCellCenterX.toFixed(1), strongestCellCenterZ.toFixed(1),
+          '| bs cell:', bsCellRow, bsCellCol,
+          '| bs center:', bsCellCenterX.toFixed(1), bsCellCenterZ.toFixed(1)
+        );
+
+        // ===== [INVESTIGATION] BS vs Strongest value comparison =====
+        const bsValue = bsCellRow >= 0 && bsCellCol >= 0
+          ? ((strongestSource[bsCellRow] ?? [])[bsCellCol] ?? null)
+          : null;
+        console.log('[BS_VS_STRONGEST_VALUE]',
+          '| strongest cell(row,col):', scMaxRow, scMaxCol,
+          '| strongest value:', scMaxVal.toFixed(2),
+          '| bs cell(row,col):', bsCellRow, bsCellCol,
+          '| bs value:', bsValue != null ? (bsValue as number).toFixed(2) : 'null',
+          '| valueDelta:', bsValue != null ? (scMaxVal - (bsValue as number)).toFixed(2) : 'n/a'
+        );
+
+        // ===== [INVESTIGATION] BS 5x5 neighbor values =====
+        const bsNeighbor: string[] = [];
+        for (let dr = -2; dr <= 2; dr++) {
+          const rowParts: string[] = [];
+          for (let dc = -2; dc <= 2; dc++) {
+            const nr = bsCellRow + dr;
+            const nc = bsCellCol + dc;
+            const v = nr >= 0 && nc >= 0 ? ((strongestSource[nr] ?? [])[nc] ?? null) : null;
+            const marker = dr === 0 && dc === 0 ? '*' : ' ';
+            rowParts.push(`${marker}[${nr},${nc}]=${v != null ? (v as number).toFixed(1) : 'null'}`);
+          }
+          bsNeighbor.push(rowParts.join(' '));
+        }
+        console.log('[BS_NEIGHBOR_VALUES] 5x5 centered on bs cell (' + bsCellRow + ',' + bsCellCol + '):\n'
+          + bsNeighbor.join('\n'));
+
+        // ===== [INVESTIGATION] Strongest source matrix info =====
+        const srcRows = strongestSource.length;
+        const srcCols = ((strongestSource as any[])[0] ?? []).length;
+        const _calcInput: any = (this.lastCompleteCalcResult as any)?.input ?? null;
+        const bsListDefaultBsCount = (_calcInput?.bsList?.defaultBs ?? []).length;
+        const availableNewBsNum = _calcInput?.availableNewBsNumber ?? 'unknown';
+        console.log('[STRONGEST_SOURCE_MATRIX]',
+          '| source: this.plotlyHoverZ (= backend.z, full-resolution, NOT downsampled)',
+          '| actualDims(rows,cols):', srcRows, srcCols,
+          '| backend.nz:', backend.nz, '| backend.nx:', backend.nx,
+          '| matchesBackend:', srcRows === backend.nz && srcCols === backend.nx,
+          '| displayMatrix dims(rows,cols):', displayNz, displayNx,
+          '| downsampled:', displayDs.applied,
+          '| rowStep:', displayDs.rowStep, '| colStep:', displayDs.colStep,
+          '| normalized: NO (raw dB/SINR values)',
+          '| bsList.defaultBs count:', bsListDefaultBsCount,
+          '| availableNewBsNumber:', availableNewBsNum,
+          '| NOTE: if bsListCount>1 or availableNewBsNumber>0, backend simulates multiple BSes → strongest may be from a different BS than existingBs[0]'
+        );
+        // ===== END INVESTIGATION =====
+      }
 
       console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:start');
       await this.renderPlotlyHeatmap(
@@ -16065,9 +16974,110 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       subfield: [],
     };
 
-    const sceneBuildingMeshes = (this.scene?.meshes ?? []).filter(
-      (m: any) => m?.metadata?.type === 'building'
-    );
+    if ((window as any).__dbgBuildingReproject === true) {
+      this.clearBuildingReprojectDebug();
+    }
+
+    const sceneBuildingMeshes = (this.scene?.meshes ?? [])
+      .filter((m: any) => m?.metadata?.type === 'building')
+      .map((m: any, meshIdx: number) => {
+        // [BuildingCoordPatch] Use floorMesh world bbox min corner as origin so building
+        // obstacle x/y is expressed as offset from the scene's (0,0) left-bottom corner.
+        // finalLocalForMesh.x = centerWorld.x - floorMinX
+        // finalLocalForMesh.z = centerWorld.z - floorMinZ
+        // matches helper pickBuildingObstaclePlaneXY: tuple[0]=flm.x, tuple[1]=flm.z.
+        const floorBb = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+        const floorMinWorldX = floorBb?.minimumWorld?.x ?? 0;
+        const floorMinWorldZ = floorBb?.minimumWorld?.z ?? 0;
+        const mBb = m.getBoundingInfo?.()?.boundingBox ?? null;
+        const bboxCenterWorldX = mBb?.centerWorld?.x ?? (m.position?.x ?? 0);
+        const bboxCenterWorldZ = mBb?.centerWorld?.z ?? (m.position?.z ?? 0);
+        const bboxMinWorldY   = mBb?.minimumWorld?.y ?? (m.position?.y ?? 0);
+        const finalX = bboxCenterWorldX - floorMinWorldX;
+        const finalZ = bboxCenterWorldZ - floorMinWorldZ;
+        console.log('[Building][CoordPatch][FloorMinAudit]', {
+          meshName: m?.name ?? '',
+          osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+          floorMinWorld: { x: floorMinWorldX, z: floorMinWorldZ },
+          bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+          bboxMinWorldY,
+          finalLocalForMesh: { x: finalX, z: finalZ },
+        });
+
+        if (floorBb) {
+          console.log('[Building][RangeCheck][FloorAudit]', {
+            floorMinWorld: {
+              x: floorBb.minimumWorld.x,
+              z: floorBb.minimumWorld.z,
+            },
+            floorMaxWorld: {
+              x: floorBb.maximumWorld.x,
+              z: floorBb.maximumWorld.z,
+            },
+            floorSizeWorld: {
+              width:  floorBb.maximumWorld.x - floorBb.minimumWorld.x,
+              length: floorBb.maximumWorld.z - floorBb.minimumWorld.z,
+            },
+            mapContextWidth:  this.fieldSettingsState?.length,
+            mapContextLength: this.fieldSettingsState?.width,
+            meshName: m?.name ?? '',
+            osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+            bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+            centerInsideFloorWorld:
+              bboxCenterWorldX >= floorBb.minimumWorld.x &&
+              bboxCenterWorldX <= floorBb.maximumWorld.x &&
+              bboxCenterWorldZ >= floorBb.minimumWorld.z &&
+              bboxCenterWorldZ <= floorBb.maximumWorld.z,
+          });
+        }
+
+        const fieldWidth  = Number(this.fieldSettingsState?.length ?? 0);
+        const fieldLength = Number(this.fieldSettingsState?.width  ?? 0);
+        if (fieldWidth > 0 && fieldLength > 0) {
+          const outOfRange = finalX < 0 || finalZ < 0 || finalX > fieldWidth || finalZ > fieldLength;
+          if (outOfRange) {
+            console.warn('[Building][RangeCheck][OUT]', {
+              meshName: m?.name ?? '',
+              osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+              x: finalX,
+              y: finalZ,
+              fieldWidth,
+              fieldLength,
+              floorMinWorld: { x: floorMinWorldX, z: floorMinWorldZ },
+              bboxCenterWorld: { x: bboxCenterWorldX, z: bboxCenterWorldZ },
+            });
+          }
+        }
+
+        const dbgLimit: number =
+          typeof (window as any).__dbgBuildingReprojectLimit === 'number'
+            ? (window as any).__dbgBuildingReprojectLimit
+            : 5;
+        if ((window as any).__dbgBuildingReproject === true && meshIdx < dbgLimit) {
+          this.renderBuildingReprojectDebug({
+            bboxCenterWorldX,
+            bboxCenterWorldZ,
+            floorMinWorldX,
+            floorMinWorldZ,
+            finalX,
+            finalZ,
+            worldY: bboxMinWorldY,
+            meshName: m?.name ?? '',
+            osmId: String(m?.metadata?.osmId ?? m?.metadata?.osm_id ?? ''),
+          });
+        }
+
+        return {
+          name: m.name,
+          metadata: {
+            ...(m.metadata ?? {}),
+            finalLocalForMesh: { x: finalX, z: finalZ },
+          },
+          getBoundingInfo: typeof m.getBoundingInfo === 'function' ? (m.getBoundingInfo as Function).bind(m) : undefined,
+          getAbsolutePosition: typeof m.getAbsolutePosition === 'function' ? (m.getAbsolutePosition as Function).bind(m) : undefined,
+          position: m.position,
+        };
+      });
     const sampleBuildingMesh: any = sceneBuildingMeshes[0] ?? null;
     if (sampleBuildingMesh) {
       const bb = sampleBuildingMesh.getBoundingInfo?.()?.boundingBox;
@@ -16440,50 +17450,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     return Number.isFinite(n) ? n : null;
   }
 
-  private async pollSimulationProgress(
-    taskId: string,
-    sessionId: string
-  ): Promise<'completed' | 'fallback_result'> {
-    const maxAttempts = 40;
-    const intervalMs = 3000;
-    const url = `/son/progress/${encodeURIComponent(taskId)}/${encodeURIComponent(sessionId)}`;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const res = await firstValueFrom(this.http.get<any>(url));
-        const p = this.extractProgressValue(res);
-        if (p === 1) {
-          console.log('[SIM_API_PHASE3][progress] completed', {
-            taskId,
-            sessionId,
-            attempt,
-            progress: p,
-          });
-          return 'completed';
-        }
-        console.log('[SIM_API_PHASE3][progress] pending', {
-          taskId,
-          sessionId,
-          attempt,
-          progress: p,
-        });
-        await this.sleep(intervalMs);
-      } catch (err: any) {
-        if (this.isLegacyProgressMalformedError(err)) {
-          console.warn(
-            '[SIM_API_PHASE3][progress] legacy malformed progress response, fallback to result',
-            err
-          );
-          return 'fallback_result';
-        }
-        throw err;
-      }
-    }
-
-    throw new Error('Simulation progress polling timeout');
-  }
-
-  private analyzeCompleteCalcResult(completeRes: any): {
+private analyzeCompleteCalcResult(completeRes: any): {
     protocolKey: string;
     unAchieved: boolean;
     unAchievedObj: Record<string, boolean>;
@@ -16510,16 +17477,92 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     return { protocolKey, unAchieved, unAchievedObj, unusedRis };
   }
 
+  private async pollSimulationProgress(
+    taskId: string,
+    sessionId: string
+  ): Promise<'completed' | 'fallback_result'> {
+    const maxAttempts = 40;
+    const intervalMs = 3000;
+    const requestTimeoutMs = 10000;
+    const url = `/son/progress/${encodeURIComponent(taskId)}/${encodeURIComponent(sessionId)}`;
+ 
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        console.log('[SIM_API_PHASE3][progress] request start', {
+          taskId,
+          sessionId,
+          attempt,
+        });
+ 
+        const res = await firstValueFrom(
+          this.http.get<any>(url).pipe(timeout(requestTimeoutMs))
+        );
+ 
+        console.log('[SIM_API_PHASE3][progress] request success', {
+          taskId,
+          sessionId,
+          attempt,
+          res,
+        });
+ 
+        const p = this.extractProgressValue(res);
+ 
+        if (p === 1) {
+          console.log('[SIM_API_PHASE3][progress] completed', {
+            taskId,
+            sessionId,
+            attempt,
+            progress: p,
+          });
+          return 'completed';
+        }
+ 
+        console.log('[SIM_API_PHASE3][progress] pending', {
+          taskId,
+          sessionId,
+          attempt,
+          progress: p,
+        });
+ 
+        await this.sleep(intervalMs);
+      } catch (err: any) {
+        console.error('[SIM_API_PHASE3][progress] error', {
+          taskId,
+          sessionId,
+          attempt,
+          err,
+        });
+ 
+        if (err instanceof TimeoutError || err?.name === 'TimeoutError') {
+          console.warn('[SIM_API_PHASE3][progress] request timeout', {
+            taskId,
+            sessionId,
+            attempt,
+          });
+          continue;
+        }
+ 
+        if (this.isLegacyProgressMalformedError(err)) {
+          console.warn(
+            '[SIM_API_PHASE3][progress] legacy malformed progress response, fallback to result',
+            err
+          );
+          return 'fallback_result';
+        }
+ 
+        throw err;
+      }
+    }
+ 
+    throw new Error('Simulation progress polling timeout');
+  }
+
   /**
    * Run simulation API flow
    */
   private async runSimulationApiFlow(): Promise<void> {
     // ===== [SIM_API_PHASE5][COMPUTE_LOADING_START] =====
     this.computeLoading = true;
-    this.computeLoadingText = '運算中...';
-    this.computeLoadingPercent = 0;
-    this.computeLoadingTarget = 0;
-    this.stopComputeLoadingProgress();
 
     try {
       console.log('[SIM_API_PHASE3][runSimulationApiFlow] START');
@@ -16632,6 +17675,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       demoPayload.height = bfSim.width ?? 0;
       demoPayload.altitude = bfSim.height ?? 0;
       demoPayload.resolution = gridMetersSim;
+      console.log('[SIM_RESOLUTION_CHECK] heatmapGrid:', bfSim.heatmapGrid, '-> gridMetersSim:', gridMetersSim, '-> demoPayload.resolution:', demoPayload.resolution);
       demoPayload.mapProtocol = bfSim.networkType ?? demoPayload.mapProtocol;
       demoPayload.lteBand = bfSim.band ?? demoPayload.lteBand;
       demoPayload.taskName =
@@ -17577,6 +18621,51 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         finalUseUeCoordinate: demoPayload?.useUeCoordinate ?? null,
       });
 
+      // ===== [PAYLOAD_FINAL_BRIDGE] Phase 2: bridge builtPayload real fields to demoPayload =====
+      // subfieldList: builder computes from observeList + zoneList; mock has a hardcoded shape entry
+      demoPayload.subfieldList = (builtPayload as any).subfieldList ?? [];
+      // field: carries regionalDivision computed from zoneList; mock has a hardcoded region
+      demoPayload.field = (builtPayload as any).field ?? demoPayload.field;
+      // evaluationFunc: builder computes from store thresholds; mock has DEFAULT_EVALUATION_FUNC
+      demoPayload.evaluationFunc = (builtPayload as any).evaluationFunc ?? demoPayload.evaluationFunc;
+      // UE fields: already handled by [UE_FINALIZE][STRICT] above; confirm with ?? form
+      demoPayload.ueCoordinate = (builtPayload as any).ueCoordinate ?? '';
+      demoPayload.ueRxGain = (builtPayload as any).ueRxGain ?? '[]';
+      demoPayload.useUeCoordinate = (builtPayload as any).useUeCoordinate ?? 0;
+      // risList / ris: already bridged in [RIS bridge] above; re-affirm here for consistency
+      demoPayload.risList = (builtPayload as any).risList ?? { defaultRis: [], candidateRis: [] };
+      demoPayload.ris = (builtPayload as any).risList?.defaultRis ?? [];
+
+      console.log('[PAYLOAD_FINAL_BRIDGE]', {
+        built: {
+          subfieldList: (builtPayload as any).subfieldList,
+          field: (builtPayload as any).field,
+          evaluationFunc: (builtPayload as any).evaluationFunc,
+          ueCoordinate: (builtPayload as any).ueCoordinate,
+          risList: (builtPayload as any).risList,
+        },
+        final: {
+          subfieldList: demoPayload.subfieldList,
+          field: demoPayload.field,
+          evaluationFunc: demoPayload.evaluationFunc,
+          ueCoordinate: demoPayload.ueCoordinate,
+          risList: demoPayload.risList,
+        },
+      });
+      // ===== [/PAYLOAD_FINAL_BRIDGE] =====
+
+      // ===== [SUBFIELD_PAYLOAD_FINAL] Phase 4: final subfieldList from snapshot.subfields via serializer =====
+      // Overrides Phase 2 bridge (builtPayload.subfieldList from observes+zones).
+      // snapshot.subfields contains real rectangle geometry written by Phase 3 observe spawn.
+      demoPayload.subfieldList = serializeSubfieldPayloadRows(
+        this.fieldDomainStore.snapshot?.subfields ?? []
+      );
+      console.log('[SUBFIELD_PAYLOAD_FINAL]', {
+        storeSubfields: this.fieldDomainStore.snapshot?.subfields ?? [],
+        finalSubfieldList: demoPayload.subfieldList,
+      });
+      // ===== [/SUBFIELD_PAYLOAD_FINAL] =====
+
       // Step 3: POST storeTask
       // 最終保底：selectedPlanningMode=current 的「現有場域訊號模擬」一定要是 isSimulation=true
       demoPayload.isSimulation = true;
@@ -17635,6 +18724,67 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         taskid: demoPayload?.taskid ?? null,
       });
       console.log('[SIM_FLOW_STAGE]', 'before-store-task');
+
+      // ===== [PAYLOAD_SOURCE_AUDIT] builtPayload vs demoPayload before postStoreTask =====
+      console.log('[PAYLOAD_SOURCE_AUDIT]', {
+        // --- subfieldList ---
+        builtSubfieldList: (builtPayload as any)?.subfieldList ?? 'NOT_IN_BUILDER',
+        demoSubfieldList: demoPayload?.subfieldList,
+        subfieldListFromMock: JSON.stringify(demoPayload?.subfieldList) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.subfieldList),
+
+        // --- ueCoordinate / ueRxGain / useUeCoordinate ---
+        builtUeCoordinate: (builtPayload as any)?.ueCoordinate ?? null,
+        demoUeCoordinate: demoPayload?.ueCoordinate,
+        builtUeRxGain: (builtPayload as any)?.ueRxGain ?? null,
+        demoUeRxGain: demoPayload?.ueRxGain,
+        builtUseUeCoordinate: (builtPayload as any)?.useUeCoordinate ?? null,
+        demoUseUeCoordinate: demoPayload?.useUeCoordinate,
+
+        // --- risList / ris ---
+        builtRisListDefaultCount: Array.isArray((builtPayload as any)?.risList?.defaultRis) ? (builtPayload as any).risList.defaultRis.length : 'MISSING',
+        demoRisListDefaultCount: Array.isArray(demoPayload?.risList?.defaultRis) ? demoPayload.risList.defaultRis.length : 'MISSING',
+        demoRisCount: Array.isArray(demoPayload?.ris) ? demoPayload.ris.length : 'MISSING',
+
+        // --- bsList / defaultBs / defaultBsAnt ---
+        builtBsListDefaultBsCount: Array.isArray((builtPayload as any)?.bsList?.defaultBs) ? (builtPayload as any).bsList.defaultBs.length : 'NOT_IN_BUILDER',
+        demoBsListDefaultBsCount: Array.isArray(demoPayload?.bsList?.defaultBs) ? demoPayload.bsList.defaultBs.length : 'MISSING',
+        demoDefaultBs: demoPayload?.defaultBs,
+        demoDefaultBsAnt: demoPayload?.defaultBsAnt,
+        defaultBsFromMock: demoPayload?.defaultBs === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.defaultBs,
+
+        // --- obstacleInfo ---
+        builtObstacleInfoLength: String((builtPayload as any)?.obstacleInfo ?? '').length,
+        demoObstacleInfoLength: String(demoPayload?.obstacleInfo ?? '').length,
+        obstacleInfoMatch: (builtPayload as any)?.obstacleInfo === demoPayload?.obstacleInfo,
+
+        // --- field.regionalDivision ---
+        builtFieldRegionalDivisionCount: Array.isArray((builtPayload as any)?.field?.regionalDivision) ? (builtPayload as any).field.regionalDivision.length : 'NOT_IN_BUILDER',
+        demoFieldRegionalDivisionCount: Array.isArray(demoPayload?.field?.regionalDivision) ? demoPayload.field.regionalDivision.length : 'MISSING',
+        fieldRegionalDivisionFromMock: JSON.stringify(demoPayload?.field?.regionalDivision) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.field?.regionalDivision),
+
+        // --- evaluationFunc ---
+        builtEvaluationFunc: (builtPayload as any)?.evaluationFunc ?? null,
+        demoEvaluationFunc: demoPayload?.evaluationFunc,
+        evaluationFuncFromMock: JSON.stringify(demoPayload?.evaluationFunc) === JSON.stringify((TASK_PAYLOAD_MOCK_DEFAULTS as any)?.evaluationFunc),
+
+        // --- width / height / resolution ---
+        demoWidth: demoPayload?.width,
+        demoHeight: demoPayload?.height,
+        demoResolution: demoPayload?.resolution,
+        widthFromMock: demoPayload?.width === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.width,
+        heightFromMock: demoPayload?.height === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.height,
+
+        // --- mapImage / mapName ---
+        demoMapName: demoPayload?.mapName,
+        demoMapImagePrefix: String(demoPayload?.mapImage ?? '').slice(0, 40),
+        mapNameFromMock: demoPayload?.mapName === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.mapName,
+        mapImageFromMock: demoPayload?.mapImage === (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.mapImage,
+
+        // --- postStoreTask variable ---
+        actualArgIsDemo: true, // postStoreTask(demoPayload) — always demoPayload
+      });
+      // ===== [/PAYLOAD_SOURCE_AUDIT] =====
+
       const storeTaskResp = await firstValueFrom(this.taskApiService.postStoreTask(demoPayload));
       console.log('[SIM_API_PHASE3] storeTask response status:', storeTaskResp.status);
 
@@ -17724,7 +18874,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
       const finalSessionId = demoPayload.task_meta.sessionid || input.taskMeta.sessionId || '';
 
-      this.computeLoadingText = '運算中，請稍候...';
 
       console.log('[SIM_API_PHASE3][progress] start', {
         taskId: finalTaskId,
@@ -17735,8 +18884,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         finalTaskId,
         finalSessionId
       );
-
-      this.computeLoadingText = '運算完成，載入結果中...';
 
       // ===== STEP 3: GET completeCalcResult =====
       console.log('[SIM_API_PHASE3] fetching completeCalcResult...');
@@ -17765,7 +18912,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       if (!completeRes) {
         console.warn('[SIM_API_PHASE3] completeCalcResult is empty -> show failure');
         // 顯示「運算失敗」視窗（目前以 computeLoading overlay 顯示文案）
-        this.computeLoadingText = '運算失敗';
         this.rightPanelType = null;
         try {
           this.resultService.resetToEdit();
@@ -17781,6 +18927,13 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       this.completeCalcResult = completeRes;
       this.lastCompleteCalcResult = completeRes;
       this.resultService.setResultData(completeRes as ResultApiResponse);
+
+      this.sliceHeightOptions = this.parseSliceHeightOptionsFromCompleteCalcResult(completeRes);
+      console.log('[SliceHeight][Options]', this.sliceHeightOptions);
+      if (this.sliceHeightOptions.length > 0) {
+        const hasCurrent = this.sliceHeightOptions.includes(this.sliceHeight);
+        this.sliceHeight = hasCurrent ? this.sliceHeight : this.sliceHeightOptions[0];
+      }
 
       console.log('[RESULT_WRITE_BACK]', {
         completeRes,
@@ -17832,8 +18985,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       // Do not touch heatmap logic in catch
     } finally {
       // ===== [SIM_API_PHASE5][COMPUTE_LOADING_END] =====
-      this.stopComputeLoadingProgress();
-      this.computeLoadingPercent = 0;
       await new Promise((resolve) => setTimeout(resolve, 180));
       this.computeLoading = false;
     }

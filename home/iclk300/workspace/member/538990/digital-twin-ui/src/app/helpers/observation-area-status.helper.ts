@@ -27,9 +27,7 @@ export function finalizeSubfieldAnalysisVm(
   const hasAnyMetric = subfieldMetricsHaveAny(vm);
   let status: SubfieldAnalysisStatus = vm.status ?? 'unknown';
 
-  if (status === 'ready' && !hasAnyMetric) {
-    status = 'empty';
-  }
+  // 'ready' is never downgraded to 'empty' — a matched stat with all-zero metrics is still valid.
   if (status === 'empty' && hasAnyMetric) {
     status = 'ready';
   }

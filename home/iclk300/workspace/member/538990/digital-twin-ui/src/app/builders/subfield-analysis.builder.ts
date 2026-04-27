@@ -8,6 +8,7 @@ import type { SubfieldAnalysisVm } from '../models/subfield-analysis.vm';
 import {
   extractSubfieldMetricsFromStat,
   resolveSubfieldStatRow,
+  type SubfieldMetricsExtracted,
 } from '../extractors/subfield-result.extractor';
 
 /**
@@ -39,6 +40,7 @@ function buildOne(
   row: SubfieldRow,
   stat: any | null,
   hasResultOutput: boolean,
+  metrics: SubfieldMetricsExtracted | null,
 ): SubfieldAnalysisVm {
   const title =
     row.name != null && String(row.name).trim().length > 0
@@ -87,22 +89,10 @@ function buildOne(
     };
   }
 
-  const {
-    coverage,
-    avgSinr,
-    avgRsrp,
-    avgDlThroughput,
-    avgUlThroughput,
-  } = extractSubfieldMetricsFromStat(stat);
+  const { coverage, avgSinr, avgRsrp, avgDlThroughput, avgUlThroughput } =
+    metrics ?? { coverage: null, avgSinr: null, avgRsrp: null, avgDlThroughput: null, avgUlThroughput: null };
 
-  const hasAny = [
-    coverage,
-    avgSinr,
-    avgRsrp,
-    avgDlThroughput,
-    avgUlThroughput,
-  ].some((v) => v != null && Number.isFinite(v));
-
+  // Stat was matched \u2014 always 'ready'. 0 is a valid value, never downgrade to 'empty' here.
   return {
     subfieldID: row.subfieldID,
     title,
@@ -111,7 +101,7 @@ function buildOne(
     avgRsrp,
     avgDlThroughput,
     avgUlThroughput,
-    status: hasAny ? 'ready' : 'empty',
+    status: 'ready',
   };
 }
 
@@ -134,15 +124,31 @@ export function buildSubfieldAnalysisVms(
     stats.length === 1 && list.length === 1 ? stats[0] : null;
 
   return list.map((row) => {
-    let stat = resolveSubfieldStatRow(stats, row.subfieldID);
+    let matchedStat = resolveSubfieldStatRow(stats, row.subfieldID);
     /**
      * Legacy / mock rows may omit subfieldID and use a non-numeric `ID` label (e.g. slice height).
      * Only when API returns exactly one statistics row and the store has exactly one observation
      * area do we bind that row — avoids wrong assignment with multiple subfields.
      */
-    if (!stat && singleSubfieldPair != null) {
-      stat = singleSubfieldPair;
+    if (!matchedStat && singleSubfieldPair != null) {
+      matchedStat = singleSubfieldPair;
     }
-    return buildOne(row, stat, hasResultOutput);
+
+    const extractedMetrics =
+      matchedStat != null && typeof matchedStat === 'object' && !Array.isArray(matchedStat)
+        ? extractSubfieldMetricsFromStat(matchedStat)
+        : null;
+
+    const cardVm = buildOne(row, matchedStat, hasResultOutput, extractedMetrics);
+
+    console.log('[OBS_STAT_MAPPING]', {
+      analysisSubfield: row,
+      stats,
+      matchedStat,
+      extractedMetrics,
+      cardVm,
+    });
+
+    return cardVm;
   });
 }

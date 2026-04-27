@@ -92,6 +92,7 @@ export function extractSubfieldMetricsFromStat(stat: any): SubfieldMetricsExtrac
   const avgRsrp = firstFinite(
     stat?.signalStrengthAvg,
     stat?.averageRsrp,
+    stat?.avgRsrp,
     stat?.rsrpAvg,
   );
 

@@ -26,7 +26,8 @@
         <button class="rs-panel-close" type="button" (click)="closeResultPanel()">×</button>
       </div>
       <div class="rs-panel-body" [ngSwitch]="rid">
-        <div *ngSwitchCase="'result'" class="full-layout">
+        <ng-container *ngSwitchCase="'result'">
+        <div class="full-layout" *ngIf="!isSimulationModeEffective()">
           <ng-container *ngIf="resultPanelVm as vm">
             <div class="result-header">
               <div class="filter-capsule">
@@ -91,6 +92,7 @@
             <button [disabled]="true">〉</button>
           </div>
         </div>
+        </ng-container>
 
         <div *ngSwitchCase="'analysis'" class="full-layout">
 
@@ -228,33 +230,39 @@
             <!-- ue -->
             <div *ngSwitchCase="'ue'" class="analysis-tab">
               <div class="scroll-content analysis-scroll-content">
-                <ng-container *ngIf="hasUeAnalysisData(); else ueAnalysisEmptyState">
+                <ng-container *ngIf="hasUe(); else ueNotConfiguredState">
+                  <ng-container *ngIf="hasUeAnalysisData(); else ueAnalysisEmptyState">
 
-                  <div class="info-card-container">
-                    <div class="card-header">
-                      <span>終端分析</span>
+                    <div class="info-card-container">
+                      <div class="card-header">
+                        <span>終端分析</span>
+                      </div>
+
+                      <div class="info-list">
+                        <div class="info-item">
+                          <span class="label">終端覆蓋率</span>
+                          <span class="value">{{ ueCoverageValue() }}</span>
+                        </div>
+                        <div class="info-item">
+                          <span class="label">平均訊號品質</span>
+                          <span class="value">{{ ueAverageSinrValue() }}</span>
+                        </div>
+                        <div class="info-item">
+                          <span class="label">平均訊號強度</span>
+                          <span class="value">{{ ueAverageRsrpValue() }}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div class="info-list">
-                      <div class="info-item">
-                        <span class="label">終端覆蓋率</span>
-                        <span class="value">{{ ueCoverageValue() }}</span>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">平均訊號品質</span>
-                        <span class="value">{{ ueAverageSinrValue() }}</span>
-                      </div>
-                      <div class="info-item">
-                        <span class="label">平均訊號強度</span>
-                        <span class="value">{{ ueAverageRsrpValue() }}</span>
-                      </div>
-                    </div>
-                  </div>
+                  </ng-container>
 
+                  <ng-template #ueAnalysisEmptyState>
+                    <div class="empty-state">尚無終端分析資料</div>
+                  </ng-template>
                 </ng-container>
 
-                <ng-template #ueAnalysisEmptyState>
-                  <div class="empty-state">尚無終端分析資料</div>
+                <ng-template #ueNotConfiguredState>
+                  <div class="empty-state">尚未設置終端</div>
                 </ng-template>
               </div>
             </div>
@@ -316,7 +324,7 @@
                 <ng-container *ngIf="observeHasSubfields(); else observeNoSubfieldsState">
 
                   <div class="observe-analysis-section">
-                    <div
+                    <!-- <div
                       class="info-card-container observe-summary-card"
                       *ngIf="observationAreaSummaryLine() as sumLine">
                       <div class="card-header">
@@ -332,7 +340,7 @@
                         *ngIf="observationAreaSectionHint() as obsHint">
                         {{ obsHint }}
                       </div>
-                    </div>
+                    </div> -->
 
                     <div
                       class="info-card-container observe-detail-card"
@@ -341,10 +349,10 @@
                       <div class="card-header detail-card-header observe-card-header">
                         <span class="detail-card-accent" aria-hidden="true"></span>
                         <span class="observe-card-title">{{ card.title }}</span>
-                        <span
+                        <!-- <span
                           class="observe-status-badge"
                           [ngClass]="card.badgeClass"
-                          [attr.data-status]="card.status">{{ card.statusLabel }}</span>
+                          [attr.data-status]="card.status">{{ card.statusLabel }}</span> -->
                       </div>
 
                       <div class="info-list">
@@ -422,35 +430,31 @@
                 [class.active]="activeObjectTab() === 'ris'">
                 RIS
               </button>
-              <button
-                class="object-segment-btn"
-                (click)="activeObjectTab.set('ue')"
-                [class.active]="activeObjectTab() === 'ue'">
-                終端
-              </button>
             </div>
           </div>
 
           <div class="scroll-content">
-            <div class="info-card-container summary-card" *ngIf="currentObjectSummaryVm() as summary">
-              <div class="card-header">{{ summary.title }}</div>
-              <div class="info-list">
-                <div class="info-item" *ngFor="let item of summary.items">
-                  <span class="label">{{ item.label }}</span>
-                  <span class="value">{{ item.value }}</span>
+            <ng-container *ngIf="shouldShowObjectSummaryCard()">
+              <div class="info-card-container summary-card" *ngIf="currentObjectSummaryVm() as summary">
+                <div class="card-header">{{ summary.title }}</div>
+                <div class="info-list">
+                  <div class="info-item" *ngFor="let item of summary.items">
+                    <span class="label">{{ item.label }}</span>
+                    <span class="value">{{ item.value }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </ng-container>
 
             <div class="object-sub-tabs" *ngIf="activeObjectTab() === 'bs'">
-              <button
+              <!-- <button
                 class="object-sub-btn"
                 (click)="bsViewMode.set('existing')"
                 [class.active]="bsViewMode() === 'existing'">
                 顯示既有基站
-              </button>
+              </button> -->
               <button
-                *ngIf="!isSimulationMode()"
+                *ngIf="!isSimulationModeEffective()"
                 class="object-sub-btn"
                 (click)="bsViewMode.set('planned')"
                 [class.active]="bsViewMode() === 'planned'">
@@ -464,8 +468,19 @@
                   class="object-card detail-card"
                   *ngFor="let card of currentObjectCards()"
                   [class.active]="card.withAccent"
-                  [class.with-accent]="card.withAccent">
-                  <div class="detail-title">{{ card.title }}</div>
+                  [class.with-accent]="card.withAccent"
+                  [class.is-clickable]="!!card.selectPayload"
+                  [class.selected]="selectedObjectCardKey === card.cardKey"
+                  tabindex="0"
+                  role="button"
+                  (click)="onObjectCardClick(card)"
+                  (keydown.enter)="onObjectCardClick(card)"
+                  (keydown.space)="onObjectCardClick(card); $event.preventDefault()"
+                >
+                  <div class="detail-card-header">
+                    <span class="detail-card-accent" aria-hidden="true"></span>
+                    <span>{{ card.title }}</span>
+                  </div>
                   <div class="info-list no-bg">
                     <div class="info-item" *ngFor="let item of card.items">
                       <span class="label">{{ item.label }}</span>
@@ -476,7 +491,7 @@
               </ng-container>
 
               <ng-template #objectEmptyState>
-                <div class="object-empty-state">
+                <div class="empty-state">
                   {{ currentObjectEmptyText() }}
                 </div>
               </ng-template>

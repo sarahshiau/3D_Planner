@@ -77,7 +77,7 @@ export class PathlossModelManageModalComponent implements OnInit {
     this.loadingList = true;
 
     try {
-      const session = 'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+      const session = 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
       const list = await this.pathlossService.getList(session);
       const rows = list.map(dto => this.pathlossService.mapDtoToRow(dto));
 
@@ -211,7 +211,7 @@ export class PathlossModelManageModalComponent implements OnInit {
 
         this.customRows = [pendingRow, ...this.customRows];
 
-        const session = 'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+        const session = 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
         await this.pathlossService.addPathLossModel(manualPayload.draft, session);
 
         this.removePendingRow(pendingKey);
@@ -235,7 +235,7 @@ export class PathlossModelManageModalComponent implements OnInit {
 
         this.customRows = [pendingRow, ...this.customRows];
 
-        const session = 'son_session_3967d6ec-8304-402b-ab67-06cc9601895a';
+        const session = 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
         const calculateRes = await this.pathlossService.calculateFromFile(session, {
           file: importPayload.file,
           name: importPayload.name,

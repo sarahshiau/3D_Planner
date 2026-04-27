@@ -230,7 +230,7 @@
   display: flex;
   justify-content: center;
   // stretch instead of center (fix height collapse)
-  align-items: stretch;
+  align-items: center;
   background: rgba(0,0,0,0.55);
   padding: 16px;
   box-sizing: border-box;

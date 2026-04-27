@@ -3,13 +3,36 @@
 @import "leaflet-draw/dist/leaflet.draw.css";
 
 :root {
-  --dt-bg: #13233b;
-  --dt-bg-darker: #0e1a2d;
-  --dt-accent: #4aa3ff;
-  --dt-accent-2: #7fd3ff;
-  --dt-border: rgba(255,255,255,0.08);
-  --dt-text: #e6f0ff;
+  /* ===== VS Code 基底（灰階系統） ===== */
+
+  /* 背景 */
+  --dt-bg: #1E1E1E;          /* page */
+  --dt-bg-darker: #252526;   /* navbar / canvas 底 */
+
+  /* 補層級（可選，但建議加） */
+  --dt-surface: #2D2D30;     /* sidebar / panel */
+  --dt-card: #252526;        /* card */
+  --dt-hover: #2A2D2E;       /* hover */
+
+  /* Accent（唯一藍） */
+  --dt-accent: #007ACC;
+  --dt-accent-2: #1A85D6;
+
+  /* Border（VS Code 精髓） */
+  --dt-border: #3C3C3C;
+  --dt-border-subtle: #2A2A2A;
+  --dt-border-strong: #454545;
+  --dt-border-hover: #4A4A4A;
+
+  /* 文字 */
+  --dt-text: #D4D4D4;
+  --dt-text-secondary: #9DA3A6;
+
+  /* Danger */
+  --dt-danger: #F14C4C;
+  --dt-danger-soft: rgba(241,76,76,0.15);
 }
+
 *{box-sizing:border-box}
 html, body { height: 100%; margin: 0; color: var(--dt-text); background: var(--dt-bg);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans TC', Arial, 'Microsoft JhengHei', sans-serif;
@@ -74,3 +97,4 @@ html, body { height: 100%; margin: 0; color: var(--dt-text); background: var(--d
   background-color: transparent !important;
   box-shadow: none !important;
 }
+@import './styles/theme-shared.scss';

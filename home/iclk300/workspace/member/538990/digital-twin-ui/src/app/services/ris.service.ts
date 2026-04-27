@@ -43,6 +43,11 @@ export class RisService {
   // Single source of truth for all in-memory mock databases
   private mockApiList: RisApi[] = structuredClone(MOCK_RIS_LIST);
   private mockMaterialList: RisMaterialApi[] = structuredClone(MOCK_RIS_MATERIALS);
+
+  /** Read-only snapshot of the RIS catalog keyed by risID. Used by right-sidebar to join model details. */
+  get risApiCatalog(): readonly RisApi[] {
+    return this.mockApiList;
+  }
   private profilesDb: Record<number, RisProfileApi[]> = structuredClone(MOCK_RIS_PROFILES_BY_RISID);
   private rawDataDb: Record<string, RisRawDataApi> = structuredClone(MOCK_RIS_RAWDATA_BY_KEY);
 

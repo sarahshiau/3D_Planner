@@ -47,6 +47,8 @@ export class MapPreviewService {
       east: bounds.getNorthEast().lng,
     };
 
+    const previewZoom = Math.max(18, zoom ?? 18);
+
     // ReferencePoint：Mercator center
     const centerLon = (bbox.west + bbox.east) / 2;
     const ySouth = this.coord.latToMercYPublic(bbox.south);
@@ -67,7 +69,7 @@ export class MapPreviewService {
     ground.setParent(root);
 
     // Tiles -> bbox texture -> apply to ground
-    const bboxTex = await this.createBBoxTextureFromTiles(scene, bbox, zoom);
+    const bboxTex = await this.createBBoxTextureFromTiles(scene, bbox, previewZoom);
     const mat = new StandardMaterial('mapPreviewGroundMat', scene);
     mat.diffuseTexture = bboxTex;
     const previewTex = mat.diffuseTexture as Texture;
@@ -152,7 +154,7 @@ export class MapPreviewService {
       m.setParent(buildingsRoot);
     }
 
-    return { root, ground, buildingsRoot, bbox, zoom, texture: bboxTex };
+    return { root, ground, buildingsRoot, bbox, zoom: previewZoom, texture: bboxTex };
   }
 
   disposeAssets(assets: GeneratedSceneAssets | null): void {
@@ -263,12 +265,37 @@ export class MapPreviewService {
     const cropW = Math.max(1, cropRight - cropLeft);
     const cropH = Math.max(1, cropBottom - cropTop);
 
-    const bboxTex = new DynamicTexture('bbox_only_tex', { width: cropW, height: cropH }, scene, false);
-    const bboxCtx = bboxTex.getContext();
-    const mosaicCanvas = mosaic.getContext().canvas as HTMLCanvasElement;
+    const upscale = 2;
+    const maxOutputSize = 4096;
+    const outW = Math.min(maxOutputSize, Math.max(1, cropW * upscale));
+    const outH = Math.min(maxOutputSize, Math.max(1, cropH * upscale));
 
-    bboxCtx.drawImage(mosaicCanvas, cropLeft, cropTop, cropW, cropH, 0, 0, cropW, cropH);
+    const bboxTex = new DynamicTexture('bbox_only_tex', { width: outW, height: outH }, scene, false);
+    const bboxCtx = bboxTex.getContext() as CanvasRenderingContext2D;
+    const mosaicCanvas = (mosaic.getContext() as CanvasRenderingContext2D).canvas as HTMLCanvasElement;
+
+    bboxCtx.imageSmoothingEnabled = true;
+    bboxCtx.drawImage(
+      mosaicCanvas,
+      cropLeft,
+      cropTop,
+      cropW,
+      cropH,
+      0,
+      0,
+      outW,
+      outH
+    );
     bboxTex.update();
+
+    console.log('[MapPreviewService][TextureQuality]', {
+      zoom,
+      cropW,
+      cropH,
+      outW,
+      outH,
+      upscale,
+    });
 
     this.logMapPreviewTileCanvasOrientation({
       bbox,

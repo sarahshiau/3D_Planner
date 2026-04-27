@@ -2,18 +2,36 @@
   <!-- 載入中覆蓋層 -->
   <div class="loading-overlay" *ngIf="loading">
     <div class="loading-card">
-      <div class="spinner"></div>-
+      <div class="spinner"></div>
       <div class="loading-title">{{ loadingMessage || '載入中…' }}</div>
+
+      <div class="loading-error" *ngIf="loadingError">
+        {{ loadingErrorMessage || '地圖載入失敗，請再試一次' }}
+      </div>
+
+      <div class="loading-actions" *ngIf="loadingError">
+        <button class="retry-btn" type="button" (click)="retryBootstrapLoading()">
+        再試一次
+        </button>
+      </div>
     </div>
   </div>
+
   <!-- ===== [SIM_API_PHASE5][COMPUTE_LOADING_OVERLAY] ===== -->
   <div class="loading-overlay" *ngIf="computeLoading">
     <div class="loading-card">
-      <div class="spinner"></div>
-      <div class="loading-text">{{ computeLoadingText }}</div>
-      <div class="loading-percent">{{ computeLoadingPercent }}%</div>
-      <div class="loading-bar">
-        <div class="loading-bar-fill" [style.width.%]="computeLoadingPercent"></div>
+      <div class="spinner" *ngIf="!computeLoadingError"></div>
+
+      <div class="loading-title">運算中...</div>
+
+      <div class="loading-error" *ngIf="computeLoadingError">
+        {{ computeLoadingErrorMessage || '運算失敗，請再試一次' }}
+      </div>
+
+      <div class="loading-actions" *ngIf="computeLoadingError">
+        <button class="retry-btn" type="button" (click)="retryStartCompute()">
+          再試一次
+        </button>
       </div>
     </div>
   </div>
@@ -21,7 +39,8 @@
   <!-- ✅ 永遠顯示 Topbar（StageA 也要有） -->
   <app-top-bar></app-top-bar>
   <!-- ✅ 常駐 Babylon Canvas：不會因 stage 切換被銷毀 -->
-  <div #babylonHost class="babylon-host" [class.is-edit]="true" (click)="onCanvasClick()">
+  <div #babylonHost class="babylon-host" [class.is-edit]="true" (click)="onCanvasClick()"
+       [style.cursor]="placementMode !== 'none' ? 'crosshair' : ''">
     <canvas #renderCanvas class="shared-canvas"></canvas>
     <!-- Plotly Colorbar Overlay -->
     <div class="plotly-colorbar-host">
@@ -199,17 +218,25 @@
             <div #babylonMountStageB class="babylon-mount"></div>
             <!-- 中上方 Banner（場域標題 + 位置） -->
             <!-- ✅ [Step 2.1] 僅在模擬完成後顯示熱力圖控制工具列 -->
-            <app-banner 
+            <app-banner
               *ngIf="isSimulationDone"
-              [sceneName]="sceneName" 
+              [sceneName]="sceneName"
               [location]="location"
               (backToEditMode)="onBackToEditMode()"
               [isSimulationDone]="isSimulationDone"
+              [sliceHeight]="sliceHeight"
+              [sliceHeightOptions]="sliceHeightOptions"
               (sliceHeightChange)="onSliceHeightChange($event)"
               (heatmapModeChange)="onHeatmapModeChange($event)"
               (viewFiltersChange)="onViewFiltersChange($event)"
               (coverageThresholdChange)="onCoverageThresholdChange($event)"
-              (dynamicRangeChange)="onDynamicRangeChange($event)">
+              (dynamicRangeChange)="onDynamicRangeChange($event)"
+              [hasTerminals]="hasTerminals"
+              [hasAntennas]="hasAntennas"
+              [hasObserveZones]="hasObserveZones"
+              [hasCustomRegions]="hasCustomRegions"
+              [hasObstacles]="hasObstacles"
+              (saveClick)="openSaveConfirm('banner')">
             </app-banner>
             <!-- Stage B 右上角：開始運算 -->
             <div class="stage-b-runbar">
@@ -877,6 +904,7 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of primitiveShapes"
                           (click)="onShapeButtonClick(shape.id)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -896,6 +924,8 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of landscapeShapes"
                           (click)="onModelButtonClick(shape)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
+                          
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -915,6 +945,7 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of visibleAntennaShapes"
                           (click)="onModelButtonClick(shape)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -934,6 +965,7 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of terminalShapes"
                           (click)="onModelButtonClick(shape)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -953,6 +985,7 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of observeShapes"
                           (click)="onShapeButtonClick(shape.id)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -972,6 +1005,7 @@
                           class="leftsidepatal-btn"
                           *ngFor="let shape of zoneShapes"
                           (click)="onShapeButtonClick(shape.id)"
+                          [class.active]="phase4PendingItemId === shape.id && placementMode !== 'none'"
                         >
                           <img class="btn-icon" [src]="shape.icon" [alt]="shape.label" />
                           <span class="btn-text">{{ shape.label }}</span>
@@ -993,7 +1027,8 @@
 
 
               <app-edit-file-panel
-                *ngIf="rightPanelType === 'file'">
+                *ngIf="rightPanelType === 'file'"
+                (saveClick)="openSaveConfirm('edit-file', $event)">
               </app-edit-file-panel>
 
               <app-edit-task-panel
@@ -1027,10 +1062,12 @@
           [showCustomZoneAnalysisTab]="showCustomZoneAnalysisTab"
           [showObserveAnalysisTab]="showObserveAnalysisTab"
           [analysisSubfields]="analysisSubfields"
+          [executionMode]="goalMode"
           (panelChange)="handleRightPanelChange($event)"
           (saveProject)="onRightSidebarSaveProject()"
           (exportProject)="onRightSidebarExportProject()"
-          (openAnalysis)="handleOpenAnalysis($event)">
+          (openAnalysis)="handleOpenAnalysis($event)"
+          (objectCardSelect)="onObjectCardSelect($event)">
         </app-right-sidebar>
       </div>
     </div>

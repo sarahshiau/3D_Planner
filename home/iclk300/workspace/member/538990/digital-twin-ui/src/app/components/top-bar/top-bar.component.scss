@@ -4,7 +4,8 @@
   justify-content: space-between;
   height: 48px;
   padding: 0 5px;
-  background-color: #16243f;
+  background: var(--navbar-bg);
+  border-bottom: 1px solid var(--border-default);
   color: #fff;
   font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   overflow: hidden;          /* ✅ 防止 hover scale 超出造成 scroll */
