@@ -729,7 +729,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // TODO: TEMP_SESSION_REMOVE_AFTER_LOGIN_SYSTEM
   // ========================================================
   private readonly DEV_TEMP_SESSION =
-    'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
+    'son_session_8e1f1a2e-f3ff-43ed-bba8-9e60d26960ad';
 
   // ===== [Step2A][Registry] Scene Object Registry =====
   private sceneObjectRegistry = new Map<string, SceneObjectRegistryEntry>();

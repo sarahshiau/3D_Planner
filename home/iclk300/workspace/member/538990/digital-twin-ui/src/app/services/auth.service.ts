@@ -14,7 +14,7 @@ export class AuthService {
    * 未來補上登入功能後，此處改為從 LocalStorage 或 Cookie 讀取
    */
   getSessionInfo(): string {
-    return 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
+    return 'son_session_8e1f1a2e-f3ff-43ed-bba8-9e60d26960ad';
   }
 
   /**
