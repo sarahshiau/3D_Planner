@@ -3856,16 +3856,11 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.closeComputeLoading();
 
-    } catch (e: any) {
-      console.error('[SIM_API] flow failed', e);
+      } catch (e: any) {
+        console.error('[SIM_API] flow failed', e);
 
-      this.computeLoading = true;
-      this.computeLoadingError = true;
-      this.computeLoadingErrorMessage =
-        e?.message?.trim()
-          ? e.message
-          : '運算失敗，請再試一次';
-    }
+        this.showComputeFailure(this.getComputeFailureMessage(e));
+      }
   }
 
   // ===== [SIGRAY:OVERLAY_AFTER_HEATMAP:HELPER] =====
@@ -4477,6 +4472,38 @@ private p4_renderSingleRay(scene: any, from: any, to: any, rxDbm: number): void 
     this.computeLoadingError = false;
     this.computeLoadingErrorMessage = '';
   }
+
+  private showComputeFailure(message = '運算失敗，請再試一次'): void {
+    this.stopComputeProgressTicker();
+
+    this.computeLoading = true;
+    this.computeLoadingError = true;
+    this.computeLoadingErrorMessage = message;
+  }
+
+  private getComputeFailureMessage(err: any): string {
+  const status = Number(err?.status);
+
+  if (status === 504) {
+    return '運算逾時，請再試一次';
+  }
+
+  if (err instanceof TimeoutError || err?.name === 'TimeoutError') {
+    return '運算逾時，請再試一次';
+  }
+
+  const message = String(err?.message ?? '').trim();
+
+  if (
+    message.includes('timeout') ||
+    message.includes('Timeout') ||
+    message.includes('progress polling timeout')
+  ) {
+    return '運算逾時，請再試一次';
+  }
+
+  return '運算失敗，請再試一次';
+}
 
   private __computeProgressTimer: any = null;
 
@@ -17473,7 +17500,7 @@ private analyzeCompleteCalcResult(completeRes: any): {
     const intervalMs = 3000;
     const requestTimeoutMs = 10000;
     const url = `/son/progress/${encodeURIComponent(taskId)}/${encodeURIComponent(sessionId)}`;
- 
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         console.log('[SIM_API_PHASE3][progress] request start', {
@@ -17481,20 +17508,20 @@ private analyzeCompleteCalcResult(completeRes: any): {
           sessionId,
           attempt,
         });
- 
+
         const res = await firstValueFrom(
           this.http.get<any>(url).pipe(timeout(requestTimeoutMs))
         );
- 
+
         console.log('[SIM_API_PHASE3][progress] request success', {
           taskId,
           sessionId,
           attempt,
           res,
         });
- 
+
         const p = this.extractProgressValue(res);
- 
+
         if (p === 1) {
           console.log('[SIM_API_PHASE3][progress] completed', {
             taskId,
@@ -17504,14 +17531,14 @@ private analyzeCompleteCalcResult(completeRes: any): {
           });
           return 'completed';
         }
- 
+
         console.log('[SIM_API_PHASE3][progress] pending', {
           taskId,
           sessionId,
           attempt,
           progress: p,
         });
- 
+
         await this.sleep(intervalMs);
       } catch (err: any) {
         console.error('[SIM_API_PHASE3][progress] error', {
@@ -17520,16 +17547,29 @@ private analyzeCompleteCalcResult(completeRes: any): {
           attempt,
           err,
         });
- 
+
         if (err instanceof TimeoutError || err?.name === 'TimeoutError') {
           console.warn('[SIM_API_PHASE3][progress] request timeout', {
             taskId,
             sessionId,
             attempt,
           });
+
+          await this.sleep(intervalMs);
           continue;
         }
- 
+
+        if (Number(err?.status) === 504) {
+          console.warn('[SIM_API_PHASE3][progress] gateway timeout 504', {
+            taskId,
+            sessionId,
+            attempt,
+            status: err?.status,
+          });
+
+          throw err;
+        }
+
         if (this.isLegacyProgressMalformedError(err)) {
           console.warn(
             '[SIM_API_PHASE3][progress] legacy malformed progress response, fallback to result',
@@ -17537,11 +17577,11 @@ private analyzeCompleteCalcResult(completeRes: any): {
           );
           return 'fallback_result';
         }
- 
+
         throw err;
       }
     }
- 
+
     throw new Error('Simulation progress polling timeout');
   }
 
@@ -18970,11 +19010,18 @@ private analyzeCompleteCalcResult(completeRes: any): {
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : null,
       });
-      // Do not touch heatmap logic in catch
+
+      // Important:
+      // Re-throw so onStartCompute() can show the compute failure overlay.
+      throw err;
     } finally {
       // ===== [SIM_API_PHASE5][COMPUTE_LOADING_END] =====
       await new Promise((resolve) => setTimeout(resolve, 180));
-      this.computeLoading = false;
+
+      // Do not close the overlay if it is already showing an error.
+      if (!this.computeLoadingError) {
+        this.computeLoading = false;
+      }
     }
   }
 

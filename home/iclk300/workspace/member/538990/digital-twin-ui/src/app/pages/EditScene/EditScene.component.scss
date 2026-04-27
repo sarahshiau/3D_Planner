@@ -1213,26 +1213,26 @@ app-right-sidebar,
   justify-content: center;
 }
 
-.retry-btn {
-  min-width: 120px;
-  height: 40px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 10px;
-  background: #20c997;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
+// .retry-btn {
+//   min-width: 120px;
+//   height: 40px;
+//   padding: 0 16px;
+//   border: 0;
+//   border-radius: 10px;
+//   background: #20c997;
+//   color: #ffffff;
+//   font-size: 14px;
+//   font-weight: 600;
+//   cursor: pointer;
+// }
 
-.retry-btn:hover {
-  filter: brightness(1.05);
-}
+// .retry-btn:hover {
+//   filter: brightness(1.05);
+// }
 
-.retry-btn:active {
-  transform: translateY(1px);
-}
+// .retry-btn:active {
+//   transform: translateY(1px);
+// }
 
 /* 旋轉動畫 (Spinner) */
 .spinner {
