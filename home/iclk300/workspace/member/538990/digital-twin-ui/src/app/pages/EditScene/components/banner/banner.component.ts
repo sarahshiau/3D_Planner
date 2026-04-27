@@ -105,12 +105,10 @@ export class BannerComponent implements OnInit, OnChanges {
   }
 
   onSliceHeightChange(): void {
-    console.log("[Banner] 切面高度已變更:", this.sliceHeight);
     this.sliceHeightChange.emit(this.sliceHeight);
   }
 
   onHeatmapModeChange(): void {
-    console.log("[Banner] 分布圖模式已變更:", this.activeHeatmapMode);
     this.heatmapModeChange.emit(this.activeHeatmapMode);
     
     if (this.activeHeatmapMode === 'coverage') {
@@ -174,17 +172,14 @@ export class BannerComponent implements OnInit, OnChanges {
   }
 
   onViewFilterChange(): void {
-    console.log("[Banner] 檢視篩選已變更:", this.viewFilters);
     this.viewFiltersChange.emit(this.viewFilters);
   }
 
   onCoverageThresholdChange(): void {
-    console.log("[Banner] 覆蓋圖閾值已變更:", this.coverageThreshold);
     this.coverageThresholdChange.emit(this.coverageThreshold);
   }
 
   onDynamicRangeConfirm(): void {
-    console.log("[Banner] 動態範圍已確認:", this.dynamicRange);
     if (!this.isDynamicRangeDraftValid || !this.isDynamicRangeDirty) {
       return;
     }

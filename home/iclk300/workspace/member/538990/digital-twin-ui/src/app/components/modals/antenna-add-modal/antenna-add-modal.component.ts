@@ -528,13 +528,10 @@ private buildPayload(): AntennaUpsertDraft {
   };
 }
 
-  constructor(private fb: FormBuilder, private alertService: AlertService) {
-    console.log('[AntennaAddModal] constructor');
-  }
+  constructor(private fb: FormBuilder, private alertService: AlertService) {}
 
   ngOnInit(): void {
     this.initForm();
-    console.log('[AntennaAddModal] ngOnInit');
   }
 
   private initForm(): void {

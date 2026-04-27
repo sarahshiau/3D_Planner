@@ -234,6 +234,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   ];
 
   activeResult = signal<ResultNavId | null>(null);
+  private readonly DEBUG_RIGHT_SIDEBAR = false;
   private readonly executionModeSignal = signal<'planning' | 'simulation' | null>(null);
   readonly isSimulationMode = computed(() => this.executionModeSignal() === 'simulation');
   readonly isSimulationModeEffective = computed(() => {
@@ -471,13 +472,15 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
       if (!session || !modelId) return;
 
-      console.log('[PathLoss] fetching model list, session=', session, 'modelId=', modelId);
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[PathLoss] fetching model list', { sessionExists: !!session, modelId });
+      }
 
       this.http
         .get(`/son/getPathLossModel/${session}`)
         .subscribe({
           next: (res: any) => {
-            console.log('[PathLoss] list result:', res);
+            if (this.DEBUG_RIGHT_SIDEBAR) { console.log('[PathLoss] list result:', res); }
             const list = Array.isArray(res) ? res : [];
             this.pathLossModelListSignal.set(list);
           },
@@ -489,79 +492,87 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
     });
 
     effect(() => {
-      console.log('[DEBUG FULL DATA]', this._data);
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RightSidebar][DEBUG][object-bs]', {
+          input: this.objectInput(),
+          output5G: this.object5gOutput(),
+          summary: this.bsSummaryVm(),
+          existingRows: this.existingBsObjectRows(),
+          suggestRows: this.suggestBsObjectRows(),
+          activeMode: this.bsViewMode(),
+          activeRows: this.activeBsObjectRows(),
+          emptyText: this.bsObjectEmptyText(),
+        });
+      }
     });
 
     effect(() => {
-      console.log('[RightSidebar][DEBUG][object-bs]', {
-        input: this.objectInput(),
-        output5G: this.object5gOutput(),
-        summary: this.bsSummaryVm(),
-        existingRows: this.existingBsObjectRows(),
-        suggestRows: this.suggestBsObjectRows(),
-        activeMode: this.bsViewMode(),
-        activeRows: this.activeBsObjectRows(),
-        emptyText: this.bsObjectEmptyText(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RightSidebar][DEBUG][object-ris]', {
+          input: this.objectInput(),
+          output5G: this.object5gOutput(),
+          inputDefaultRis: this.objectInputDefaultRis(),
+          chosenDefaultRis: this.objectChosenDefaultRis(),
+          chosenCandidateRis: this.objectChosenCandidateRis(),
+          summary: this.risSummaryVm(),
+          existingRows: this.existingRisObjectRows(),
+          suggestRows: this.suggestRisObjectRows(),
+          activeMode: this.risViewMode(),
+          activeRows: this.activeRisObjectRows(),
+          hasActiveRows: this.hasActiveRisObjectRows(),
+          emptyText: this.risObjectEmptyText(),
+        });
+      }
     });
 
     effect(() => {
-      console.log('[RightSidebar][DEBUG][object-ris]', {
-        input: this.objectInput(),
-        output5G: this.object5gOutput(),
-        inputDefaultRis: this.objectInputDefaultRis(),
-        chosenDefaultRis: this.objectChosenDefaultRis(),
-        chosenCandidateRis: this.objectChosenCandidateRis(),
-        summary: this.risSummaryVm(),
-        existingRows: this.existingRisObjectRows(),
-        suggestRows: this.suggestRisObjectRows(),
-        activeMode: this.risViewMode(),
-        activeRows: this.activeRisObjectRows(),
-        hasActiveRows: this.hasActiveRisObjectRows(),
-        emptyText: this.risObjectEmptyText(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RightSidebar][DEBUG][object-terminal]', {
+          summary: this.terminalSummaryVm(),
+          existingRows: this.existingTerminalObjectRows(),
+          suggestRows: this.suggestTerminalObjectRows(),
+          activeMode: this.terminalViewMode(),
+          activeRows: this.activeTerminalObjectRows(),
+          emptyText: this.terminalObjectEmptyText(),
+        });
+      }
     });
 
     effect(() => {
-      console.log('[RightSidebar][DEBUG][object-terminal]', {
-        summary: this.terminalSummaryVm(),
-        existingRows: this.existingTerminalObjectRows(),
-        suggestRows: this.suggestTerminalObjectRows(),
-        activeMode: this.terminalViewMode(),
-        activeRows: this.activeTerminalObjectRows(),
-        emptyText: this.terminalObjectEmptyText(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RightSidebar][DEBUG][object-ris-rows]', {
+          existing: this.existingRisObjectRows(),
+          suggest: this.suggestRisObjectRows(),
+          active: this.activeRisObjectRows(),
+        });
+      }
     });
 
     effect(() => {
-      console.log('[RightSidebar][DEBUG][object-ris-rows]', {
-        existing: this.existingRisObjectRows(),
-        suggest: this.suggestRisObjectRows(),
-        active: this.activeRisObjectRows(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RIS_UI_TRACE_FULL]', {
+          activeObjectTab: this.activeObjectTab(),
+          risViewMode: this.risViewMode(),
+          objectInputDefaultRis: this.objectInputDefaultRis(),
+          objectChosenDefaultRis: this.objectChosenDefaultRis(),
+          objectChosenCandidateRis: this.objectChosenCandidateRis(),
+          existingRisObjectRows: this.existingRisObjectRows(),
+          suggestRisObjectRows: this.suggestRisObjectRows(),
+          activeRisObjectRows: this.activeRisObjectRows(),
+          currentObjectCards: this.currentObjectCards(),
+        });
+      }
     });
 
     effect(() => {
-      console.log('[RIS_UI_TRACE_FULL]', {
-        activeObjectTab: this.activeObjectTab(),
-        risViewMode: this.risViewMode(),
-        objectInputDefaultRis: this.objectInputDefaultRis(),
-        objectChosenDefaultRis: this.objectChosenDefaultRis(),
-        objectChosenCandidateRis: this.objectChosenCandidateRis(),
-        existingRisObjectRows: this.existingRisObjectRows(),
-        suggestRisObjectRows: this.suggestRisObjectRows(),
-        activeRisObjectRows: this.activeRisObjectRows(),
-        currentObjectCards: this.currentObjectCards(),
-      });
-    });
-
-    effect(() => {
-      console.log('[RightSidebar][DEBUG][object-ue-rows]', {
-        inputUeCoordinate: this.objectInput()?.ueCoordinate,
-        existingRaw: this.objectExistingTerminalRawRows(),
-        existingVm: this.existingTerminalObjectRows(),
-        active: this.activeTerminalObjectRows(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[RightSidebar][DEBUG][object-ue-rows]', {
+          inputUeCoordinate: this.objectInput()?.ueCoordinate,
+          existingRaw: this.objectExistingTerminalRawRows(),
+          existingVm: this.existingTerminalObjectRows(),
+          active: this.activeTerminalObjectRows(),
+        });
+      }
     });
 
     effect(() => {
@@ -589,66 +600,57 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
       }
     });
 
-    effect(() => {
-      console.log('[SIM_MODE_FINAL_FIX]', {
-        executionModeInput: this.executionModeSignal?.(),
-        fromExecutionMode: this.executionModeSignal?.() === 'simulation',
-        fromResultInput: (this.resultService?.result?.() as any)?.input?.isSimulation === true,
-        isSimulationModeEffective: this.isSimulationModeEffective?.(),
-        activeObjectTab: this.activeObjectTab?.(),
-        bsViewMode: this.bsViewMode?.(),
-        activeResult: this.activeResult?.(),
-        visibleResultButtonIds: this.visibleResultButtons?.()?.map?.((b: any) => b.id) ?? [],
-        suggestBsObjectRowsCount: this.suggestBsObjectRows?.()?.length ?? 0,
-        existingBsObjectRowsCount: this.existingBsObjectRows?.()?.length ?? 0,
-        currentObjectCardsCount: this.currentObjectCards?.()?.length ?? 0,
-      });
-    });
-
     // DEBUG: API_ONLY 資料血統驗證
     effect(() => {
-      console.log('[API_ONLY][field]', {
-        resultOutput: this.resultOutput,
-        fieldStatistics: this.resultOutput?.fieldStatistics,
-        fieldSummaryCards: this.fieldSummaryCards(),
-        fieldDetailCards: this.fieldDetailCards(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[API_ONLY][field]', {
+          resultOutput: this.resultOutput,
+          fieldStatistics: this.resultOutput?.fieldStatistics,
+          fieldSummaryCards: this.fieldSummaryCards(),
+          fieldDetailCards: this.fieldDetailCards(),
+        });
+      }
     });
     effect(() => {
-      console.log('[API_ONLY][bs]', {
-        resultOutput: this.resultOutput,
-        bsTptList: this.bsTptList(),
-        bsSummaryCards: this.bsSummaryCards(),
-        bsDetailCards: this.bsDetailCards(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[API_ONLY][bs]', {
+          resultOutput: this.resultOutput,
+          bsTptList: this.bsTptList(),
+          bsSummaryCards: this.bsSummaryCards(),
+          bsDetailCards: this.bsDetailCards(),
+        });
+      }
     });
     effect(() => {
-      console.log('[API_ONLY][ue]', {
-        coverage: this.resultOutput?.coverage,
-        averageSinr: this.resultOutput?.averageSinr,
-        averageRsrp: this.resultOutput?.averageRsrp,
-        ueCoverage: this.resultOutput?.ueCoverage,
-        ueAverageSinr: this.resultOutput?.ueAverageSinr,
-        ueAverageRsrp: this.resultOutput?.ueAverageRsrp,
-        evaluationResultUe: this.resultOutput?.evaluationResult?.ue,
-        hasUeAnalysisData: this.hasUeAnalysisData(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[API_ONLY][ue]', {
+          coverage: this.resultOutput?.coverage,
+          averageSinr: this.resultOutput?.averageSinr,
+          averageRsrp: this.resultOutput?.averageRsrp,
+          ueCoverage: this.resultOutput?.ueCoverage,
+          ueAverageSinr: this.resultOutput?.ueAverageSinr,
+          ueAverageRsrp: this.resultOutput?.ueAverageRsrp,
+          evaluationResultUe: this.resultOutput?.evaluationResult?.ue,
+          hasUeAnalysisData: this.hasUeAnalysisData(),
+        });
+      }
     });
     effect(() => {
-      console.log('[API_ONLY][observe]', {
-        subfieldStatistics: this.resultOutput?.subfieldStatistics,
-        observationAreaCounts: this.observationAreaCounts(),
-        subfieldAnalysisVms: this.subfieldAnalysisVms(),
-        subfieldObservationCards: this.subfieldObservationCards(),
-        analysisSubfields: this.analysisSubfieldsSignal(),
-      });
+      if (this.DEBUG_RIGHT_SIDEBAR) {
+        console.log('[API_ONLY][observe]', {
+          subfieldStatistics: this.resultOutput?.subfieldStatistics,
+          observationAreaCounts: this.observationAreaCounts(),
+          subfieldAnalysisVms: this.subfieldAnalysisVms(),
+          subfieldObservationCards: this.subfieldObservationCards(),
+          analysisSubfields: this.analysisSubfieldsSignal(),
+        });
+      }
     });
   }
 
   ngAfterViewInit(): void {}
 
   ngOnInit(): void {
-    console.log('[STORE_INSTANCE_SIDEBAR]', this.fieldDomainStore);
     this.analysisSubfieldsSignal.set(this.analysisSubfields ?? []);
   }
 
@@ -977,7 +979,6 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
 
   // ===== [RESULT:A-FEATURE] Save / Export buttons =====
   onSaveProject(): void {
-    console.log('[RightSidebar] save project clicked');
     // 先觸發父層（未來可接 API）
     this.saveProject.emit();
 
@@ -986,7 +987,6 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
   }
 
   onExportProject(): void {
-    console.log('[RightSidebar] export project clicked');
     // 觸發父層執行 Babylon 匯出（RightSidebar 本身拿不到 scene）
     this.exportProject.emit();
 
@@ -1637,7 +1637,7 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
       ],
     };
 
-    console.log('[RIS_ROW_MAPPING]', { rawRow: row, mappedVm: vm });
+    if (this.DEBUG_RIGHT_SIDEBAR) { console.log('[RIS_ROW_MAPPING]', { rawRow: row, mappedVm: vm }); }
     return vm;
   }
 
@@ -2320,13 +2320,15 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
       };
     });
 
-    console.log('[API_ONLY][bs][fallback]', {
-      chosenBs,
-      perBsUe,
-      dlPerBs,
-      ulPerBs,
-      mappedRows,
-    });
+    if (this.DEBUG_RIGHT_SIDEBAR) {
+      console.log('[API_ONLY][bs][fallback]', {
+        chosenBs,
+        perBsUe,
+        dlPerBs,
+        ulPerBs,
+        mappedRows,
+      });
+    }
 
     return mappedRows;
   });
@@ -2489,20 +2491,22 @@ export class RightSidebarComponent implements AfterViewInit, OnInit, OnChanges {
       null;
     const stats: any[] = Array.isArray(rawStats) ? rawStats : [];
 
-    console.log('[OBS_DEBUG]', {
-      result,
-      stats,
-      analysisSubfields,
-      matched: analysisSubfields.map((s: any) => ({
-        subfieldID: s.subfieldID,
-        stat: stats.find((st: any) =>
-          st.subfieldID === s.subfieldID ||
-          st.subfieldId === s.subfieldID ||
-          st.ID === s.subfieldID ||
-          st.id === s.subfieldID
-        ) ?? null,
-      })),
-    });
+    if (this.DEBUG_RIGHT_SIDEBAR) {
+      console.log('[OBS_DEBUG]', {
+        result,
+        stats,
+        analysisSubfields,
+        matched: analysisSubfields.map((s: any) => ({
+          subfieldID: s.subfieldID,
+          stat: stats.find((st: any) =>
+            st.subfieldID === s.subfieldID ||
+            st.subfieldId === s.subfieldID ||
+            st.ID === s.subfieldID ||
+            st.id === s.subfieldID
+          ) ?? null,
+        })),
+      });
+    }
 
     // Merge resolved stats into a synthetic output the builder can consume.
     const syntheticOutput: any = result != null

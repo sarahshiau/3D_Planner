@@ -227,12 +227,9 @@ export class RisManageModalComponent implements OnInit, OnDestroy {
       .filter(n => !!n);
   }
 
-  constructor(private readonly risService: RisService, private readonly alertService: AlertService) {
-    console.log('[RisManageModal] constructor');
-  }
+  constructor(private readonly risService: RisService, private readonly alertService: AlertService) {}
 
   ngOnInit(): void {
-    console.log('[RisManageModal] ngOnInit');
     this.refreshList();
   }
 
@@ -276,18 +273,14 @@ export class RisManageModalComponent implements OnInit, OnDestroy {
       });
   }
 
-  onBackdropClick(): void {
-    console.log('[RisManageModal] backdrop clicked (blocked)');
-  }
+  onBackdropClick(): void {}
 
   onClose(): void {
-    console.log('[RisManageModal] close clicked');
     this.close.emit();
   }
 
   onPresetChange(next: PresetType): void {
     this.preset = next;
-    console.log('[RisManageModal] preset changed ->', this.preset);
     this.refreshList();
   }
 

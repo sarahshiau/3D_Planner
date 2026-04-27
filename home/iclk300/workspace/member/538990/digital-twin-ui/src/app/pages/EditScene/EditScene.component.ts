@@ -16896,14 +16896,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       ...item,
     }));
 
-    const fieldDefaultPathLossModel: any =
-      (TASK_PAYLOAD_MOCK_DEFAULTS as any)?.field?.defaultPathLossModel ?? {};
-
-    const fieldDefaultPathLossModel5g =
-      fieldDefaultPathLossModel?.['5g'] ?? -1;
-    const fieldDefaultPathLossModelWifi =
-      fieldDefaultPathLossModel?.wifi ?? -1;
-
     const pathLossModelId = safeNumberOr(
       (snapshot as any)?.pathLossModelId,
       SIMULATION_SEED_FALLBACK.pathLossModelId
@@ -16929,15 +16921,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         zonePathLossModelId != null && Number.isFinite(zonePathLossModelId) ? zonePathLossModelId : null;
 
       const baseModelId = zonePathLossModelIdValid ?? pathLossModelId;
-      const fallback5g = baseModelId ?? fieldDefaultPathLossModel5g ?? -1;
-      const fallbackWifi =
-        baseModelId ?? fieldDefaultPathLossModelWifi ?? -1;
 
       return {
         color: zoneColor,
         pathLossModel: {
-          '5g': fallback5g,
-          wifi: fallbackWifi,
+          ID: baseModelId,
         },
         regionID: zone?.seq ?? idx + 1,
         shape: {

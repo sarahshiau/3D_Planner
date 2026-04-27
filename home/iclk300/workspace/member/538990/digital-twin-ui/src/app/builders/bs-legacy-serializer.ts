@@ -48,8 +48,8 @@ export function serializeBsAntennaToLegacy(rows: BsSourceRow[]): string {
   return rows
     .map((r) => {
       const ant = r?.antenna;
-      if (ant && Number.isFinite(ant.antennaID)) {
-        return `[${ant.antennaID},0,0,0]`;
+      if (ant) {
+        return `[${normalizeLegacyAntennaId(ant.antennaID)},0,0,0]`;
       }
       const x = Number(r?.x ?? 0);
       const y = Number(r?.y ?? 0);
@@ -87,7 +87,7 @@ function mapAntennaToLegacy(antenna: AntennaApiDto, position: [number, number, n
   const port = af?.ports?.[0];
   const freqMHz = af?.frequency ?? 4850;
   return {
-    ID: antenna.antennaID,
+    ID: normalizeLegacyAntennaId(antenna?.antennaID),
     position: { coordinate: [...position], installation: 'Customized' },
     gain: Number(port?.portGain ?? 0),
     ulFrequency: Number(freqMHz),
@@ -140,7 +140,7 @@ export function buildBsListDefaultBs(
       ? [mapAntennaToLegacy(antenna, pos)]
       : [
           {
-            ID: 0,
+            ID: 1,
             position: { coordinate: [...pos], installation: 'Customized' },
             gain: 0,
             ulFrequency: 4850,
@@ -191,6 +191,12 @@ function asLegacyString(v: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Backend expects legacy antenna ID to be 1-based. Never emit 0. */
+function normalizeLegacyAntennaId(value: unknown, fallback = 1): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
 /**
  * Build legacy antenna[0] from ExistingBsFieldRow.
  */
@@ -200,7 +206,7 @@ export function buildLegacyBsAntennaFromRow(row: ExistingBsFieldRow): LegacyAnte
     Number(row?.y ?? 0),
     Number(row?.z ?? 10),
   ];
-  const antennaId = row?.antenna?.antennaID ?? 0;
+  const antennaId = normalizeLegacyAntennaId(row?.antenna?.antennaID);
   const installation = row?.placementConfig?.installation ?? DEFAULT_INSTALLATION;
   const gain = Number(row?.antennaRuntime?.selectedPortGain ?? 0);
   const freq = Number(row?.antennaRuntime?.selectedFrequency ?? 4850);

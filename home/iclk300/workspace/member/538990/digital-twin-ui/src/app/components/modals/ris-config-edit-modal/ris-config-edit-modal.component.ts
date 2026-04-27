@@ -55,9 +55,7 @@ export class RisConfigEditModalComponent implements OnInit, OnDestroy, OnChanges
     private readonly risService: RisService,
     private readonly risProfileXlsx: RisProfileXlsxService,
     private readonly alertService: AlertService
-  ) {
-    console.log('[RisConfigEditModal] constructor');
-  }
+  ) {}
 
   /**
    * Parse range text like "60~60" or "60 ~ 60" into [min, max]
@@ -165,9 +163,7 @@ export class RisConfigEditModalComponent implements OnInit, OnDestroy, OnChanges
     }
   }
 
-  ngOnInit(): void {
-    console.log('[RisConfigEditModal] ngOnInit');
-  }
+  ngOnInit(): void {}
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
