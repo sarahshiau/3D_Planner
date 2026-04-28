@@ -3122,6 +3122,7 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
   // DEBUG Flag
   // =====================
   private readonly DEBUG_STAY_IN_EDITSCENE = true;
+  private readonly DEBUG_HEATMAP = false;
 
 
   // --- loading overlay ---
@@ -3345,14 +3346,16 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     const out = this.lastCompleteCalcResult?.['5GOutput'];
     const modeForLog = distributionMode;
 
-    console.log('[HEATMAP][MODE_SOURCE]', {
-      mode: modeForLog,
-      hasSinrMap: !!out?.sinrMap,
-      hasRsrpMap: !!out?.rsrpMap,
-      hasThroughputMap: !!out?.throughputMap,
-      hasUlThroughputMap: !!out?.ulThroughputMap,
-      actualSource,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][MODE_SOURCE]', {
+        mode: modeForLog,
+        hasSinrMap: !!out?.sinrMap,
+        hasRsrpMap: !!out?.rsrpMap,
+        hasThroughputMap: !!out?.throughputMap,
+        hasUlThroughputMap: !!out?.ulThroughputMap,
+        actualSource,
+      });
+    }
 
     const rangeUnit =
       distributionMode === 'coverage'
@@ -3365,17 +3368,19 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
               ? 'Mbps'
               : '';
 
-    console.log('[HEATMAP][RANGE]', {
-      mode: modeForLog,
-      zmin,
-      zmax,
-      unit: rangeUnit || undefined,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][RANGE]', {
+        mode: modeForLog,
+        zmin,
+        zmax,
+        unit: rangeUnit || undefined,
+      });
+    }
   }
 
   private debugHeatmapMatrix(tag: string, matrix: number[][]): void {
     if (!Array.isArray(matrix) || matrix.length === 0) {
-      console.log('[HEATMAP][MATRIX_DEBUG]', { tag, empty: true });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][MATRIX_DEBUG]', { tag, empty: true }); }
       return;
     }
 
@@ -3399,23 +3404,25 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
       : null;
     const std = variance != null ? Math.sqrt(variance) : null;
 
-    console.log('[HEATMAP][MATRIX_DEBUG]', {
-      tag,
-      rows: matrix.length,
-      cols: matrix[0]?.length ?? 0,
-      count: flat.length,
-      min: flat.length ? sorted[0] : null,
-      max: flat.length ? sorted[sorted.length - 1] : null,
-      mean,
-      std,
-      p10: pick(0.10),
-      p50: pick(0.50),
-      p90: pick(0.90),
-      uniqueApprox: new Set(flat.map((v) => Number(v).toFixed(2))).size,
-      headRows,
-      midRows,
-      tailRows,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][MATRIX_DEBUG]', {
+        tag,
+        rows: matrix.length,
+        cols: matrix[0]?.length ?? 0,
+        count: flat.length,
+        min: flat.length ? sorted[0] : null,
+        max: flat.length ? sorted[sorted.length - 1] : null,
+        mean,
+        std,
+        p10: pick(0.10),
+        p50: pick(0.50),
+        p90: pick(0.90),
+        uniqueApprox: new Set(flat.map((v) => Number(v).toFixed(2))).size,
+        headRows,
+        midRows,
+        tailRows,
+      });
+    }
   }
 
   private coverageThreshold: CoverageFilter = 'rsrp_minus_120';
@@ -6218,7 +6225,6 @@ private __antennaPlaceableSeq = 0;
     }
 
   ngOnInit(): void {
-    console.log('[STORE_INSTANCE_EDITSCENE]', this.fieldDomainStore);
     console.log('[DEBUG][StoreCheck]', {
       hasStore: !!this.fieldDomainStore,
       obstacleCount: this.fieldDomainStore?.snapshot?.obstacles?.length ?? 0,
@@ -6444,7 +6450,7 @@ private __antennaPlaceableSeq = 0;
    */
   private loadAntennaState(): void {
     const session = this.resolvePhase1SessionId();
-    console.log('[Patch1][AntennaPreload] loadAntennaState started', { session: session || '(empty)', sessionLength: (session ?? '').length });
+    console.log('[Patch1][AntennaPreload] loadAntennaState started', { sessionExists: !!session, sessionLength: (session ?? '').length });
 
     if (!session || String(session).trim() === '') {
       this.antennaList = [];
@@ -9225,7 +9231,6 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
   public debugExistingBsStore(): void {
     const snapshot = this.fieldDomainStore.snapshot;
     console.log('[DEBUG][existingBs]', snapshot?.existingBs ?? []);
-    console.log('[DEBUG][full field snapshot]', snapshot);
   }
 
   public debugExistingBsRich(): void {
@@ -11689,12 +11694,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       colorscale =
         s.colorscale ??
         this.DIST_MODE_META[s.mode as keyof typeof this.DIST_MODE_META]?.colorscale;
-      console.log('[HEATMAP][COLORBAR] render from snapshot', {
-        mode: s.mode,
-        min,
-        max,
-        unit: s.unit,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][COLORBAR] render from snapshot', {
+          mode: s.mode,
+          min,
+          max,
+          unit: s.unit,
+        });
+      }
     } else {
       const meta = this.DIST_MODE_META[this.distMode];
       const range = this.committedRangeByMode[this.distMode];
@@ -11708,12 +11715,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       max = range.max;
       title = meta.title;
       colorscale = meta.colorscale;
-      console.log('[HEATMAP][COLORBAR] fallback to live state', {
-        mode: this.distMode,
-        min,
-        max,
-        unit: meta.unit,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][COLORBAR] fallback to live state', {
+          mode: this.distMode,
+          min,
+          max,
+          unit: meta.unit,
+        });
+      }
     }
 
     const trace: any = {
@@ -11768,23 +11777,27 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     host.style.display = 'block';
-    console.log('[HEATMAP][COLORBAR] host forced visible', {
-      distMode: this.distMode,
-      display: host.style.display,
-    });
-    console.log('[COLORBAR_TRACE][2026-04-02-B] renderPlotlyColorbar non-coverage branch -> about to newPlot', {
-      distMode: this.distMode,
-      displayBefore: host.style.display,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][COLORBAR] host forced visible', {
+        distMode: this.distMode,
+        display: host.style.display,
+      });
+      console.log('[COLORBAR_TRACE][2026-04-02-B] renderPlotlyColorbar non-coverage branch -> about to newPlot', {
+        distMode: this.distMode,
+        displayBefore: host.style.display,
+      });
+    }
 
     if (typeof plotly.purge === 'function') {
       plotly.purge(host);
     }
     host.innerHTML = '';
 
-    console.log('[HEATMAP][COLORBAR] rebuild with newPlot', {
-      distMode: this.distMode,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][COLORBAR] rebuild with newPlot', {
+        distMode: this.distMode,
+      });
+    }
 
     const plotResult = plotly.newPlot(host, [trace], layout, config);
 
@@ -13091,40 +13104,41 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       dbgBs?.position?.clone?.() ??
       null;
 
-    console.log('[DBG][HEATMAP_ANTENNA_SOURCE][PATCH_V2][HIT]');
-
-    console.log('[DBG][HEATMAP_ANTENNA_SOURCE][PATCH_V2]', {
-      pickedAntennaMeshName: antennaMesh?.name ?? null,
-      pickedAntennaMeshUid: antennaMesh?.uniqueId ?? null,
-      heatmapAntennaPos: heatmapAntennaPos
-        ? {
-            x: heatmapAntennaPos.x,
-            y: heatmapAntennaPos.y,
-            z: heatmapAntennaPos.z,
-          }
-        : null,
-
-      dbgBsName: dbgBs?.name ?? null,
-      dbgBsUid: dbgBs?.uniqueId ?? null,
-      dbgBsPos: dbgBsPos
-        ? {
-            x: dbgBsPos.x,
-            y: dbgBsPos.y,
-            z: dbgBsPos.z,
-          }
-        : null,
-
-      delta:
-        heatmapAntennaPos && dbgBsPos
+    if (this.DEBUG_HEATMAP) {
+      console.log('[DBG][HEATMAP_ANTENNA_SOURCE][PATCH_V2][HIT]');
+      console.log('[DBG][HEATMAP_ANTENNA_SOURCE][PATCH_V2]', {
+        pickedAntennaMeshName: antennaMesh?.name ?? null,
+        pickedAntennaMeshUid: antennaMesh?.uniqueId ?? null,
+        heatmapAntennaPos: heatmapAntennaPos
           ? {
-              dx: heatmapAntennaPos.x - dbgBsPos.x,
-              dy: heatmapAntennaPos.y - dbgBsPos.y,
-              dz: heatmapAntennaPos.z - dbgBsPos.z,
+              x: heatmapAntennaPos.x,
+              y: heatmapAntennaPos.y,
+              z: heatmapAntennaPos.z,
             }
           : null,
 
-      note: 'Compare heatmap source antenna position vs debug BS world position',
-    });
+        dbgBsName: dbgBs?.name ?? null,
+        dbgBsUid: dbgBs?.uniqueId ?? null,
+        dbgBsPos: dbgBsPos
+          ? {
+              x: dbgBsPos.x,
+              y: dbgBsPos.y,
+              z: dbgBsPos.z,
+            }
+          : null,
+
+        delta:
+          heatmapAntennaPos && dbgBsPos
+            ? {
+                dx: heatmapAntennaPos.x - dbgBsPos.x,
+                dy: heatmapAntennaPos.y - dbgBsPos.y,
+                dz: heatmapAntennaPos.z - dbgBsPos.z,
+              }
+            : null,
+
+        note: 'Compare heatmap source antenna position vs debug BS world position',
+      });
+    }
 
     const zMatrixResult = this.buildRsrpMatrixForHeatmap(
       {
@@ -13141,18 +13155,20 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const zRsrp = zMatrixResult.z;
     const modeMeta = this.DIST_MODE_META[this.distMode] ?? this.DIST_MODE_META.rsrp;
 
-    console.log('[Heatmap][Z] built', {
-      nx: meta.nx,
-      nz: meta.nz,
-      min: zMatrixResult.min.toFixed(2),
-      max: zMatrixResult.max.toFixed(2),
-      strongest: {
-        i: zMatrixResult.strongest.i,
-        j: zMatrixResult.strongest.j,
-        value: zMatrixResult.strongest.value.toFixed(2),
-        pos: zMatrixResult.strongest.pos.toString?.() ?? zMatrixResult.strongest.pos,
-      },
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[Heatmap][Z] built', {
+        nx: meta.nx,
+        nz: meta.nz,
+        min: zMatrixResult.min.toFixed(2),
+        max: zMatrixResult.max.toFixed(2),
+        strongest: {
+          i: zMatrixResult.strongest.i,
+          j: zMatrixResult.strongest.j,
+          value: zMatrixResult.strongest.value.toFixed(2),
+          pos: zMatrixResult.strongest.pos.toString?.() ?? zMatrixResult.strongest.pos,
+        },
+      });
+    }
 
     // ===== [PLOTLY_HEATMAP:HOVER_CACHE] =====
     // Cache meta + z for Babylon hover tooltip (Plotly DOM is not interactive after toImage)
@@ -13205,17 +13221,19 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       Array.from({ length: meta.nx }, (_, i) => zFinal[j][i])
     );
 
-    console.log('[HEATMAP][PLOTLY_TRANSPOSE]', {
-      canonicalShape: {
-        outer: zFinal.length,
-        inner: zFinal[0]?.length ?? 0,
-      },
-      plotlyShape: {
-        outer: zForPlotly.length,
-        inner: zForPlotly[0]?.length ?? 0,
-      },
-      note: 'zFinal[j][i]: outer=j/Z, inner=i/X. Plotly z[row][col]=z[j][i]. No transpose.',
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][PLOTLY_TRANSPOSE]', {
+        canonicalShape: {
+          outer: zFinal.length,
+          inner: zFinal[0]?.length ?? 0,
+        },
+        plotlyShape: {
+          outer: zForPlotly.length,
+          inner: zForPlotly[0]?.length ?? 0,
+        },
+        note: 'zFinal[j][i]: outer=j/Z, inner=i/X. Plotly z[row][col]=z[j][i]. No transpose.',
+      });
+    }
 
     if (dbgPattern) {
       console.warn('[Heatmap][DBG] using debug z-pattern (override RSRP)', { dbgPattern });
@@ -13228,10 +13246,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
     if (this.distMode === 'sinr') {
       this.debugHeatmapMatrix('legacy-sinr-before-plotly', zFinal as any);
-      console.log('[HEATMAP][MODE_SOURCE]', {
-        mode: 'sinr',
-        actualSource: 'legacy sinr path',
-      });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][MODE_SOURCE]', { mode: 'sinr', actualSource: 'legacy sinr path' }); }
     }
 
     await this.renderPlotlyHeatmap(
@@ -13254,11 +13269,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       this.ensureHeatmapPlaneForPlotly(this.floorMesh, this.plotlyHeatmapSliceHeight);
       this.applyPngDataUrlToHeatmap(pngUrl);
 
-      console.log('[Heatmap][Babylon] applied', {
-        plane: this.heatmapPlane?.name,
-        y: this.heatmapPlane?.position.y,
-        pngLen: pngUrl.length,
-      });
+      if (this.DEBUG_HEATMAP) { console.log('[Heatmap][Babylon] applied', { plane: this.heatmapPlane?.name, y: this.heatmapPlane?.position.y, pngLen: pngUrl.length }); }
 
       // Enable hover tooltip for plotly baked heatmap
       this.setupPlotlyHeatmapPointerTracking();
@@ -13266,19 +13277,20 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       this.commitColorbarSnapshotForMode(this.distMode);
     }
 
-    // Phase 5.4C: Batch mode summary log
-    console.log('[Heatmap][DBG] batch summary', {
-      mode: this.heatmapResolutionMode,
-      cellSize,
-      nx: meta.nx,
-      nz: meta.nz,
-      min: zMatrixResult.min.toFixed(2),
-      max: zMatrixResult.max.toFixed(2),
-      strongest: {
-        value: zMatrixResult.strongest.value.toFixed(2),
-        pos: zMatrixResult.strongest.pos.toString?.() ?? zMatrixResult.strongest.pos,
-      },
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[Heatmap][DBG] batch summary', {
+        mode: this.heatmapResolutionMode,
+        cellSize,
+        nx: meta.nx,
+        nz: meta.nz,
+        min: zMatrixResult.min.toFixed(2),
+        max: zMatrixResult.max.toFixed(2),
+        strongest: {
+          value: zMatrixResult.strongest.value.toFixed(2),
+          pos: zMatrixResult.strongest.pos.toString?.() ?? zMatrixResult.strongest.pos,
+        },
+      });
+    }
   }
 
   private buildDiscreteColorscale(colors: string[]): any[] {
@@ -13626,20 +13638,22 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const DBG_PLOTLY_REVERSE_Y = (window as any).__hmPlotlyReverseY ?? true;
     const meta = this.DIST_MODE_META[this.distMode] ?? this.DIST_MODE_META.rsrp;
 
-    console.log('[HEATMAP][ORIENTATION][PLOTLY]', {
-      yaxis_autorange: 'reversed',
-      effect:
-        "Plotly draws z[0] (first row, j=0) at the TOP of the heatmap / PNG; z[nz-1] at the BOTTOM. x[i] increases left→right (i=0 left).",
-      displayMatrixRowsCols: { nz, nx },
-      worldRasterForPixelAspect: plotWorldRaster
-        ? { rawNx: plotWorldRaster.rawNx, rawNz: plotWorldRaster.rawNz }
-        : 'zDims_used_when_plotWorldRaster_absent',
-      phase2_displayPath:
-        'z passed here is displayMatrix; row/col semantics match raw z[j][i] (j=row, i=col), only subsampled.',
-      windowFlag___hmPlotlyReverseY: DBG_PLOTLY_REVERSE_Y,
-      note_windowFlagUnused:
-        '__hmPlotlyReverseY is read but layout always sets yaxis.autorange=reversed; change requires code edit.',
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][ORIENTATION][PLOTLY]', {
+        yaxis_autorange: 'reversed',
+        effect:
+          "Plotly draws z[0] (first row, j=0) at the TOP of the heatmap / PNG; z[nz-1] at the BOTTOM. x[i] increases left→right (i=0 left).",
+        displayMatrixRowsCols: { nz, nx },
+        worldRasterForPixelAspect: plotWorldRaster
+          ? { rawNx: plotWorldRaster.rawNx, rawNz: plotWorldRaster.rawNz }
+          : 'zDims_used_when_plotWorldRaster_absent',
+        phase2_displayPath:
+          'z passed here is displayMatrix; row/col semantics match raw z[j][i] (j=row, i=col), only subsampled.',
+        windowFlag___hmPlotlyReverseY: DBG_PLOTLY_REVERSE_Y,
+        note_windowFlagUnused:
+          '__hmPlotlyReverseY is read but layout always sets yaxis.autorange=reversed; change requires code edit.',
+      });
+    }
 
     // Use world dimensions (meters) for pixel aspect ratio so the PNG matches the Babylon floor plane.
     // When resolution > 1m, rawNx/rawNz (cell count) differs from worldWidth/worldDepth (meters),
@@ -13665,25 +13679,27 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       pxH = Math.max(minPx, Math.round(extentNz * s));
     }
 
-    if (plotWorldRaster) {
-      console.log('[HEATMAP][TEXTURE_MAPPING]', {
-        groundWidth: plotWorldRaster.worldWidth,
-        groundDepth: plotWorldRaster.worldDepth,
-        worldRasterNx: extentNx,
-        worldRasterNz: extentNz,
-        zDataRows: nz,
-        zDataCols: nx,
-        plotlyPixelWidth: pxW,
-        plotlyPixelHeight: pxH,
-      });
+    if (this.DEBUG_HEATMAP) {
+      if (plotWorldRaster) {
+        console.log('[HEATMAP][TEXTURE_MAPPING]', {
+          groundWidth: plotWorldRaster.worldWidth,
+          groundDepth: plotWorldRaster.worldDepth,
+          worldRasterNx: extentNx,
+          worldRasterNz: extentNz,
+          zDataRows: nz,
+          zDataCols: nx,
+          plotlyPixelWidth: pxW,
+          plotlyPixelHeight: pxH,
+        });
+      }
+      console.log('[HEATMAP_WORLD_MAPPING] extentSource:', plotWorldRaster?.worldWidth ? 'worldDims' : 'cellCount',
+        '| extentNx:', extentNx, 'extentNz:', extentNz,
+        '| pxW:', pxW, 'pxH:', pxH,
+        '| cellCount(nx,nz):', nx, nz,
+        '| aspectRatio:', (extentNx / extentNz).toFixed(3));
     }
-    console.log('[HEATMAP_WORLD_MAPPING] extentSource:', plotWorldRaster?.worldWidth ? 'worldDims' : 'cellCount',
-      '| extentNx:', extentNx, 'extentNz:', extentNz,
-      '| pxW:', pxW, 'pxH:', pxH,
-      '| cellCount(nx,nz):', nx, nz,
-      '| aspectRatio:', (extentNx / extentNz).toFixed(3));
 
-    if (traceId != null) {
+    if (traceId != null && this.DEBUG_HEATMAP) {
       console.log('[HEATMAP][PIPELINE_TRACE]', {
         traceId,
         step: 4,
@@ -13727,7 +13743,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       responsive: false,
     };
 
-    if (traceId != null) {
+    if (traceId != null && this.DEBUG_HEATMAP) {
       console.log('[HEATMAP][PIPELINE_TRACE]', {
         traceId,
         step: 5,
@@ -13736,32 +13752,36 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     try {
-      if (traceId != null) {
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][PIPELINE_TRACE]', {
           traceId,
           step: 6,
           checkpoint: 'before-plotly-newPlot',
         });
       }
-      console.log('[HEATMAP][PLOTLY] about to render');
-      if (traceId != null) {
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][PLOTLY] about to render'); }
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][TRACE]', traceId, 'plotly.newPlot:about-to-render');
       }
       const plotlyRows = Array.isArray(z) ? z.length : 0;
       const plotlyCols = Array.isArray(z) && z[0] ? z[0].length : 0;
-      console.log('[HEATMAP][PLOTLY_INPUT]', {
-        mode: (this as any).distributionMode ?? this.distMode ?? 'unknown',
-        rows: plotlyRows,
-        cols: plotlyCols,
-        total: plotlyRows * plotlyCols,
-        zmin: range.zmin,
-        zmax: range.zmax,
-      });
-      console.log('[HEATMAP][PLOTLY_Y_REVERSED] enabled');
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][PLOTLY_INPUT]', {
+          mode: (this as any).distributionMode ?? this.distMode ?? 'unknown',
+          rows: plotlyRows,
+          cols: plotlyCols,
+          total: plotlyRows * plotlyCols,
+          zmin: range.zmin,
+          zmax: range.zmax,
+        });
+        console.log('[HEATMAP][PLOTLY_Y_REVERSED] enabled');
+      }
       await (Plotly as any).newPlot(host, [heatTrace], layout, config);
-      console.log('[HEATMAP][PLOTLY] render called');
-      console.log('[HEATMAP][PLOTLY] render success');
-      if (traceId != null) {
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][PLOTLY] render called');
+        console.log('[HEATMAP][PLOTLY] render success');
+      }
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][PIPELINE_TRACE]', {
           traceId,
           step: 7,
@@ -13775,28 +13795,30 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       (host as any).__hmPxW = pxW;
       (host as any).__hmPxH = pxH;
 
-      console.log('[Heatmap][Plotly] optimized render', {
-        zmin: range.zmin,
-        zmax: range.zmax,
-        zDataCols: nx,
-        zDataRows: nz,
-        extentNx,
-        extentNz,
-        coverage: `${(extentNx * cellSize / 1000).toFixed(1)}km × ${(extentNz * cellSize / 1000).toFixed(1)}km`,
-        zsmooth: range.zsmooth ?? 'best',
-        colorNodes: Array.isArray(range.colorscale) ? range.colorscale.length : 11,
-      });
-      console.log('[Heatmap][Plotly] rendered', {
-        zDataCols: nx,
-        zDataRows: nz,
-        extentNx,
-        extentNz,
-        cellSize,
-        range,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[Heatmap][Plotly] optimized render', {
+          zmin: range.zmin,
+          zmax: range.zmax,
+          zDataCols: nx,
+          zDataRows: nz,
+          extentNx,
+          extentNz,
+          coverage: `${(extentNx * cellSize / 1000).toFixed(1)}km × ${(extentNz * cellSize / 1000).toFixed(1)}km`,
+          zsmooth: range.zsmooth ?? 'best',
+          colorNodes: Array.isArray(range.colorscale) ? range.colorscale.length : 11,
+        });
+        console.log('[Heatmap][Plotly] rendered', {
+          zDataCols: nx,
+          zDataRows: nz,
+          extentNx,
+          extentNz,
+          cellSize,
+          range,
+        });
+      }
     } catch (err) {
       console.error('[HEATMAP][PLOTLY] render failed', err);
-      if (traceId != null) {
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][TRACE]', traceId, 'plotly.newPlot:failed');
       }
       console.error('[Heatmap][Plotly] render failed', err);
@@ -13813,15 +13835,15 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     try {
-      console.log('[HEATMAP][PNG] start export');
-      if (traceId != null) {
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][PNG] start export'); }
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][TRACE]', traceId, 'plotly.toImage:start');
       }
       const host = this.plotlyHostRef.nativeElement;
       const pxW = (host as any).__hmPxW ?? 800;
       const pxH = (host as any).__hmPxH ?? 600;
 
-      if (traceId != null) {
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][PIPELINE_TRACE]', {
           traceId,
           step: 8,
@@ -13837,7 +13859,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         height: pxH,
         scale: 2,
       });
-      if (traceId != null) {
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][PIPELINE_TRACE]', {
           traceId,
           step: 9,
@@ -13845,15 +13867,15 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           urlLen: url?.length ?? 0,
         });
       }
-      console.log('[HEATMAP][PNG] success', url?.length);
-      if (traceId != null) {
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][PNG] success', url?.length); }
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][TRACE]', traceId, 'plotly.toImage:success');
       }
-      console.log('[Heatmap][Plotly] toImage ok', { len: url?.length ?? 0, head: url?.slice(0, 32) });
+      if (this.DEBUG_HEATMAP) { console.log('[Heatmap][Plotly] toImage ok', { len: url?.length ?? 0, head: url?.slice(0, 32) }); }
       return url;
     } catch (err) {
       console.error('[HEATMAP][PNG] failed', err);
-      if (traceId != null) {
+      if (traceId != null && this.DEBUG_HEATMAP) {
         console.log('[HEATMAP][TRACE]', traceId, 'plotly.toImage:failed');
       }
       console.error('[Heatmap][Plotly] toImage failed', err);
@@ -13917,8 +13939,8 @@ get bsPerfWeightedAvgDlMbps(): number | null {
   // ====================================
   private applyPngDataUrlToHeatmap(pngDataUrl: string, traceId?: number): void {
     if (!this.heatmapMat) return;
-    console.log('[HEATMAP][BABYLON] applying texture');
-    if (traceId != null) {
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][BABYLON] applying texture'); }
+    if (traceId != null && this.DEBUG_HEATMAP) {
       console.log('[HEATMAP][TRACE]', traceId, 'babylon.applyTexture:start');
     }
 
@@ -13927,15 +13949,17 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     tex.wrapU = Texture.CLAMP_ADDRESSMODE;
     tex.wrapV = Texture.CLAMP_ADDRESSMODE;
 
-    console.log('[HEATMAP][ORIENTATION][BABYLON_TEXTURE]', {
-      textureConstructor: { noMipmap: true, invertY: false },
-      meaning_invertY_false:
-        'Babylon Texture 4th arg invertY=false: standard DOM/canvas row order vs GPU v; combine with heatmap plane UV and __hmFlipV when diagnosing N/S flip.',
-      devFlipV___hmFlipV: (window as any).__hmFlipV === true,
-      afterApply: 'vScale/vOffset set below from __hmFlipV',
-      heatmapPlaneMesh:
-        'plotly_heatmap_plane: CreateGround(width=floorWorldX, height=floorWorldZ); local +X=world +X, +Z=world +Z; default ground UV runs u along width (X), v along depth (Z).',
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][ORIENTATION][BABYLON_TEXTURE]', {
+        textureConstructor: { noMipmap: true, invertY: false },
+        meaning_invertY_false:
+          'Babylon Texture 4th arg invertY=false: standard DOM/canvas row order vs GPU v; combine with heatmap plane UV and __hmFlipV when diagnosing N/S flip.',
+        devFlipV___hmFlipV: (window as any).__hmFlipV === true,
+        afterApply: 'vScale/vOffset set below from __hmFlipV',
+        heatmapPlaneMesh:
+          'plotly_heatmap_plane: CreateGround(width=floorWorldX, height=floorWorldZ); local +X=world +X, +Z=world +Z; default ground UV runs u along width (X), v along depth (Z).',
+      });
+    }
 
     // tex.uScale = -1;
     // tex.uOffset = 1;
@@ -13944,7 +13968,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
     tex.onLoadObservable.add(() => {
       const s = tex.getSize();
-      console.log('[Heatmap][Babylon] tex loaded', { w: s.width, h: s.height, urlHead: pngDataUrl.slice(0, 24) });
+      if (this.DEBUG_HEATMAP) { console.log('[Heatmap][Babylon] tex loaded', { w: s.width, h: s.height, urlHead: pngDataUrl.slice(0, 24) }); }
     });
 
     // Phase 5.2: Use emissive to ensure visibility regardless of lighting
@@ -13969,16 +13993,18 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       tex.vScale = 1;
       tex.vOffset = 0;
     }
-    console.log('[Heatmap][Babylon] tex flip', { flipV: DBG_TEX_FLIP_V });
+    if (this.DEBUG_HEATMAP) { console.log('[Heatmap][Babylon] tex flip', { flipV: DBG_TEX_FLIP_V }); }
 
     // Phase 5.4: Dev-only alpha control for dynamic transparency testing
     const DBG_ALPHA = (window as any).__hmAlpha;
     if (typeof DBG_ALPHA === 'number') {
       this.heatmapMat.alpha = Math.max(0, Math.min(1, DBG_ALPHA));
     }
-    console.log('[Heatmap][Babylon] alpha', { alpha: this.heatmapMat.alpha });
-    console.log('[HEATMAP][BABYLON] texture applied');
-    if (traceId != null) {
+    if (this.DEBUG_HEATMAP) {
+      console.log('[Heatmap][Babylon] alpha', { alpha: this.heatmapMat.alpha });
+      console.log('[HEATMAP][BABYLON] texture applied');
+    }
+    if (traceId != null && this.DEBUG_HEATMAP) {
       console.log('[HEATMAP][TRACE]', traceId, 'babylon.applyTexture:success');
     }
   }
@@ -14819,7 +14845,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     });
 
     if (!strongestCenter) {
-      console.warn('[DBG][HEATMAP_POINTS] strongest cell not found');
+      if (this.DEBUG_HEATMAP) { console.warn('[DBG][HEATMAP_POINTS] strongest cell not found'); }
       return;
     }
 
@@ -14832,22 +14858,24 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       1.0
     );
 
-    console.log('[DBG][HEATMAP_POINTS]', {
-      bsWorld: bsWorld ? { x: bsWorld.x, y: bsWorld.y, z: bsWorld.z } : null,
-      bsGridIndex: idx ?? null,
-      bsCellCenter: bsCellCenter
-        ? { x: bsCellCenter.x, y: bsCellCenter.y, z: bsCellCenter.z }
-        : null,
-      strongest: {
-        value: bestValue,
-        i: bestI,
-        j: bestJ,
-        center: strongestCenter
-          ? { x: strongestCenter.x, y: strongestCenter.y, z: strongestCenter.z }
+    if (this.DEBUG_HEATMAP) {
+      console.log('[DBG][HEATMAP_POINTS]', {
+        bsWorld: bsWorld ? { x: bsWorld.x, y: bsWorld.y, z: bsWorld.z } : null,
+        bsGridIndex: idx ?? null,
+        bsCellCenter: bsCellCenter
+          ? { x: bsCellCenter.x, y: bsCellCenter.y, z: bsCellCenter.z }
           : null,
-      },
-      note: 'red=BS world, orange=BS mapped cell center, purple=strongest cell center',
-    });
+        strongest: {
+          value: bestValue,
+          i: bestI,
+          j: bestJ,
+          center: strongestCenter
+            ? { x: strongestCenter.x, y: strongestCenter.y, z: strongestCenter.z }
+            : null,
+        },
+        note: 'red=BS world, orange=BS mapped cell center, purple=strongest cell center',
+      });
+    }
   }
 
   refreshDebugCoordinateOverlays(): void {
@@ -14986,7 +15014,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           return parsed.map(Number).filter((n) => Number.isFinite(n));
         }
       } catch (err) {
-        console.warn('[HEATMAP][Z_LEVELS] failed to parse zValue', raw, err);
+        if (this.DEBUG_HEATMAP) { console.warn('[HEATMAP][Z_LEVELS] failed to parse zValue', raw, err); }
       }
     }
     return [];
@@ -15018,7 +15046,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     max: number;
   } | null {
     if (rawMap == null || !Array.isArray(rawMap) || rawMap.length === 0) {
-      console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'empty-rawMap' });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'empty-rawMap' }); }
       return null;
     }
 
@@ -15034,14 +15062,10 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     const totalCells = nx_raw * nz_raw;
-    console.log('[HEATMAP][EXTRACTOR] start', {
-      rows: nx_raw,
-      cols: nz_raw,
-      totalCells,
-    });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][EXTRACTOR] start', { rows: nx_raw, cols: nz_raw, totalCells }); }
 
     if (nx_raw <= 0 || nz_raw <= 0) {
-      console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'invalid-dimensions', nx_raw, nz_raw });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'invalid-dimensions', nx_raw, nz_raw }); }
       return null;
     }
 
@@ -15088,7 +15112,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const nz = nz_raw;
     const nx = nx_raw;
     if (nz <= 0 || nx <= 0) {
-      console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'invalid-after-transpose', nx, nz });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][EXTRACTOR] fail', { reason: 'invalid-after-transpose', nx, nz }); }
       return null;
     }
 
@@ -15127,33 +15151,37 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       ? zLevels[zIndex]
       : (Number(this.plotlyHeatmapSliceHeight) || 1.5);
 
-    console.log('[HEATMAP][Z_SELECTOR]', {
-      requestedSliceHeight: this.sliceHeight,
-      zLevels,
-      resolvedZIndex: zIndex,
-      resolvedSliceY: sliceY,
-      sampleCellRaw: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0] : rawMap?.[0]?.[0],
-      samplePickedValue: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0][zIndex] : rawMap?.[0]?.[0],
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][Z_SELECTOR]', {
+        requestedSliceHeight: this.sliceHeight,
+        zLevels,
+        resolvedZIndex: zIndex,
+        resolvedSliceY: sliceY,
+        sampleCellRaw: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0] : rawMap?.[0]?.[0],
+        samplePickedValue: Array.isArray(rawMap?.[0]?.[0]) ? rawMap[0][0][zIndex] : rawMap?.[0]?.[0],
+      });
+    }
 
     const widthMeta = Number(inputMeta?.width);
     const heightMeta = Number(inputMeta?.height);
     const resolvedWidth = Number.isFinite(widthMeta) ? widthMeta : nx * cellSize;
     const resolvedHeight = Number.isFinite(heightMeta) ? heightMeta : nz * cellSize;
 
-    console.log('[HEATMAP][EXTRACTOR] success', {
-      rows: nx_raw,
-      cols: nz_raw,
-      totalCells,
-      nx,
-      nz,
-      cellSize,
-    });
-    console.log('[HEATMAP_RESOLUTION_CHECK] input.resolution:', inputMeta?.resolution,
-      '-> resolutionNum:', resolutionNum, '-> cellSize:', cellSize,
-      '| matrix(nx,nz):', nx, nz,
-      '| worldSize(w,h):', resolvedWidth, resolvedHeight,
-      '| expected cells ~= world/cellSize:', (resolvedWidth / cellSize).toFixed(1), 'x', (resolvedHeight / cellSize).toFixed(1));
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][EXTRACTOR] success', {
+        rows: nx_raw,
+        cols: nz_raw,
+        totalCells,
+        nx,
+        nz,
+        cellSize,
+      });
+      console.log('[HEATMAP_RESOLUTION_CHECK] input.resolution:', inputMeta?.resolution,
+        '-> resolutionNum:', resolutionNum, '-> cellSize:', cellSize,
+        '| matrix(nx,nz):', nx, nz,
+        '| worldSize(w,h):', resolvedWidth, resolvedHeight,
+        '| expected cells ~= world/cellSize:', (resolvedWidth / cellSize).toFixed(1), 'x', (resolvedHeight / cellSize).toFixed(1));
+    }
 
     return {
       z,
@@ -15232,11 +15260,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const hasSinrMap =
       Array.isArray(out5g?.sinrMap) && out5g.sinrMap.length > 0;
 
-    console.log('[HEATMAP][COVERAGE_SOURCE]', {
-      threshold: th,
-      hasRsrpMap,
-      hasSinrMap,
-    });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][COVERAGE_SOURCE]', { threshold: th, hasRsrpMap, hasSinrMap }); }
 
     let metricExtracted: ReturnType<
       EditSceneComponent['extractBackendHeatmapMatrix']
@@ -15244,17 +15268,13 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
     if (th === 'sinr_15') {
       if (!hasSinrMap) {
-        console.warn(
-          '[HEATMAP][COVERAGE_BUILD] sinr_15 requires 5GOutput.sinrMap'
-        );
+        if (this.DEBUG_HEATMAP) { console.warn('[HEATMAP][COVERAGE_BUILD] sinr_15 requires 5GOutput.sinrMap'); }
         return null;
       }
       metricExtracted = this.extractBackendHeatmapMatrix(out5g.sinrMap, result);
     } else {
       if (!hasRsrpMap) {
-        console.warn(
-          '[HEATMAP][COVERAGE_BUILD] RSRP thresholds require 5GOutput.rsrpMap'
-        );
+        if (this.DEBUG_HEATMAP) { console.warn('[HEATMAP][COVERAGE_BUILD] RSRP thresholds require 5GOutput.rsrpMap'); }
         return null;
       }
       metricExtracted = this.extractBackendHeatmapMatrix(out5g.rsrpMap, result);
@@ -15299,13 +15319,9 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       zOut.push(row);
     }
 
-    console.log('[HEATMAP][COVERAGE_BUILD]', {
-      coveredCount,
-      uncoveredCount,
-      nullCells: nullCount,
-      nx,
-      nz,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][COVERAGE_BUILD]', { coveredCount, uncoveredCount, nullCells: nullCount, nx, nz });
+    }
 
     return {
       z: zOut,
@@ -15346,24 +15362,15 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         sourceName = '5GOutput.ulThroughputMap';
         break;
       case 'coverage':
-        console.log('[HEATMAP][SOURCE_SELECTOR]', {
-          mode,
-          hasSource: false,
-          sourceName: 'coverage',
-          note: 'Phase 2: not wired yet',
-        });
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][SOURCE_SELECTOR]', { mode, hasSource: false, sourceName: 'coverage', note: 'Phase 2: not wired yet' }); }
         return null;
       default:
-        console.log('[HEATMAP][SOURCE_SELECTOR]', {
-          mode,
-          hasSource: false,
-          sourceName: 'unknown',
-        });
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][SOURCE_SELECTOR]', { mode, hasSource: false, sourceName: 'unknown' }); }
         return null;
     }
 
     const hasSource = Array.isArray(source) && source.length > 0;
-    console.log('[HEATMAP][SOURCE_SELECTOR]', { mode, hasSource, sourceName });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][SOURCE_SELECTOR]', { mode, hasSource, sourceName }); }
 
     if (!hasSource) {
       return null;
@@ -15384,7 +15391,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     mode: string,
     sliceHeight: number
   ): any[] | null {
-    console.log('[Heatmap][ResolveMatrix]', { mode, sliceHeight });
+    if (this.DEBUG_HEATMAP) { console.log('[Heatmap][ResolveMatrix]', { mode, sliceHeight }); }
 
     // Coverage derives its matrix internally from rsrp/sinr — no raw source at this layer.
     if (mode === 'coverage') {
@@ -15400,11 +15407,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
     const hasPerHeightCellArray = this.hasPerHeightValuesInCellArray(source);
 
-    console.log('[HEATMAP][PER_HEIGHT_SHAPE]', {
-      mode,
-      sliceHeight,
-      hasPerHeightCellArray,
-    });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][PER_HEIGHT_SHAPE]', { mode, sliceHeight, hasPerHeightCellArray }); }
 
     if (!hasPerHeightCellArray) {
       console.warn('[Heatmap][SliceHeight] source has no per-height cell array', { mode, sliceHeight });
@@ -15418,7 +15421,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const n = this.heatmapRenderCache.size;
     this.heatmapRenderCache.clear();
     this.currentRenderedColorbarState = null;
-    console.log('[HEATMAP][CACHE] cleared', { previousEntries: n });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][CACHE] cleared', { previousEntries: n }); }
   }
 
   private buildColorbarStateForMode(mode: DistributionMode): {
@@ -15458,12 +15461,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       return;
     }
     this.currentRenderedColorbarState = snap;
-    console.log('[HEATMAP][COLORBAR] snapshot updated', {
-      mode: snap.mode,
-      min: snap.min,
-      max: snap.max,
-      unit: snap.unit,
-    });
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][COLORBAR] snapshot updated', { mode: snap.mode, min: snap.min, max: snap.max, unit: snap.unit }); }
     this.renderPlotlyColorbar();
   }
 
@@ -15795,58 +15793,60 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         'If geodetic north has SMALLER world z than south but buildings with high lat appear at high z, suspect coord/geo. If north z order matches buildings but heatmap looks flipped vs buildings, suspect Plotly row order or Babylon flipV.',
     });
 
-    console.log('[HEATMAP][ORIENTATION][EXTRACTOR_TO_WORLD]', {
-      backendRawLayout: 'rawMap[outer_i][inner_j] = X index × Z index (see extractBackendHeatmapMatrix).',
-      canonicalZ: 'z[j][i]: j = Z/Lon-lat axis row (nz), i = X axis col (nx); transpose from raw.',
-      sceneXZ_via_getHeatmapSamplePoint:
-        'World X = floorMin.x + (i+0.5)*cellSize; World Z = floorMin.z + (j+0.5)*cellSize (grid hover / sampling).',
-      cellSize_m: params.cellSize,
-      backendWorldWidth_m: params.backendWorldWidth,
-      backendWorldDepth_m: params.backendWorldDepth,
-      geoInference: {
-        plusZIncreasesNorth,
-        plusXIncreasesEast,
-      },
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][ORIENTATION][EXTRACTOR_TO_WORLD]', {
+        backendRawLayout: 'rawMap[outer_i][inner_j] = X index × Z index (see extractBackendHeatmapMatrix).',
+        canonicalZ: 'z[j][i]: j = Z/Lon-lat axis row (nz), i = X axis col (nx); transpose from raw.',
+        sceneXZ_via_getHeatmapSamplePoint:
+          'World X = floorMin.x + (i+0.5)*cellSize; World Z = floorMin.z + (j+0.5)*cellSize (grid hover / sampling).',
+        cellSize_m: params.cellSize,
+        backendWorldWidth_m: params.backendWorldWidth,
+        backendWorldDepth_m: params.backendWorldDepth,
+        geoInference: {
+          plusZIncreasesNorth,
+          plusXIncreasesEast,
+        },
+      });
 
-    console.log('[HEATMAP][ORIENTATION][EXTENT_BINDING]', {
-      sameFullWorldExtent:
-        'plotWorldRaster uses raw nx/nz only for Plotly canvas pixel aspect; displayMatrix supplies colors — no shrink of world width/depth.',
-      rawCells: { nx: params.rawNx, nz: params.rawNz },
-      displayCells: { nx: params.displayNx, nz: params.displayNz },
-      downsamplePreservesEdgeSemantics:
-        'display row 0 samples raw j=0; display col 0 samples raw i=0 — no row/col reversal in downsampleHeatmapMatrixForDisplay.',
-      backendWidthHeight_vs_nxnz:
-        'extractor width/height from input or nx*cellSize × nz*cellSize; should match simulated field extent, not display cell count.',
-    });
+      console.log('[HEATMAP][ORIENTATION][EXTENT_BINDING]', {
+        sameFullWorldExtent:
+          'plotWorldRaster uses raw nx/nz only for Plotly canvas pixel aspect; displayMatrix supplies colors — no shrink of world width/depth.',
+        rawCells: { nx: params.rawNx, nz: params.rawNz },
+        displayCells: { nx: params.displayNx, nz: params.displayNz },
+        downsamplePreservesEdgeSemantics:
+          'display row 0 samples raw j=0; display col 0 samples raw i=0 — no row/col reversal in downsampleHeatmapMatrixForDisplay.',
+        backendWidthHeight_vs_nxnz:
+          'extractor width/height from input or nx*cellSize × nz*cellSize; should match simulated field extent, not display cell count.',
+      });
 
-    console.log('[HEATMAP][ROWCOL_WORLD_MEANING]', {
-      rawMatrix_z_j_i: {
-        rowIndex_j0: `low world-Z end of grid → ${zLowEndCardinal} (geodetic, from bbox Δz)`,
-        rowIndex_jMax: `high world-Z end → ${zHighEndCardinal}`,
-        colIndex_i0: `low world-X end → ${xLowEndCardinal}`,
-        colIndex_iMax: `high world-X end → ${xHighEndCardinal}`,
-      },
-      displayMatrix_sameRowColMeaning:
-        'Subsampled only; j=0 and i=0 still anchor the same world edges as raw.',
-      plotly_then_png: {
-        pngTopRow: `matrix row j=0 → ${zLowEndCardinal} (yaxis reversed)`,
-        pngBottomRow: `matrix row j=nz-1 → ${zHighEndCardinal}`,
-        pngLeftColumn: `col i=0 → ${xLowEndCardinal}`,
-        pngRightColumn: `col i=nx-1 → ${xHighEndCardinal}`,
-      },
-      babylon_texture_chain_diagnosisOnly: {
-        flipV_active: w.__hmFlipV === true,
-        when_flipV_false:
-          'vScale=1,vOffset=0; PNG top row may not coincide with world +Z — compare to [HEATMAP][ORIENTATION][BABYLON_TEXTURE] invertY=false.',
-        when_flipV_true: 'vScale=-1,vOffset=1; vertically mirrors texture vs default.',
-        fullScene_LR_plus_NS_reversal_suspects: [
-          'Plotly y reversed vs backend expectation for which Z edge is row 0',
-          'Babylon Texture invertY=false + ground UV + flipV vs PNG row order',
-          'Mismatch between backendWorld width/depth axis order and scene +X/+Z (extractor transpose already applied)',
-        ],
-      },
-    });
+      console.log('[HEATMAP][ROWCOL_WORLD_MEANING]', {
+        rawMatrix_z_j_i: {
+          rowIndex_j0: `low world-Z end of grid → ${zLowEndCardinal} (geodetic, from bbox Δz)`,
+          rowIndex_jMax: `high world-Z end → ${zHighEndCardinal}`,
+          colIndex_i0: `low world-X end → ${xLowEndCardinal}`,
+          colIndex_iMax: `high world-X end → ${xHighEndCardinal}`,
+        },
+        displayMatrix_sameRowColMeaning:
+          'Subsampled only; j=0 and i=0 still anchor the same world edges as raw.',
+        plotly_then_png: {
+          pngTopRow: `matrix row j=0 → ${zLowEndCardinal} (yaxis reversed)`,
+          pngBottomRow: `matrix row j=nz-1 → ${zHighEndCardinal}`,
+          pngLeftColumn: `col i=0 → ${xLowEndCardinal}`,
+          pngRightColumn: `col i=nx-1 → ${xHighEndCardinal}`,
+        },
+        babylon_texture_chain_diagnosisOnly: {
+          flipV_active: w.__hmFlipV === true,
+          when_flipV_false:
+            'vScale=1,vOffset=0; PNG top row may not coincide with world +Z — compare to [HEATMAP][ORIENTATION][BABYLON_TEXTURE] invertY=false.',
+          when_flipV_true: 'vScale=-1,vOffset=1; vertically mirrors texture vs default.',
+          fullScene_LR_plus_NS_reversal_suspects: [
+            'Plotly y reversed vs backend expectation for which Z edge is row 0',
+            'Babylon Texture invertY=false + ground UV + flipV vs PNG row order',
+            'Mismatch between backendWorld width/depth axis order and scene +X/+Z (extractor transpose already applied)',
+          ],
+        },
+      });
+    }
   }
 
   // ===== [SIM_API_PHASE4–7][BACKEND_HEATMAP_RENDER] sinr / rsrp / dl / ul / coverage =====
@@ -15870,11 +15870,11 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     }
 
     const traceId = Date.now();
-    console.log('[HEATMAP][TRACE]', traceId, 'start');
-    console.log('[HEATMAP][PIPELINE] renderBackendHeatmapFromCompleteCalcResult start', {
-      mode,
-    });
-    console.log('[HEATMAP][TRACE]', traceId, 'renderBackendHeatmapFromCompleteCalcResult:start');
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][TRACE]', traceId, 'start');
+      console.log('[HEATMAP][PIPELINE] renderBackendHeatmapFromCompleteCalcResult start', { mode });
+      console.log('[HEATMAP][TRACE]', traceId, 'renderBackendHeatmapFromCompleteCalcResult:start');
+    }
 
     if (
       mode !== 'sinr' &&
@@ -15902,21 +15902,23 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       console.warn('[HEATMAP][RENDER] no lastCompleteCalcResult');
       return false;
     }
-    console.log('[HEATMAP][TRACE]', traceId, 'result:ok');
+    if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'result:ok'); }
 
     const cacheKey = this.buildHeatmapCacheKey(mode);
     const cached = this.heatmapRenderCache.get(cacheKey);
     if (cached && cached.mode === mode) {
       const rNonCov =
         mode !== 'coverage' ? this.committedRangeByMode[mode as 'sinr' | 'rsrp' | 'dl_rate' | 'ul_rate'] : undefined;
-      console.log('[HEATMAP][CACHE] hit', {
-        key: cacheKey,
-        mode,
-        isCoverage: mode === 'coverage',
-        coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
-        dynamicRange: mode === 'coverage' ? undefined : rNonCov,
-        sliceHeight: this.heatmapSliceHeight,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][CACHE] hit', {
+          key: cacheKey,
+          mode,
+          isCoverage: mode === 'coverage',
+          coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
+          dynamicRange: mode === 'coverage' ? undefined : rNonCov,
+          sliceHeight: this.heatmapSliceHeight,
+        });
+      }
       return await this.restoreHeatmapFromCache(cached);
     }
 
@@ -15924,14 +15926,16 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       mode !== 'coverage'
         ? this.committedRangeByMode[mode as 'sinr' | 'rsrp' | 'dl_rate' | 'ul_rate']
         : undefined;
-    console.log('[HEATMAP][CACHE] miss', {
-      key: cacheKey,
-      mode,
-      isCoverage: mode === 'coverage',
-      coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
-      dynamicRange: mode === 'coverage' ? undefined : rNonCovMiss,
-      sliceHeight: this.heatmapSliceHeight,
-    });
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP][CACHE] miss', {
+        key: cacheKey,
+        mode,
+        isCoverage: mode === 'coverage',
+        coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
+        dynamicRange: mode === 'coverage' ? undefined : rNonCovMiss,
+        sliceHeight: this.heatmapSliceHeight,
+      });
+    }
 
     let plotlyHeatmapExtra: {
       colorscale?: any;
@@ -15954,14 +15958,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       let committedRange: { min: number; max: number };
 
       if (mode === 'coverage') {
-        console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:start');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:start'); }
         const cov = this.buildCoverageHeatmapMatrix(result, this.coverageThreshold);
         if (!cov) {
-          console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:failed');
+          if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:failed'); }
           return false;
         }
         backend = cov;
-        console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:success');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:coverage:success'); }
         actualSourceLabel =
           'frontend-derived coverage from 5GOutput.rsrpMap / sinrMap (renderBackendHeatmapFromCompleteCalcResult)';
         committedRange = { min: 0, max: 1 };
@@ -15977,15 +15981,17 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         );
         const completeCalcResult = this.lastCompleteCalcResult;
         this.debugHeatmapMatrix('backend-coverage-before-plotly', backend.z as any);
-        console.log('[HEATMAP][MODE_SOURCE]', {
-          mode: 'coverage',
-          hasSinrMap: !!completeCalcResult?.['5GOutput']?.sinrMap,
-          hasRsrpMap: !!completeCalcResult?.['5GOutput']?.rsrpMap,
-          hasThroughputMap: !!completeCalcResult?.['5GOutput']?.throughputMap,
-          hasUlThroughputMap: !!completeCalcResult?.['5GOutput']?.ulThroughputMap,
-          actualSource: actualSourceLabel,
-          coverageThreshold: this.coverageThreshold,
-        });
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP][MODE_SOURCE]', {
+            mode: 'coverage',
+            hasSinrMap: !!completeCalcResult?.['5GOutput']?.sinrMap,
+            hasRsrpMap: !!completeCalcResult?.['5GOutput']?.rsrpMap,
+            hasThroughputMap: !!completeCalcResult?.['5GOutput']?.throughputMap,
+            hasUlThroughputMap: !!completeCalcResult?.['5GOutput']?.ulThroughputMap,
+            actualSource: actualSourceLabel,
+            coverageThreshold: this.coverageThreshold,
+          });
+        }
       } else {
         const rawMap = this.getBackendHeatmapSourceByMode(result, mode);
 
@@ -16015,8 +16021,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
                 ? '[DL_RATE_DEBUG][throughputMap]'
                 : '[UL_RATE_DEBUG][ulThroughputMap]';
 
-        console.log('[SINR_DEBUG][completeCalcResult]', result);
-        console.log(mapDebugTag, rawForMatrix);
+        if (this.DEBUG_HEATMAP) { console.log(mapDebugTag, rawForMatrix); }
 
         if (
           !rawForMatrix ||
@@ -16024,32 +16029,25 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           rawForMatrix.length === 0
         ) {
           console.warn('[HEATMAP][RENDER] no backend map rows for mode', { mode });
-          console.log('[HEATMAP][TRACE]', traceId, 'extractor:raw-map:empty');
+          if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:raw-map:empty'); }
           return false;
         }
 
-        console.log('[HEATMAP][TRACE]', traceId, 'extractor:start');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:start'); }
         const extracted = this.extractBackendHeatmapMatrix(rawForMatrix, result);
         if (!extracted) {
-          console.log('[HEATMAP][TRACE]', traceId, 'extractor:failed');
+          if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:failed'); }
           return false;
         }
         backend = extracted;
-        console.log('[HEATMAP][TRACE]', traceId, 'extractor:success');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'extractor:success'); }
 
-        console.log(
-          `[SIM_API_PHASE4][${mode.toUpperCase()}_HEATMAP_EXTRACTOR][z layout is z[j][i] (outer=Z, inner=X)]`,
-          {
-            nx: backend.nx,
-            nz: backend.nz,
-            cellSize: backend.cellSize,
-            sliceY: backend.sliceY,
-            width: backend.width,
-            height: backend.height,
-            min: backend.min,
-            max: backend.max,
-          }
-        );
+        if (this.DEBUG_HEATMAP) {
+          console.log(
+            `[SIM_API_PHASE4][${mode.toUpperCase()}_HEATMAP_EXTRACTOR][z layout is z[j][i] (outer=Z, inner=X)]`,
+            { nx: backend.nx, nz: backend.nz, cellSize: backend.cellSize, sliceY: backend.sliceY, width: backend.width, height: backend.height, min: backend.min, max: backend.max }
+          );
+        }
 
         committedRange =
           mode === 'sinr'
@@ -16070,38 +16068,37 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         const completeCalcResult = this.lastCompleteCalcResult;
         const zMatrix = backend.z as any;
         this.debugHeatmapMatrix(`backend-${mode}-before-plotly`, zMatrix);
-        console.log('[HEATMAP][MODE_SOURCE]', {
-          mode,
-          hasSinrMap: !!completeCalcResult?.['5GOutput']?.sinrMap,
-          hasRsrpMap: !!completeCalcResult?.['5GOutput']?.rsrpMap,
-          hasThroughputMap: !!completeCalcResult?.['5GOutput']?.throughputMap,
-          hasUlThroughputMap: !!completeCalcResult?.['5GOutput']?.ulThroughputMap,
-          actualSource: actualSourceLabel,
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP][MODE_SOURCE]', {
+            mode,
+            hasSinrMap: !!completeCalcResult?.['5GOutput']?.sinrMap,
+            hasRsrpMap: !!completeCalcResult?.['5GOutput']?.rsrpMap,
+            hasThroughputMap: !!completeCalcResult?.['5GOutput']?.throughputMap,
+            hasUlThroughputMap: !!completeCalcResult?.['5GOutput']?.ulThroughputMap,
+            actualSource: actualSourceLabel,
+          });
+        }
+      }
+
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][PIPELINE_TRACE]', {
+          traceId,
+          step: 1,
+          checkpoint: 'after-extractor-success',
+          backendNx: backend.nx,
+          backendNz: backend.nz,
+          totalCells: backend.nx * backend.nz,
+        });
+        console.log('[HEATMAP][PIPELINE_TRACE]', {
+          traceId,
+          step: 2,
+          checkpoint: 'before-matrix-normalization',
         });
       }
 
-      console.log('[HEATMAP][PIPELINE_TRACE]', {
-        traceId,
-        step: 1,
-        checkpoint: 'after-extractor-success',
-        backendNx: backend.nx,
-        backendNz: backend.nz,
-        totalCells: backend.nx * backend.nz,
-      });
-
-      console.log('[HEATMAP][PIPELINE_TRACE]', {
-        traceId,
-        step: 2,
-        checkpoint: 'before-matrix-normalization',
-      });
-
       const { z, nx, nz, cellSize, sliceY, min, max, width, height } = backend;
 
-      console.log('[HEATMAP][RAW_MATRIX]', {
-        rows: nz,
-        cols: nx,
-        total: nz * nx,
-      });
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][RAW_MATRIX]', { rows: nz, cols: nx, total: nz * nx }); }
 
       const displayDs = this.downsampleHeatmapMatrixForDisplay(
         z,
@@ -16111,37 +16108,19 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       const displayNx = displayDs.displayNx;
       const displayNz = displayDs.displayNz;
 
-      console.log('[HEATMAP][DISPLAY_MATRIX]', {
-        rows: displayNz,
-        cols: displayNx,
-        total: displayNz * displayNx,
-      });
-      console.log('[HEATMAP][DOWNSAMPLE]', {
-        applied: displayDs.applied,
-        strategy: 'step-sampling',
-        steps: { rowStep: displayDs.rowStep, colStep: displayDs.colStep },
-        threshold: this.MAX_PLOTLY_HEATMAP_CELLS,
-      });
-      console.log('[HEATMAP][PLOTLY_INPUT]', {
-        rows: displayNz,
-        cols: displayNx,
-        total: displayNz * displayNx,
-      });
-
-      console.log('[HEATMAP][WORLD_EXTENT]', 'raw', {
-        width,
-        depth: height,
-        nx,
-        nz,
-      });
-      console.log('[HEATMAP][DISPLAY_EXTENT]', 'display', {
-        rows: displayNz,
-        cols: displayNx,
-      });
-      console.log(
-        '[HEATMAP][EXTENT_BINDING]',
-        'using raw world extent + display matrix density'
-      );
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][DISPLAY_MATRIX]', { rows: displayNz, cols: displayNx, total: displayNz * displayNx });
+        console.log('[HEATMAP][DOWNSAMPLE]', {
+          applied: displayDs.applied,
+          strategy: 'step-sampling',
+          steps: { rowStep: displayDs.rowStep, colStep: displayDs.colStep },
+          threshold: this.MAX_PLOTLY_HEATMAP_CELLS,
+        });
+        console.log('[HEATMAP][PLOTLY_INPUT]', { rows: displayNz, cols: displayNx, total: displayNz * displayNx });
+        console.log('[HEATMAP][WORLD_EXTENT]', 'raw', { width, depth: height, nx, nz });
+        console.log('[HEATMAP][DISPLAY_EXTENT]', 'display', { rows: displayNz, cols: displayNx });
+        console.log('[HEATMAP][EXTENT_BINDING]', 'using raw world extent + display matrix density');
+      }
 
       this.dbgLogNorthSouthInversionProbe({
         rawNx: nx,
@@ -16155,53 +16134,45 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
       const currentMode = mode;
       const selectedMap = z;
-      console.log('[HEATMAP][TRACE]', traceId, 'mode-selected');
-      console.log('[HEATMAP][MODE]', currentMode);
-      if (!Array.isArray(selectedMap)) {
-        console.error('[HEATMAP][ERROR] map is not array', selectedMap);
-      } else {
-        const rows = selectedMap.length;
-        const cols = selectedMap[0]?.length ?? 0;
-        console.log('[HEATMAP][MATRIX] size:', { rows, cols, total: rows * cols });
-        const MAX_SAFE_CELLS = 200_000;
-        if (rows * cols > MAX_SAFE_CELLS) {
-          console.warn('[HEATMAP][WARNING] matrix too large', {
-            rows,
-            cols,
-            total: rows * cols,
-          });
-        }
-        if (rows > 0 && cols > 0) {
-          let validCount = 0;
-          let invalidCount = 0;
-          let minVal: number | null = null;
-          let maxVal: number | null = null;
-          for (let r = 0; r < rows; r++) {
-            const row = selectedMap[r];
-            for (let c = 0; c < cols; c++) {
-              const v = row[c];
-              if (typeof v === 'number' && !isNaN(v)) {
-                validCount++;
-                if (minVal === null) {
-                  minVal = v;
-                  maxVal = v;
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][TRACE]', traceId, 'mode-selected');
+        console.log('[HEATMAP][MODE]', currentMode);
+        if (!Array.isArray(selectedMap)) {
+          console.error('[HEATMAP][ERROR] map is not array', selectedMap);
+        } else {
+          const rows = selectedMap.length;
+          const cols = selectedMap[0]?.length ?? 0;
+          console.log('[HEATMAP][MATRIX] size:', { rows, cols, total: rows * cols });
+          const MAX_SAFE_CELLS = 200_000;
+          if (rows * cols > MAX_SAFE_CELLS) {
+            console.warn('[HEATMAP][WARNING] matrix too large', { rows, cols, total: rows * cols });
+          }
+          if (rows > 0 && cols > 0) {
+            let validCount = 0;
+            let invalidCount = 0;
+            let minVal: number | null = null;
+            let maxVal: number | null = null;
+            for (let r = 0; r < rows; r++) {
+              const row = selectedMap[r];
+              for (let c = 0; c < cols; c++) {
+                const v = row[c];
+                if (typeof v === 'number' && !isNaN(v)) {
+                  validCount++;
+                  if (minVal === null) {
+                    minVal = v;
+                    maxVal = v;
+                  } else {
+                    if (v < minVal) minVal = v;
+                    if (maxVal !== null && v > maxVal) maxVal = v;
+                  }
                 } else {
-                  if (v < minVal) minVal = v;
-                  if (maxVal !== null && v > maxVal) maxVal = v;
+                  invalidCount++;
                 }
-              } else {
-                invalidCount++;
               }
             }
+            const totalCells = rows * cols;
+            console.log('[HEATMAP][MATRIX] stats:', { total: totalCells, valid: validCount, invalid: invalidCount, min: minVal, max: maxVal });
           }
-          const totalCells = rows * cols;
-          console.log('[HEATMAP][MATRIX] stats:', {
-            total: totalCells,
-            valid: validCount,
-            invalid: invalidCount,
-            min: minVal,
-            max: maxVal,
-          });
         }
       }
 
@@ -16249,24 +16220,25 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         sliceY,
       } as any;
 
-      console.log('[HEATMAP_DISPLAY_CELL_SIZE]', {
-        width,
-        height,
-        nx,
-        nz,
-        backendCellSize: cellSize,
-        displayCellSizeX,
-        displayCellSizeZ,
-      });
-
-      console.log('[HEATMAP][PIPELINE_TRACE]', {
-        traceId,
-        step: 3,
-        checkpoint: 'after-matrix-normalization',
-        nx,
-        nz,
-        totalCells: nx * nz,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP_DISPLAY_CELL_SIZE]', {
+          width,
+          height,
+          nx,
+          nz,
+          backendCellSize: cellSize,
+          displayCellSizeX,
+          displayCellSizeZ,
+        });
+        console.log('[HEATMAP][PIPELINE_TRACE]', {
+          traceId,
+          step: 3,
+          checkpoint: 'after-matrix-normalization',
+          nx,
+          nz,
+          totalCells: nx * nz,
+        });
+      }
 
       // ===== [ORIGIN_DEBUG] 確認後端 heatmap origin 和場景座標的對應（sinr / rsrp / dl / ul 共用） =====
       if (this.floorMesh && mode !== 'coverage') {
@@ -16519,15 +16491,17 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           '| snappedCellCenter(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
           '| formula: floorMin + mathOffset -> snap to cell center'
         );
-        console.log('[HEATMAP_BS_COMPARE]',
-          'mode:', mode,
-          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
-          '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
-          '| bsConvertedWorld(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
-          '| delta(dx,dz):', `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ).toFixed(1)})`,
-          '| cellSize:', backend.cellSize,
-          '| note: delta should be < cellSize if aligned'
-        );
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP_BS_COMPARE]',
+            'mode:', mode,
+            '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
+            '| strongestWorld(x,z):', strongestWorldX.toFixed(1), strongestWorldZ.toFixed(1),
+            '| bsConvertedWorld(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
+            '| delta(dx,dz):', `(${(strongestWorldX - bsConvertedX).toFixed(1)}, ${(strongestWorldZ - bsConvertedZ).toFixed(1)})`,
+            '| cellSize:', backend.cellSize,
+            '| note: delta should be < cellSize if aligned'
+          );
+        }
 
         console.log('[BS_CELL_COMPARE]',
           '| strongest cell(row,col):', scMaxRow, scMaxCol,
@@ -16593,7 +16567,7 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         // ===== END INVESTIGATION =====
       }
 
-      console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:start');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:start'); }
       await this.renderPlotlyHeatmap(
         displayMatrix,
         displayNx,
@@ -16612,28 +16586,32 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           worldDepth: height,
         }
       );
-      console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:done');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:done'); }
 
-      console.log('[HEATMAP][TRACE]', traceId, 'plotly-to-png:start');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'plotly-to-png:start'); }
       const pngUrl = await this.exportPlotlyToPngDataUrl(traceId);
-      console.log('[HEATMAP][TRACE]', traceId, 'plotly-to-png:done');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'plotly-to-png:done'); }
       if (pngUrl && this.floorMesh) {
-        console.log('[HEATMAP][TRACE]', traceId, 'babylon-texture:start');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'babylon-texture:start'); }
         this.ensureHeatmapPlaneForPlotly(this.floorMesh, sliceY);
-        console.log('[HEATMAP][PIPELINE_TRACE]', {
-          traceId,
-          step: 10,
-          checkpoint: 'before-babylon-texture-apply',
-          pngUrlLen: pngUrl?.length ?? 0,
-        });
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP][PIPELINE_TRACE]', {
+            traceId,
+            step: 10,
+            checkpoint: 'before-babylon-texture-apply',
+            pngUrlLen: pngUrl?.length ?? 0,
+          });
+        }
         this.applyPngDataUrlToHeatmap(pngUrl, traceId);
-        console.log('[HEATMAP][PIPELINE_TRACE]', {
-          traceId,
-          step: 11,
-          checkpoint: 'after-babylon-texture-apply',
-        });
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP][PIPELINE_TRACE]', {
+            traceId,
+            step: 11,
+            checkpoint: 'after-babylon-texture-apply',
+          });
+        }
         this.setupPlotlyHeatmapPointerTracking();
-        console.log('[HEATMAP][TRACE]', traceId, 'babylon-texture:done');
+        if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'babylon-texture:done'); }
 
         const dynamicRangeForCache =
           mode === 'coverage'
@@ -16660,36 +16638,34 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           mode !== 'coverage'
             ? this.committedRangeByMode[mode as 'sinr' | 'rsrp' | 'dl_rate' | 'ul_rate']
             : undefined;
-        console.log('[HEATMAP][CACHE] store', {
-          key: cacheKey,
-          mode,
-          isCoverage: mode === 'coverage',
-          coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
-          dynamicRange: mode === 'coverage' ? undefined : rLog,
-          sliceHeight: this.heatmapSliceHeight,
-        });
+        if (this.DEBUG_HEATMAP) {
+          console.log('[HEATMAP][CACHE] store', {
+            key: cacheKey,
+            mode,
+            isCoverage: mode === 'coverage',
+            coverageThreshold: mode === 'coverage' ? this.coverageThreshold : undefined,
+            dynamicRange: mode === 'coverage' ? undefined : rLog,
+            sliceHeight: this.heatmapSliceHeight,
+          });
+        }
 
         this.commitColorbarSnapshotForMode(mode);
       }
 
       this.isSimulationDone = true;
 
-      console.log('[SIM_API_PHASE4][BACKEND_HEATMAP_RENDER] success', {
-        mode,
-        nx,
-        nz,
-        cellSize,
-        sliceY,
-        min,
-        max,
-        zRange: { zmin: committedRange.min, zmax: committedRange.max },
-        plotlyHoverUnit: this.plotlyHoverUnit,
-      });
-      console.log('[HEATMAP][TRACE]', traceId, 'success');
+      if (this.DEBUG_HEATMAP) {
+        console.log('[SIM_API_PHASE4][BACKEND_HEATMAP_RENDER] success', {
+          mode, nx, nz, cellSize, sliceY, min, max,
+          zRange: { zmin: committedRange.min, zmax: committedRange.max },
+          plotlyHoverUnit: this.plotlyHoverUnit,
+        });
+        console.log('[HEATMAP][TRACE]', traceId, 'success');
+      }
       return true;
     } catch (err) {
       console.error('[SIM_API_PHASE4][BACKEND_HEATMAP_RENDER] failed', { mode, err });
-      console.log('[HEATMAP][TRACE]', traceId, 'failed');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'failed'); }
       return false;
     }
   }
@@ -16758,7 +16734,6 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     console.warn(
       '[SIM_API_PHASE3][TEMP_SESSION_FALLBACK] Using hardcoded development session.',
       {
-        session: this.DEV_TEMP_SESSION,
         note: 'TODO: remove after login/session system implemented',
       }
     );
@@ -17831,10 +17806,13 @@ private analyzeCompleteCalcResult(completeRes: any): {
           // ---------- counts ----------
           demoPayload.maxConnectionNum = Number(planning?.maxUePerTx ?? demoPayload.maxConnectionNum ?? 75);
 
+          const isPlanningMode =
+          String(planning?.mode ?? planning?.planningMode ?? '').toLowerCase() === 'planning';
+
           demoPayload.availableNewBsNumber =
-            planning?.txCountMode === 'manual'
+            isPlanningMode && planning?.txCountMode === 'manual'
               ? Number(planning?.txCountManual ?? 0)
-              : Number(demoPayload.availableNewBsNumber ?? 0);
+              : 0;
 
           demoPayload.availableNewRisNumber =
             planning?.risCountMode === 'manual'
@@ -18193,41 +18171,11 @@ private analyzeCompleteCalcResult(completeRes: any): {
         'ulMimoLayer',
       ] as const;
 
-      console.log('[Experiment][BSArrayAlign] before', {
-        existingBsCount,
-        frequency: demoPayload.frequency,
-        frequencyList: demoPayload.frequencyList,
-        bandwidth: demoPayload.bandwidth,
-        bandwidthList: demoPayload.bandwidthList,
-        txPower: demoPayload.txPower,
-        bsNoiseFigure: demoPayload.bsNoiseFigure,
-        scs: demoPayload.scs,
-        dlMcsTable: demoPayload.dlMcsTable,
-        ulMcsTable: demoPayload.ulMcsTable,
-        dlMimoLayer: demoPayload.dlMimoLayer,
-        ulMimoLayer: demoPayload.ulMimoLayer,
-      });
-
       if (existingBsCount > 0) {
         for (const field of BS_COUNT_SENSITIVE_LEGACY_FIELDS) {
           (demoPayload as any)[field] = this.trimLegacyArrayString((demoPayload as any)[field], existingBsCount);
         }
       }
-
-      console.log('[Experiment][BSArrayAlign] after', {
-        existingBsCount,
-        frequency: demoPayload.frequency,
-        frequencyList: demoPayload.frequencyList,
-        bandwidth: demoPayload.bandwidth,
-        bandwidthList: demoPayload.bandwidthList,
-        txPower: demoPayload.txPower,
-        bsNoiseFigure: demoPayload.bsNoiseFigure,
-        scs: demoPayload.scs,
-        dlMcsTable: demoPayload.dlMcsTable,
-        ulMcsTable: demoPayload.ulMcsTable,
-        dlMimoLayer: demoPayload.dlMimoLayer,
-        ulMimoLayer: demoPayload.ulMimoLayer,
-      });
 
       // 只保留每次都必須變動的欄位
       demoPayload.taskid = (builtPayload as any).taskid || '';
@@ -18921,21 +18869,20 @@ private analyzeCompleteCalcResult(completeRes: any): {
       );
 
       console.log('[SIM_API_PHASE3] completeCalcResult received', completeRes);
-      console.log('[HEATMAP][API] response received');
+      if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][API] response received'); }
       const resp = completeRes;
-      console.log('[HEATMAP][API] keys:', Object.keys(resp || {}));
       const output = resp?.['5GOutput'];
-      console.log('[HEATMAP][API] has 5GOutput:', !!output);
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][API] keys:', Object.keys(resp || {}));
+        console.log('[HEATMAP][API] has 5GOutput:', !!output);
+      }
       const sinrMap = output?.sinrMap;
       const rsrpMap = output?.rsrpMap;
       const dlMap = output?.dlThroughputMap;
       const ulMap = output?.ulThroughputMap;
-      console.log('[HEATMAP][API] map existence', {
-        sinr: !!sinrMap,
-        rsrp: !!rsrpMap,
-        dl: !!dlMap,
-        ul: !!ulMap,
-      });
+      if (this.DEBUG_HEATMAP) {
+        console.log('[HEATMAP][API] map existence', { sinr: !!sinrMap, rsrp: !!rsrpMap, dl: !!dlMap, ul: !!ulMap });
+      }
 
       if (!completeRes) {
         console.warn('[SIM_API_PHASE3] completeCalcResult is empty -> show failure');
