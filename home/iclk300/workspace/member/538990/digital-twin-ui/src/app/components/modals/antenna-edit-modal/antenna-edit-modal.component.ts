@@ -66,13 +66,9 @@ export class AntennaEditModalComponent {
     patternFile: null,
   };
 
-  constructor(private antennaService: AntennaService) {
-    console.log('[AntennaEditModal] constructor');
-  }
+  constructor(private antennaService: AntennaService) {}
 
   ngOnInit(): void {
-    console.log('[AntennaEditModal] ngOnInit, antenna=', this.antenna?.name);
-
     // ✅ 由 AntennaRow 拆出起訖（支援 "3500 ~ 3700" 這種格式）
     const [start, end] = this.parseFreqRange(this.antenna?.freqMHz ?? '');
 

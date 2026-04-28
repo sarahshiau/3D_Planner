@@ -46,13 +46,9 @@ export class RisConfigAddModalComponent implements OnInit {
   constructor(
     private readonly risService: RisService,
     private readonly alertService: AlertService
-  ) {
-    console.log('[RisConfigAddModal] constructor');
-  }
+  ) {}
 
   ngOnInit(): void {
-    console.log('[RisConfigAddModal] ngOnInit, risID=', this.risID);
-
     this.draft = {
       name: '',
       incAzRange: '',

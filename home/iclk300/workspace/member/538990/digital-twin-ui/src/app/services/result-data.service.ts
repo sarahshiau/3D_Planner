@@ -176,32 +176,18 @@ export class ResultDataService {
   // ===== [RESULT:SET_RESULT_DATA] =====
   // Purpose: store AsetResultDataPI result + switch UI to result mode
   setResultData(data: ResultApiResponse): void {
-    console.log('[ResultDataService] setResultData()', {
-      taskId: data.taskId,
-      taskName: data.taskName,
-      defaultBs: data.output?.chosenBsList?.defaultBs?.length ?? 0,
-      candidateBs: data.output?.chosenBsList?.candidateBs?.length ?? 0,
-      subfields: data.output?.subfieldStatistics?.length ?? 0,
-    });
-
     this._result.set(data);
     this._viewMode.set('result');
   }
 
   // ===== [RESULT:MVP:SET] =====
   setResultMvp(data: ResultMvpData): void {
-    console.log('[ResultDataService] setResultMvp()', {
-      projectName: data?.meta?.projectName,
-      bsRows: data?.analysis?.bsPerformance?.length ?? 0,
-    });
-
     this._resultMvp.set(data);
     this._viewMode.set('result');
   }
 
   // ===== [RESULT:RESET_TO_EDIT] =====
   resetToEdit(): void {
-    console.log('[ResultDataService] resetToEdit()');
     this._viewMode.set('edit');
     this._result.set(null);
     this._resultMvp.set(null);
@@ -210,7 +196,6 @@ export class ResultDataService {
   // ===== [DBG:ENTER_RESULT_MODE] =====
   // (Optional) keep for debug; not required in A-final once setResultData is used.
   enterResultMode(): void {
-    console.log('[ResultDataService][DBG] enterResultMode()');
     this._viewMode.set('result');
     this._resultMvp.set(null);   // 清空 MVP
   }

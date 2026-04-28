@@ -54,16 +54,10 @@ export class LeftSidebarComponent {
     effect(() => {
       const mode = this.resultService.viewMode();
       if (mode === 'edit') {
-        if (this.resultActive !== null) {
-          console.log('[LeftSidebar][Result] clear resultActive on enter edit');
-        }
         this.resultActive = null;
         // 切回 edit 時，通知父層「關閉 result 面板」
         this.toolChange.emit(null);
       } else {
-        if (this.active !== null) {
-          console.log('[LeftSidebar][Edit] clear active on enter result');
-        }
         this.active = null;
         // 進入 result 時，通知父層「關閉 edit 面板」
         this.toolChange.emit(null);
@@ -73,16 +67,12 @@ export class LeftSidebarComponent {
 
   // ===== Edit Mode 行為（原本既有） =====
   toggle(tool: LeftToolType) {
-    console.log('[LeftSidebar] toggle 被叫了，tool =', tool);
-
     this.active = this.active === tool ? null : tool;
     this.toolChange.emit(this.active);
   }
 
   // ===== Result Mode 行為（新增） =====
   toggleResult(tool: ResultLeftToolType) {
-    console.log('[LeftSidebar][Result] toggle 被叫了，tool =', tool);
-
     this.resultActive = this.resultActive === tool ? null : tool;
     this.toolChange.emit(this.resultActive);
   }

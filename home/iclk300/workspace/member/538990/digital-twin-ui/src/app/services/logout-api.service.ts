@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class LogoutApiService {
@@ -19,7 +19,6 @@ export class LogoutApiService {
     });
 
     return this.http.post(url, {}, { headers }).pipe(
-      tap(() => console.log('[LogoutApi] logout request sent (stub)')),
       catchError((err) => {
         console.warn('[LogoutApi] logout request failed (stub) - ignored', err);
         // Stub：失敗也不影響 UI，所以吞掉錯誤回傳成功樣式

@@ -82,7 +82,7 @@ export class NewProjectComponent implements OnInit {
 
   private resolveHistoryAuth(): { id: string; session: string } {
     const id = 'ydhuang';
-    const session = 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19';
+    const session = 'son_session_8e1f1a2e-f3ff-43ed-bba8-9e60d26960ad';
 
     return { id, session };
   }

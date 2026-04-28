@@ -101,14 +101,9 @@ export class RisAddModalComponent {
   // 暫存 File 物件（不需要後端）
   private selectedFile: File | null = null;
 
-  constructor(private alertService: AlertService) {
-    console.log('[RisAddModal] constructor');
-  }
+  constructor(private alertService: AlertService) {}
 
-  ngOnInit(): void {
-    console.log('[RisAddModal] ngOnInit');
-    console.log('[RisAddModal] zIndexBase=', this.zIndexBase);
-  }
+  ngOnInit(): void {}
 
   onBackdropClick(): void {
     console.log('[RisAddModal] backdrop clicked (blocked)');

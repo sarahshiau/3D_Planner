@@ -45,13 +45,9 @@ export class RisConfigManageModalComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private readonly risService: RisService, private readonly alertService: AlertService) {
-    console.log('[RisConfigManageModal] constructor');
-  }
+  constructor(private readonly risService: RisService, private readonly alertService: AlertService) {}
 
   ngOnInit(): void {
-    console.log('[RisConfigManageModal] ngOnInit ris=', this.risName, 'isCustom=', this.isCustom);
-    console.log('[RisConfigManageModal] zIndexBase(overlay)=', this.zIndexBase);
     this.refreshProfiles();
   }
 
@@ -112,12 +108,9 @@ export class RisConfigManageModalComponent implements OnInit, OnDestroy {
       });
   }
 
-  onBackdropClick(): void {
-    console.log('[RisConfigManageModal] backdrop clicked (blocked)');
-  }
+  onBackdropClick(): void {}
 
   onClose(): void {
-    console.log('[RisConfigManageModal] close clicked');
     this.close.emit();
   }
 

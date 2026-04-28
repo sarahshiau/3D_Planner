@@ -18,6 +18,7 @@ import { RisSerializerBuilder } from './ris-serializer.builder';
 import { ObstacleSerializerBuilder, type BuildingObstacleSkipRecord } from './obstacle-serializer.builder';
 
 export class BaseTaskPayloadBuilder {
+  private readonly DEBUG_PAYLOAD = false;
   private readonly risSerializer = new RisSerializerBuilder();
   private readonly obstacleSerializer = new ObstacleSerializerBuilder();
 
@@ -138,33 +139,33 @@ export class BaseTaskPayloadBuilder {
       ...(input.mockDefaults || {}),
     } as any;
 
-    console.log('[BUILDER_SECTION][ENTER] buildTaskMeta');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildTaskMeta'); }
     const taskMeta = this.buildTaskMeta(input, templateBase);
-    console.log('[BUILDER_SECTION][DONE] buildTaskMeta');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildTaskMeta'); }
 
-    console.log('[BUILDER_SECTION][ENTER] buildMapSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildMapSection'); }
     const mapMeta = this.buildMapSection(input, templateBase);
-    console.log('[BUILDER_SECTION][DONE] buildMapSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildMapSection'); }
 
-    console.log('[BUILDER_SECTION][ENTER] buildObstacleSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildObstacleSection'); }
     const obstacleMeta = this.buildObstacleSection(input, templateBase);
-    console.log('[BUILDER_SECTION][DONE] buildObstacleSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildObstacleSection'); }
 
-    console.log('[BUILDER_SECTION][ENTER] buildRisSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildRisSection'); }
     const risMeta = this.buildRisSection(input, templateBase);
-    console.log('[BUILDER_SECTION][DONE] buildRisSection');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildRisSection'); }
 
-    console.log('[BUILDER_SECTION][ENTER] buildEvaluationFuncFromPlanning');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildEvaluationFuncFromPlanning'); }
     const dynamicEvaluationFunc = this.buildEvaluationFuncFromPlanning(input, templateBase);
-    console.log('[BUILDER_SECTION][DONE] buildEvaluationFuncFromPlanning');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildEvaluationFuncFromPlanning'); }
 
-    console.log('[BUILDER_SECTION][ENTER] buildLegacyPlanningFlags');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildLegacyPlanningFlags'); }
     const legacyPlanningFlags = this.buildLegacyPlanningFlags(input);
-    console.log('[BUILDER_SECTION][DONE] buildLegacyPlanningFlags');
+    if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildLegacyPlanningFlags'); }
 
-  console.log('[BUILDER_SECTION][ENTER] buildUeSection');
+  if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][ENTER] buildUeSection'); }
   const ueMeta = this.buildUeSection(input, templateBase);
-  console.log('[BUILDER_SECTION][DONE] buildUeSection');
+  if (this.DEBUG_PAYLOAD) { console.log('[BUILDER_SECTION][DONE] buildUeSection'); }
 
     const payload = this.cloneTemplate(templateBase) as BaseTaskPayload;
 
@@ -231,12 +232,14 @@ export class BaseTaskPayloadBuilder {
       configurable: true,
     });
 
-    console.log('[BaseTaskPayloadBuilder][planning]', {
-      selectedPlanningMode: (input.planning as any)?.selectedPlanningMode,
-      planning: input.planning,
-      dynamicEvaluationFunc,
-      legacyPlanningFlags,
-    });
+    if (this.DEBUG_PAYLOAD) {
+      console.log('[BaseTaskPayloadBuilder][planning]', {
+        selectedPlanningMode: (input.planning as any)?.selectedPlanningMode,
+        planning: input.planning,
+        dynamicEvaluationFunc,
+        legacyPlanningFlags,
+      });
+    }
 
     return payload;
   }
@@ -401,13 +404,15 @@ export class BaseTaskPayloadBuilder {
     // useUeCoordinate is driven entirely by whether there are UE rows in the store
     const useUeCoordinate = ueSource.length > 0 ? 1 : 0;
 
-    console.log('[UE_PAYLOAD][BUILD]', {
-      ueCount: ueSource.length,
-      ueList: ueSource.map(ue => ({ id: ue.id, x: ue.x, y: ue.y, z: ue.z, rxGain: ue.rxGain })),
-      ueCoordinate,
-      ueRxGain,
-      useUeCoordinate,
-    });
+    if (this.DEBUG_PAYLOAD) {
+      console.log('[UE_PAYLOAD][BUILD]', {
+        ueCount: ueSource.length,
+        ueList: ueSource.map(ue => ({ id: ue.id, x: ue.x, y: ue.y, z: ue.z, rxGain: ue.rxGain })),
+        ueCoordinate,
+        ueRxGain,
+        useUeCoordinate,
+      });
+    }
 
     return {
       ueCoordinate,
@@ -421,24 +426,25 @@ export class BaseTaskPayloadBuilder {
    */
   private buildObstacleSection(input: BaseTaskPayloadBuilderInput, defaults: any): Partial<BaseTaskPayload> {
     const sourceRows = input.basicField.obstacles ?? [];
-    console.log('[ObstacleSection][STEP1] sourceRows count', sourceRows.length);
-    console.log('[ObstacleFlow][store->builder][rows]', {
-      count: sourceRows.length,
-      top3: sourceRows.slice(0, 3).map((row: any) => ({
-        id: row?.id,
-        position: row?.position ?? null,
-        startHeight: row?.startHeight,
-        width: row?.width,
-        length: row?.length,
-        height: row?.height,
-        angle: row?.angle,
-        material: row?.material,
-        shape: row?.shape,
-        color: row?.color,
-      })),
-    });
+    if (this.DEBUG_PAYLOAD) { console.log('[ObstacleSection][STEP1] sourceRows count', sourceRows.length); }
+    if (this.DEBUG_PAYLOAD) {
+      console.log('[ObstacleFlow][store->builder][rows]', {
+        count: sourceRows.length,
+        top3: sourceRows.slice(0, 3).map((row: any) => ({
+          id: row?.id,
+          position: row?.position ?? null,
+          startHeight: row?.startHeight,
+          width: row?.width,
+          length: row?.length,
+          height: row?.height,
+          angle: row?.angle,
+          material: row?.material,
+          shape: row?.shape,
+          color: row?.color,
+        })),
+      });
+    }
 
-    console.log('[ObstacleSection][STEP2] calling serializeObstacleInfo');
     const obstacleInfo = this.obstacleSerializer.serializeObstacleInfo({
       basicRows: input.basicField.obstacles,
       // Add map-generated / OSM buildings into the same legacy obstacleInfo tuple flow.
@@ -446,17 +452,18 @@ export class BaseTaskPayloadBuilder {
       buildingRows: (input.basicField as any).buildingRows ?? [],
       buildingMeshes: (input.basicField as any).buildingMeshes ?? [],
     });
-    console.log('[ObstacleSection][STEP3] serializeObstacleInfo done, length=', obstacleInfo?.length);
+    if (this.DEBUG_PAYLOAD) { console.log('[ObstacleSection][STEP3] serializeObstacleInfo done, length=', obstacleInfo?.length); }
     this.lastObstacleBuildingSkips = [...this.obstacleSerializer.getLastBuildingSkips()];
-    console.log('[ObstacleSection][STEP4] getLastBuildingSkips done');
 
-    console.log('[ObstacleFlow][builder->serializer][result]', {
-      obstacleRows: input.basicField.obstacles?.length ?? 0,
-      buildingRows: ((input.basicField as any).buildingRows ?? []).length,
-      buildingMeshes: ((input.basicField as any).buildingMeshes ?? []).length,
-      serializedTop3: String(obstacleInfo ?? '').split('|').slice(0, 3),
-      obstacleInfoLength: obstacleInfo.length,
-    });
+    if (this.DEBUG_PAYLOAD) {
+      console.log('[ObstacleFlow][builder->serializer][result]', {
+        obstacleRows: input.basicField.obstacles?.length ?? 0,
+        buildingRows: ((input.basicField as any).buildingRows ?? []).length,
+        buildingMeshes: ((input.basicField as any).buildingMeshes ?? []).length,
+        serializedTop3: String(obstacleInfo ?? '').split('|').slice(0, 3),
+        obstacleInfoLength: obstacleInfo.length,
+      });
+    }
     return {
       obstacleInfo: obstacleInfo || this.asString(defaults.obstacleInfo, ''),
     };
@@ -477,6 +484,13 @@ export class BaseTaskPayloadBuilder {
     const dlMcsTableList = this.asArray(defaults.dlMcsTableList, ['256QAM-table', '256QAM-table']);
     const ulMimoLayerList = this.asArray(defaults.ulMimoLayerList, [1, 1]);
     const dlMimoLayerList = this.asArray(defaults.dlMimoLayerList, [1, 1]);
+
+    if (defaults.pathLossModelId == null) {
+      console.warn('[BaseTaskPayloadBuilder][pathLossModelId][fallback]', {
+        fallbackPathLossModelId: 12,
+        reason: 'defaults.pathLossModelId is missing',
+      });
+    }
 
     return {
       duplex: this.asString(defaults.duplex, 'tdd'),

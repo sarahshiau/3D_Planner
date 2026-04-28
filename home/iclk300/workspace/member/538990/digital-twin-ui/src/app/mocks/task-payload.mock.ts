@@ -30,7 +30,7 @@ export const DEFAULT_EVALUATION_FUNC: BuilderEvaluationFunc = {
 // TODO: replace each section with real data incrementally after /storeTask is stable.
 export const STORETASK_SUCCESS_TEMPLATE = {
   taskid: '',
-  sessionid: 'son_session_37a4ed55-2c75-4ac4-9c31-c2fd6bbedf19',
+  sessionid: 'son_session_8e1f1a2e-f3ff-43ed-bba8-9e60d26960ad',
   taskName: '78館304_期末',
   createTime: '2026-03-10 10:44:48',
   addFixedBsNumber: 0,

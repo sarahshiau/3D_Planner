@@ -31,58 +31,42 @@ export class TopBarComponent {
   ) {}
 
   toggleTopbarPanel(): void {
-    console.log('[TopBar] hamburger clicked');
-    console.log('[TopBar] before isTopbarPanelOpen =', this.isTopbarPanelOpen);
-    
     this.isTopbarPanelOpen = !this.isTopbarPanelOpen;
-    
-    console.log('[TopBar] after  isTopbarPanelOpen =', this.isTopbarPanelOpen);
   }
 
   closeTopbarPanel(): void {
-    console.log('[TopBar] closeTopbarPanel() called - panel will close');
     this.isTopbarPanelOpen = false;
   }
 
   openAntennaManage(): void {
-    console.log('[TopBar] openAntennaManage BEFORE, isAntennaManageOpen=', this.isAntennaManageOpen);
     this.isAntennaManageOpen = true;
-    console.log('[TopBar] openAntennaManage AFTER, isAntennaManageOpen=', this.isAntennaManageOpen);
   }
   
   closeAntennaManage(): void {
-    console.log('[TopBar] closeAntennaManage()');
     this.isAntennaManageOpen = false;
   }
 
   openPathlossManage(): void {
-  console.log('[TopBar] openPathlossManage()');
   this.isPathlossManageOpen = true;
   }
 
   closePathlossManage(): void {
-    console.log('[TopBar] closePathlossManage()');
     this.isPathlossManageOpen = false;
   }
 
   openMaterialManage(): void {
-    console.log('[TopBar] openMaterialManage()');
     this.isMaterialManageOpen = true;
   }
 
   closeMaterialManage(): void {
-    console.log('[TopBar] closeMaterialManage()');
     this.isMaterialManageOpen = false;
   }
 
   openRisManage(): void {
-    console.log('[TopBar] openRisManage BEFORE, isRisManageOpen=', this.isRisManageOpen);
     this.isRisManageOpen = true;
-    console.log('[TopBar] openRisManage AFTER, isRisManageOpen=', this.isRisManageOpen);
   }
 
   closeRisManage(): void {
-    console.log('[TopBar] closeRisManage()');
     this.isRisManageOpen = false;
   }
 

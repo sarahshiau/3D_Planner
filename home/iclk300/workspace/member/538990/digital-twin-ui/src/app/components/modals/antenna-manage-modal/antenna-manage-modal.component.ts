@@ -51,12 +51,9 @@ export class AntennaManageModalComponent implements OnInit {
   }
 
   
-  constructor(private antennaService: AntennaService, private alertService: AlertService) {
-    console.log('[AntennaManageModal] constructor');
-  }
+  constructor(private antennaService: AntennaService, private alertService: AlertService) {}
 
   ngOnInit(): void {
-    console.log('[AntennaManageModal] ngOnInit');
     this.refresh();
   }
 
@@ -132,17 +129,14 @@ export class AntennaManageModalComponent implements OnInit {
 
   onBackdropClick(): void {
     // 依你的需求：不能點窗外任何東西（包含關閉）
-    console.log('[AntennaManageModal] backdrop clicked (blocked)');
   }
 
   onClose(): void {
-    console.log('[AntennaManageModal] close clicked');
     this.close.emit();
   }
 
   onPresetChange(next: PresetType): void {
     this.preset = next;
-    console.log('[AntennaManageModal] preset changed ->', this.preset, 'rows=', this.currentRows.length);
   }
 
   onView(row: AntennaRow): void {
