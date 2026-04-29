@@ -3470,9 +3470,9 @@ export class EditSceneComponent implements OnInit, AfterViewInit, OnDestroy {
     max: Vector3;
     nx: number;
     nz: number;
-    cellSize: number;      // 原始 backend resolution，保留做 debug
-    cellSizeX: number;     // 顯示層實際每欄寬度 = width / nx
-    cellSizeZ: number;     // 顯示層實際每列高度 = height / nz
+    cellSize: number;      // backend resolution (= input.resolution), kept for debug
+    cellSizeX: number;     // backend resolution per cell, X axis (prioritized over floorWidth/nx)
+    cellSizeZ: number;     // backend resolution per cell, Z axis (prioritized over floorDepth/nz)
     sliceY: number;
   } | null = null;
 
@@ -4956,7 +4956,18 @@ private __antennaPlaceableSeq = 0;
     try {
       // [Step2A][ClearPipeline] Remove scene objects whose rows were deleted from store
       this.reconcileRemovedRegisteredSceneObjects(state);
-      this.reconcileRemovedObstacleSceneObjects(state);
+
+      const storeReadyForReconcile =
+        !!state &&
+        (
+          (state.obstacles?.length ?? 0) > 0 ||
+          (state.existingBs?.length ?? 0) > 0 ||
+          (state.intelligentPanels?.length ?? 0) > 0 ||
+          (state.ueList?.length ?? 0) > 0
+        );
+      if (storeReadyForReconcile) {
+        this.reconcileRemovedObstacleSceneObjects(state);
+      }
 
       // Obstacle
       for (const row of state.obstacles) {
@@ -5429,8 +5440,10 @@ private __antennaPlaceableSeq = 0;
     const target = this.getSceneTargetByFieldRow(row);
     if (!target || !(target instanceof AbstractMesh)) return;
 
-    const mathPos = { x: row.x, y: row.y, z: target.position.y };
-    const scenePos = this.toScenePositionFromMath(mathPos);
+    const rowX = Number(row.x);
+    const rowY = Number(row.y);
+    const rowZ = target.position.y;
+    const scenePos = this.floorRowToSceneWorld(rowX, rowY, rowZ);
     target.position.x = scenePos.x;
     target.position.z = scenePos.z;
 
@@ -5470,9 +5483,14 @@ private __antennaPlaceableSeq = 0;
 
     const zHeight =
       (row as any).z ?? (row as any).height ?? target.position.y;
-    const mathPos = { x: row.x, y: row.y, z: zHeight };
-    const scenePos = this.toScenePositionFromMath(mathPos);
-    target.position.copyFrom(new Vector3(scenePos.x, scenePos.y, scenePos.z));
+    const rowX = Number(row.x);
+    const rowY = Number(row.y);
+    const rowZ = Number(zHeight);
+
+    const scenePos = this.floorRowToSceneWorld(rowX, rowY, rowZ);
+    target.position.copyFrom(
+      new Vector3(scenePos.x, scenePos.y, scenePos.z)
+    );
 
     console.log('[COORD][Row->Scene][Area]', {
       kind: 'observe-zone',
@@ -5498,15 +5516,44 @@ private __antennaPlaceableSeq = 0;
     }
     if (!target) return;
 
-    // [Step2A][ExistingBsSync] Apply position (row.position is Math/canonical)
+    // [Step2A][ExistingBsSync] Apply position.
+    // Rows written after the floor-local fix have x/y in [0, floorW/D].
+    // Rows written before (center-origin math) have x/y ≈ worldCoord ± width/2 (large values).
+    // Detect which format and use the matching inverse formula.
     const z = row.z ?? row.height ?? 0;
-    const mathPosition = { x: row.x, y: row.y, z };
-    const scenePosition = this.toScenePositionFromMath(mathPosition);
-    const scenePos = new Vector3(scenePosition.x, scenePosition.y, scenePosition.z);
+    const floorBBRead = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+    const floorMinRead = floorBBRead?.minimumWorld ?? null;
+    let scenePos: Vector3;
+    let readPath: string;
+    if (floorMinRead != null) {
+      const floorMaxRead = floorBBRead!.maximumWorld;
+      const floorW = floorMaxRead.x - floorMinRead.x;
+      const floorD = floorMaxRead.z - floorMinRead.z;
+      const tol = 50;
+      const isFloorLocal = row.x >= -tol && row.x <= floorW + tol
+        && row.y >= -tol && row.y <= floorD + tol;
+      if (isFloorLocal) {
+        // New floor-local format: restore world coords
+        scenePos = new Vector3(floorMinRead.x + row.x, z, floorMinRead.z + row.y);
+        readPath = 'floor-local';
+      } else {
+        // Legacy center-origin math format
+        const scenePosition = this.toScenePositionFromMath({ x: row.x, y: row.y, z });
+        scenePos = new Vector3(scenePosition.x, scenePosition.y, scenePosition.z);
+        readPath = 'legacy-mathToScene';
+      }
+    } else {
+      // No floor mesh yet — center-origin fallback
+      const scenePosition = this.toScenePositionFromMath({ x: row.x, y: row.y, z });
+      scenePos = new Vector3(scenePosition.x, scenePosition.y, scenePosition.z);
+      readPath = 'fallback-noFloor';
+    }
     console.log('[COORD][Row->Scene]', {
       type: 'existing-bs',
-      mathPosition,
-      scenePosition,
+      rowXY: { x: row.x, y: row.y, z },
+      floorMinRead: floorMinRead ? { x: floorMinRead.x, z: floorMinRead.z } : null,
+      scenePos: { x: scenePos.x, y: scenePos.y, z: scenePos.z },
+      path: readPath,
     });
     target.position.copyFrom(scenePos);
 
@@ -5517,6 +5564,34 @@ private __antennaPlaceableSeq = 0;
       y: row.y,
       z,
     });
+
+    // [BS_ROW_NORMALIZE_AFTER_APPLY] — convert legacy center-origin math rows to floor-local
+    // Only fires when the row was in legacy format (readPath !== 'floor-local').
+    // Guard prevents re-entry: after normalization the row is floor-local → next call skips.
+    if (floorMinRead != null && readPath !== 'floor-local') {
+      target.computeWorldMatrix(true);
+      const absPos = target.getAbsolutePosition();
+      const floorMaxRead = floorBBRead!.maximumWorld;
+      const floorW = floorMaxRead.x - floorMinRead.x;
+      const floorD = floorMaxRead.z - floorMinRead.z;
+      const normalizedX = absPos.x - floorMinRead.x;
+      const normalizedY = absPos.z - floorMinRead.z;
+      const inBounds = normalizedX >= 0 && normalizedX <= floorW
+        && normalizedY >= 0 && normalizedY <= floorD;
+      console.log('[BS_ROW_NORMALIZE_AFTER_APPLY]', {
+        rowId: row.id,
+        oldRowXY: { x: row.x, y: row.y },
+        meshAbsPos: { x: absPos.x, y: absPos.y, z: absPos.z },
+        floorMin: { x: floorMinRead.x, z: floorMinRead.z },
+        normalizedRowXY: { x: normalizedX, y: normalizedY },
+        inBounds,
+        reason: 'after applyExistingBsRowToScene',
+      });
+      if (inBounds) {
+        // [Patch 2] Disabled: Row->Scene must not secretly mutate store data.
+        // this.fieldDomainStore.updateExistingBs(row.id, { x: normalizedX, y: normalizedY });
+      }
+    }
 
   }
 
@@ -5529,17 +5604,22 @@ private __antennaPlaceableSeq = 0;
     }
     if (!target) return;
 
-    // [Step2A][RisSync] Apply position (row.position is Math/canonical)
-    const z = row.height ?? row.z ?? 0;
-    const mathPosition = { x: row.x, y: row.y, z };
-    const scenePosition = this.toScenePositionFromMath(mathPosition);
-    const scenePos = new Vector3(scenePosition.x, scenePosition.y, scenePosition.z);
+    // [RowRead] Prefer floor-local row.x/row.y, legacy fallback supported.
+    const rowX = Number(row.x);
+    const rowY = Number(row.y);
+    const rowZ = Number(row.z ?? row.height ?? 0);
+
+    const scenePos = this.floorRowToSceneWorld(rowX, rowY, rowZ);
+    target.position.copyFrom(new Vector3(scenePos.x, scenePos.y, scenePos.z));
+
     console.log('[COORD][Row->Scene]', {
-      type: 'ris',
-      mathPosition,
-      scenePosition,
+      type: 'ris-or-ue',
+      rowId: row.id,
+      rowXY: { x: rowX, y: rowY },
+      scenePos,
+      path: scenePos.path,
+      inBounds: scenePos.inBounds,
     });
-    target.position.copyFrom(scenePos);
 
     console.log('[FieldSceneSync][RIS]', {
       id: row.id,
@@ -5623,17 +5703,22 @@ private __antennaPlaceableSeq = 0;
 
     if (!target) return;
 
-    // [Step2A][CandidateRisSync][UeSync] Apply position (row.position is Math/canonical)
-    const mathPosition = { x: row.x, y: row.y, z: row.z };
-    const scenePosition = this.toScenePositionFromMath(mathPosition);
-    const scenePos = new Vector3(scenePosition.x, scenePosition.y, scenePosition.z);
-    const type = row.category === 'candidateRis' ? 'ris' : 'ue';
+    // [RowRead] Prefer floor-local row.x/row.y, legacy fallback supported.
+    const rowX = Number((row as any).x);
+    const rowY = Number((row as any).y);
+    const rowZ = Number((row as any).z ?? (row as any).height ?? 0);
+
+    const scenePos = this.floorRowToSceneWorld(rowX, rowY, rowZ);
+    target.position.copyFrom(new Vector3(scenePos.x, scenePos.y, scenePos.z));
+
     console.log('[COORD][Row->Scene]', {
-      type,
-      mathPosition,
-      scenePosition,
+      type: 'ris-or-ue',
+      rowId: row.id,
+      rowXY: { x: rowX, y: rowY },
+      scenePos,
+      path: scenePos.path,
+      inBounds: scenePos.inBounds,
     });
-    target.position.copyFrom(scenePos);
 
     console.log('[FieldSceneSync][Position]', {
       rowId: row.id,
@@ -5861,14 +5946,25 @@ private __antennaPlaceableSeq = 0;
     };
     const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
 
+    const floorBBWrite = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+    const floorMinWrite = floorBBWrite?.minimumWorld ?? null;
+
+    const fieldX = this.roundFieldNum(
+      floorMinWrite ? scenePos.x - floorMinWrite.x : mathPos.x
+    );
+    const fieldY = this.roundFieldNum(
+      floorMinWrite ? scenePos.z - floorMinWrite.z : mathPos.y
+    );
+    const fieldZ = this.roundFieldNum(scenePos.y);
+
     this.fieldDomainStore.updateObstacle(row.id, {
-      x: this.roundFieldNum(mathPos.x),
-      y: this.roundFieldNum(mathPos.y),
-      startHeight: this.roundFieldNum(mathPos.z),
+      x: fieldX,
+      y: fieldY,
+      startHeight: fieldZ,
       position: {
-        x: this.roundFieldNum(mathPos.x),
-        y: this.roundFieldNum(mathPos.y),
-        z: this.roundFieldNum(mathPos.z),
+        x: fieldX,
+        y: fieldY,
+        z: fieldZ,
       },
       height: this.roundFieldNum(bounds.sizeY),
       length: this.roundFieldNum(bounds.sizeX),
@@ -5923,22 +6019,19 @@ private __antennaPlaceableSeq = 0;
       y: target.position.y,
       z: bounds.centerZ,
     };
-    const mathPos = this.toMathPositionFromSceneXYZ(
-      scenePos.x,
-      scenePos.y,
-      scenePos.z
-    );
+    const local = this.sceneWorldToFloorLocalRow(scenePos.x, scenePos.z);
 
     this.fieldDomainStore.updateObserve(row.id, {
-      x: this.roundFieldNum(mathPos.x),
-      y: this.roundFieldNum(mathPos.y),
-      z: this.roundFieldNum(mathPos.z),
+      x: this.roundFieldNum(local.x),
+      y: this.roundFieldNum(local.y),
+      z: this.roundFieldNum(scenePos.y),
     });
 
     console.log('[COORD][Scene->Row][Area]', {
       kind: 'observe-zone',
       sceneData: scenePos,
-      mathData: { x: mathPos.x, y: mathPos.y, z: mathPos.z },
+      rowXY: { x: local.x, y: local.y },
+      path: local.path,
     });
 
     console.log('[FieldStore][Scene->Observe]', { rowId: row.id, seq: row.seq, reason });
@@ -5984,11 +6077,45 @@ private __antennaPlaceableSeq = 0;
       mathPos,
     });
 
+    // Floor-local write: row.x/y = offset from floorMin (MathCoord3D spec: left-bottom origin).
+    // The old sceneToMath(center-origin) was broken when the floor is far from world origin.
+    const absPos = target.getAbsolutePosition();
+    const floorBBWrite = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+    const floorMinWrite = floorBBWrite?.minimumWorld ?? null;
+    const localX = floorMinWrite != null ? absPos.x - floorMinWrite.x : mathPos.x;
+    const localY = floorMinWrite != null ? absPos.z - floorMinWrite.z : mathPos.y;
+    const heightZ = absPos.y;
+
     this.fieldDomainStore.updateExistingBs(row.id, {
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
+      x: localX,
+      y: localY,
+      z: heightZ,
     });
+
+    // [BS_STORE_WRITE_TRACE] — verify floor-local coord write (rowX in [0,W], rowY in [0,D])
+    if (floorMinWrite != null) {
+      const floorMaxWrite = floorBBWrite!.maximumWorld;
+      const floorWW = floorMaxWrite.x - floorMinWrite.x;
+      const floorDW = floorMaxWrite.z - floorMinWrite.z;
+      const inLocalX = localX >= -1 && localX <= floorWW + 1;
+      const inLocalY = localY >= -1 && localY <= floorDW + 1;
+      console.log('[BS_STORE_WRITE_TRACE]', {
+        rowId: row.id,
+        meshName: target.name,
+        meshUniqueId: target.uniqueId,
+        reason,
+        worldPosition: { x: absPos.x, y: absPos.y, z: absPos.z },
+        rowWritten: { x: localX, y: localY, z: heightZ },
+        floorMin: { x: floorMinWrite.x, z: floorMinWrite.z },
+        floorMax: { x: floorMaxWrite.x, z: floorMaxWrite.z },
+        floorSize: { w: floorWW, d: floorDW },
+        coordSpaceGuess: (inLocalX && inLocalY) ? 'local' : 'out_of_range',
+        rowX_in_0_W: localX >= 0 && localX <= floorWW,
+        rowY_in_0_D: localY >= 0 && localY <= floorDW,
+      });
+    } else {
+      console.warn('[BS_STORE_WRITE_TRACE] floorMesh null — stored mathPos fallback', { rowId: row.id, mathPos });
+    }
 
     console.log('[COORD][Scene->Row]', {
       type: 'existing-bs',
@@ -6016,29 +6143,25 @@ private __antennaPlaceableSeq = 0;
       });
     }
 
-    // [Step2A][RisSync] Scene -> Math (canonical backend-facing)
-    const scenePos = {
-      x: target.position.x,
-      y: target.position.y,
-      z: target.position.z,
-    };
-    const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+    // [RowWrite] Store row.x/row.y are floor-local first.
+    const absPos = target.getAbsolutePosition
+      ? target.getAbsolutePosition()
+      : target.position;
+    const local = this.sceneWorldToFloorLocalRow(absPos.x, absPos.z);
 
     this.fieldDomainStore.updateIntelligentPanel(row.id, {
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
-      position: { x: mathPos.x, y: mathPos.y, z: mathPos.z },
+      x: local.x,
+      y: local.y,
+      z: absPos.y,
+      position: { x: local.x, y: local.y, z: absPos.y },
     });
 
     console.log('[COORD][Scene->Row]', {
-      type: 'ris',
-      scenePosition: scenePos,
-      mathPosition: {
-        x: mathPos.x,
-        y: mathPos.y,
-        z: mathPos.z,
-      },
+      type: 'ris-or-ue',
+      rowId: row.id,
+      world: { x: absPos.x, z: absPos.z },
+      rowXY: { x: local.x, y: local.y },
+      path: local.path,
     });
     console.log('[FieldStore][Scene->RIS]', { rowId: row.id, seq: row.seq, reason });
     const updatedRow = this.fieldDomainStore.snapshot?.intelligentPanels?.find((r: any) => r.id === row.id) as any;
@@ -6147,28 +6270,24 @@ private __antennaPlaceableSeq = 0;
       });
     }
 
-    // [Step2A][UeSync] Scene -> Math (canonical backend-facing)
-    const scenePos = {
-      x: target.position.x,
-      y: target.position.y,
-      z: target.position.z,
-    };
-    const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+    // [RowWrite] Store row.x/row.y are floor-local first.
+    const absPos = target.getAbsolutePosition
+      ? target.getAbsolutePosition()
+      : target.position;
+    const local = this.sceneWorldToFloorLocalRow(absPos.x, absPos.z);
 
     this.fieldDomainStore.updateUe(row.id, {
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
+      x: local.x,
+      y: local.y,
+      z: absPos.y,
     });
 
     console.log('[COORD][Scene->Row]', {
-      type: 'ue',
-      scenePosition: scenePos,
-      mathPosition: {
-        x: mathPos.x,
-        y: mathPos.y,
-        z: mathPos.z,
-      },
+      type: 'ris-or-ue',
+      rowId: row.id,
+      world: { x: absPos.x, z: absPos.z },
+      rowXY: { x: local.x, y: local.y },
+      path: local.path,
     });
     console.log('[FieldStore][Scene->UE]', { rowId: row.id, seq: row.seq, reason });
   }
@@ -7006,6 +7125,19 @@ private __antennaPlaceableSeq = 0;
     //     no BSes could have been placed.
     console.log('[BS_POLLUTION][reset][bootstrapCommittedMapIntoStageB] reset FieldDomainStore before new Stage B scene');
     this.fieldDomainStore.reset();
+
+    const existingBsCount =
+      this.fieldDomainStore.snapshot?.existingBs?.length ?? 0;
+    const obstaclesCount =
+      this.fieldDomainStore.snapshot?.obstacles?.length ?? 0;
+    const risCount =
+      this.fieldDomainStore.snapshot?.intelligentPanels?.length ?? 0;
+    const ueCount = this.fieldDomainStore.snapshot?.ueList?.length ?? 0;
+
+    console.log('[DOMAIN_STORE_RESET_TRACE]', {
+      where: 'bootstrapCommittedMapIntoStageB:afterReset',
+      snapshot: { existingBsCount, obstaclesCount, risCount, ueCount },
+    });
 
     let meta = this.draft.consumeProjectMeta?.() ?? null;
     let committed = this.draft.consumeCommittedMap?.() ?? null;
@@ -8364,12 +8496,20 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     });
 
     const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+    const floorBB = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+    const floorMin = floorBB?.minimumWorld ?? null;
+
+    // BS store always uses floor-local coords (row.x/row.y = world - floorMin).
+    // Keep mathPos as fallback for legacy format.
+    const bsRowX = floorMin ? owner.position.x - floorMin.x : mathPos.x;
+    const bsRowY = floorMin ? owner.position.z - floorMin.z : mathPos.y;
+    const bsRowZ = owner.position.y;
     const antennaForBs = this.getClonedDefaultAntennaForPlacement();
     const defaults = getExistingBsFieldDefaults(antennaForBs);
     const existingBsRow = this.fieldDomainStore.addExistingBs({
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
+      x: bsRowX,
+      y: bsRowY,
+      z: bsRowZ,
       rxGain: 0,
       ownerMeshId: owner.uniqueId,
       antenna: antennaForBs,
@@ -8657,13 +8797,22 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
       mathPos,
     });
 
+    const floorBB = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+    const floorMin = floorBB?.minimumWorld ?? null;
+
+    // BS store always uses floor-local coords (row.x/row.y = world - floorMin).
+    // Keep mathPos as fallback for legacy format.
+    const bsRowX = floorMin ? owner.position.x - floorMin.x : mathPos.x;
+    const bsRowY = floorMin ? owner.position.z - floorMin.z : mathPos.y;
+    const bsRowZ = owner.position.y;
+
     const antennaForBs = this.getClonedDefaultAntennaForPlacement();
     const defaults = getExistingBsFieldDefaults(antennaForBs);
 
     const existingBsRow = this.fieldDomainStore.addExistingBs({
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
+      x: bsRowX,
+      y: bsRowY,
+      z: bsRowZ,
       rxGain: 0,
       ownerMeshId: owner.uniqueId,
       antenna: antennaForBs,
@@ -9174,14 +9323,21 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
       y: owner.position.y,
       z: owner.position.z,
     };
-    const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+    const local = this.sceneWorldToFloorLocalRow(scenePos.x, scenePos.z);
     const ueRow = this.fieldDomainStore.addUe({
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
+      x: local.x,
+      y: local.y,
+      z: scenePos.y,
       type: 'terminal',
       rxGain: 0,
       ownerMeshId: owner.uniqueId,
+    });
+    console.log('[COORD][Scene->Row]', {
+      type: 'ris-or-ue',
+      rowId: ueRow.id,
+      world: { x: scenePos.x, z: scenePos.z },
+      rowXY: { x: local.x, y: local.y },
+      path: local.path,
     });
 
     console.log('[UE_CREATE][ROW]', {
@@ -9274,6 +9430,102 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
   private toSceneVector3FromMath(mathPos: { x: number; y: number; z: number }): Vector3 {
     const scenePos = this.toScenePositionFromMath(mathPos);
     return new Vector3(scenePos.x, scenePos.y, scenePos.z);
+  }
+
+  private getFloorBoundsForFieldRows(): {
+    floorMin: Vector3;
+    floorMax: Vector3;
+    floorW: number;
+    floorD: number;
+  } | null {
+    const floorBB = this.floorMesh?.getBoundingInfo()?.boundingBox ?? null;
+    if (!floorBB) return null;
+
+    const floorMin = floorBB.minimumWorld;
+    const floorMax = floorBB.maximumWorld;
+
+    return {
+      floorMin,
+      floorMax,
+      floorW: floorMax.x - floorMin.x,
+      floorD: floorMax.z - floorMin.z,
+    };
+  }
+
+  private sceneWorldToFloorLocalRow(
+    worldX: number,
+    worldZ: number
+  ): { x: number; y: number; path: 'floor-local' | 'legacy-fallback' } {
+    const bounds = this.getFloorBoundsForFieldRows();
+
+    if (bounds) {
+      return {
+        x: worldX - bounds.floorMin.x,
+        y: worldZ - bounds.floorMin.z,
+        path: 'floor-local',
+      };
+    }
+
+    const fallback = this.toMathPositionFromSceneXYZ(worldX, 0, worldZ);
+    return {
+      x: fallback.x,
+      y: fallback.y,
+      path: 'legacy-fallback',
+    };
+  }
+
+  private floorRowToSceneWorld(
+    rowX: number,
+    rowY: number,
+    rowZ = 0
+  ): {
+    x: number;
+    y: number;
+    z: number;
+    path: 'floor-local' | 'legacy-mathToScene';
+    inBounds: boolean;
+  } {
+    const bounds = this.getFloorBoundsForFieldRows();
+    const tol = 50;
+
+    if (bounds) {
+      const isFloorLocal =
+        rowX >= -tol &&
+        rowX <= bounds.floorW + tol &&
+        rowY >= -tol &&
+        rowY <= bounds.floorD + tol;
+
+      if (isFloorLocal) {
+        const x = bounds.floorMin.x + rowX;
+        const z = bounds.floorMin.z + rowY;
+
+        return {
+          x,
+          y: rowZ,
+          z,
+          path: 'floor-local',
+          inBounds:
+            x >= bounds.floorMin.x - tol &&
+            x <= bounds.floorMax.x + tol &&
+            z >= bounds.floorMin.z - tol &&
+            z <= bounds.floorMax.z + tol,
+        };
+      }
+    }
+
+    const legacy = this.toScenePositionFromMath({
+      x: rowX,
+      y: rowY,
+      z: rowZ,
+    });
+
+    return {
+      x: legacy.x,
+      y: legacy.y,
+      z: legacy.z,
+      path: 'legacy-mathToScene',
+      inBounds: false,
+    };
   }
 
   // ========== [Step2A][PositionHelper] Position conversion helpers ==========
@@ -10029,13 +10281,23 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     if (!target?.position) return;
 
     if (typeof row.x === 'number' && typeof row.y === 'number') {
-      const scenePos = this.toScenePositionFromMath({
-        x: row.x,
-        y: row.y,
-        z: typeof row.startHeight === 'number' ? row.startHeight : 0,
-      });
+      const rowX = Number(row.x);
+      const rowY = Number(row.y);
+      const rowZ = typeof row.startHeight === 'number' ? row.startHeight : 0;
+
+      const scenePos = this.floorRowToSceneWorld(rowX, rowY, rowZ);
+
       target.position.x = scenePos.x;
       target.position.z = scenePos.z;
+
+      console.log('[COORD][GenericRow->Scene]', {
+        rowId: (row as any)?.id ?? null,
+        rowXY: { x: rowX, y: rowY },
+        scenePos,
+        path: scenePos.path,
+        inBounds: scenePos.inBounds,
+        meshName: target.name,
+      });
     } else {
       if (typeof row.x === 'number') {
         target.position.x = row.x;
@@ -10129,9 +10391,16 @@ private spawnObstaclePrimitiveAt(kind: string, point: any, placedOn: 'ground' | 
     spawnScenePos.z
   );
 
-  const fieldX = this.roundFieldNum(spawnMathPos.x);
-  const fieldY = this.roundFieldNum(spawnMathPos.y);
-  const startHeight = this.roundFieldNum(spawnMathPos.z);
+  const floorBB = this.floorMesh?.getBoundingInfo().boundingBox ?? null;
+  const floorMin = floorBB?.minimumWorld ?? null;
+
+  const fieldX = this.roundFieldNum(
+    floorMin ? spawnScenePos.x - floorMin.x : spawnMathPos.x
+  );
+  const fieldY = this.roundFieldNum(
+    floorMin ? spawnScenePos.z - floorMin.z : spawnMathPos.y
+  );
+  const startHeight = this.roundFieldNum(spawnScenePos.y);
   const obstacleHeight = this.roundFieldNum(bounds.sizeY);
   const obstacleLength = this.roundFieldNum(bounds.sizeX);
   const obstacleWidth = this.roundFieldNum(bounds.sizeZ);
@@ -10417,12 +10686,12 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
 
   // ===== Store Integration =====
   const scenePos = { x: box.position.x, y: box.position.y, z: box.position.z };
-  const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+  const local = this.sceneWorldToFloorLocalRow(scenePos.x, scenePos.z);
   
   if (regionType === 'customZone') {
     const zoneRow = this.fieldDomainStore.addZone({
-      x: this.roundFieldNum(mathPos.x),
-      y: this.roundFieldNum(mathPos.y),
+      x: this.roundFieldNum(local.x),
+      y: this.roundFieldNum(local.y),
       length: 50,  // 5x from original 10
       width: 50,   // 5x from original 10
       angle: this.degFromRad(box.rotation?.y ?? 0),
@@ -10436,9 +10705,9 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
   } else if (regionType === 'observeZone') {
     console.log('[OBS_CREATE_CASE][observeZone][v1]');
     const observeRow = this.fieldDomainStore.addObserve({
-      x: this.roundFieldNum(mathPos.x),
-      y: this.roundFieldNum(mathPos.y),
-      z: this.roundFieldNum(mathPos.z),
+      x: this.roundFieldNum(local.x),
+      y: this.roundFieldNum(local.y),
+      z: this.roundFieldNum(scenePos.y),
       meshId: box.uniqueId,
     });
     console.log('[OBS_CREATE_AFTER_ADD_OBSERVE][v1]', {
@@ -10794,13 +11063,13 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       y: owner.position.y,
       z: owner.position.z,
     };
-    const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+    const local = this.sceneWorldToFloorLocalRow(scenePos.x, scenePos.z);
     const defaultRisInit = await this.resolveDefaultRisInitForSpawn();
     const risRow = this.fieldDomainStore.addIntelligentPanel({
-      x: mathPos.x,
-      y: mathPos.y,
-      z: mathPos.z,
-      position: { x: mathPos.x, y: mathPos.y, z: mathPos.z },
+      x: local.x,
+      y: local.y,
+      z: scenePos.y,
+      position: { x: local.x, y: local.y, z: scenePos.y },
       risID: defaultRisInit.risID,
       risId: defaultRisInit.risID,
       profileID: defaultRisInit.profileID,
@@ -10811,6 +11080,13 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
       installVerticalAngle: 0,
       rxGain: 0,
       ownerMeshId: owner.uniqueId,
+    });
+    console.log('[COORD][Scene->Row]', {
+      type: 'ris-or-ue',
+      rowId: risRow.id,
+      world: { x: scenePos.x, z: scenePos.z },
+      rowXY: { x: local.x, y: local.y },
+      path: local.path,
     });
     console.log('[RIS][DEFAULT_INIT]', {
       rowId: risRow.id,
@@ -13267,15 +13543,16 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
     // ===== [PLOTLY_HEATMAP:HOVER_CACHE] =====
     // Cache meta + z for Babylon hover tooltip (Plotly DOM is not interactive after toImage)
+    // Always rebuild from current floorMesh meta — never reuse stale plotlyHoverMeta min/max/cellSize
     this.plotlyHoverMeta = {
-      min: this.plotlyHoverMeta?.min ?? new Vector3(0, 0, 0),
-      max: this.plotlyHoverMeta?.max ?? new Vector3(0, 0, 0),
-      nx: this.plotlyHoverMeta?.nx ?? 0,
-      nz: this.plotlyHoverMeta?.nz ?? 0,
-      cellSize: this.plotlyHoverMeta?.cellSize ?? 1,
-      cellSizeX: this.plotlyHoverMeta?.cellSizeX ?? this.plotlyHoverMeta?.cellSize ?? 1,
-      cellSizeZ: this.plotlyHoverMeta?.cellSizeZ ?? this.plotlyHoverMeta?.cellSize ?? 1,
-      sliceY: this.plotlyHoverMeta?.sliceY ?? 0,
+      min: meta.min.clone(),
+      max: meta.max.clone(),
+      nx: meta.nx,
+      nz: meta.nz,
+      cellSize,
+      cellSizeX: cellSize,
+      cellSizeZ: cellSize,
+      sliceY: this.plotlyHeatmapSliceHeight,
     };
     this.plotlyHoverZ = zRsrp;
     this.plotlyHoverUnit = modeMeta.unit;
@@ -14025,6 +14302,37 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     if (this.heatmapMat) {
       this.heatmapMat.zOffset = 1;
     }
+
+    // [HEATMAP_PLANE_META] — verify plane bounding box aligns with floor bounding box
+    this.heatmapPlane.computeWorldMatrix(true);
+    const planeBB = this.heatmapPlane.getBoundingInfo().boundingBox;
+    const planeBMin = planeBB.minimumWorld;
+    const planeBMax = planeBB.maximumWorld;
+    const planeWorldWidth = planeBMax.x - planeBMin.x;
+    const planeWorldDepth = planeBMax.z - planeBMin.z;
+    const absPos = this.heatmapPlane.getAbsolutePosition();
+    console.log('[HEATMAP_PLANE_META]', {
+      floorMin:         { x: +min.x.toFixed(3),     z: +min.z.toFixed(3) },
+      floorMax:         { x: +max.x.toFixed(3),     z: +max.z.toFixed(3) },
+      floorCenter:      { x: +centerX.toFixed(3),   z: +centerZ.toFixed(3) },
+      floorWorldWidth:  +width.toFixed(3),
+      floorWorldDepth:  +depth.toFixed(3),
+      planePosition:    { x: +this.heatmapPlane.position.x.toFixed(3), y: +this.heatmapPlane.position.y.toFixed(3), z: +this.heatmapPlane.position.z.toFixed(3) },
+      planeAbsolutePosition: { x: +absPos.x.toFixed(3), y: +absPos.y.toFixed(3), z: +absPos.z.toFixed(3) },
+      planeScaling:     { x: +this.heatmapPlane.scaling.x.toFixed(3), y: +this.heatmapPlane.scaling.y.toFixed(3), z: +this.heatmapPlane.scaling.z.toFixed(3) },
+      planeRotation:    { x: +this.heatmapPlane.rotation.x.toFixed(4), y: +this.heatmapPlane.rotation.y.toFixed(4), z: +this.heatmapPlane.rotation.z.toFixed(4) },
+      planeParentName:  this.heatmapPlane.parent?.name ?? null,
+      planeBoundingMin: { x: +planeBMin.x.toFixed(3), z: +planeBMin.z.toFixed(3) },
+      planeBoundingMax: { x: +planeBMax.x.toFixed(3), z: +planeBMax.z.toFixed(3) },
+      planeWorldWidth:  +planeWorldWidth.toFixed(3),
+      planeWorldDepth:  +planeWorldDepth.toFixed(3),
+      alignOK: {
+        minX: Math.abs(planeBMin.x - min.x) < 0.05,
+        maxX: Math.abs(planeBMax.x - max.x) < 0.05,
+        minZ: Math.abs(planeBMin.z - min.z) < 0.05,
+        maxZ: Math.abs(planeBMax.z - max.z) < 0.05,
+      },
+    });
 
     return this.heatmapPlane;
   }
@@ -14859,13 +15167,21 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     const root = new TransformNode('[DBG-HEATMAP-POINT-ROOT]', this.scene);
     this.dbgHeatmapPointRoot = root;
 
-    // Use store row + floorMin (same reference frame as heatmap) instead of mesh.getAbsolutePosition()
+    // Use resolveBsWorldPosition to avoid double-offset when row.x/y are already world coords
     const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
     const bsRow0 = bsRows[0] ?? null;
     const floorBBForDbg = this.floorMesh.getBoundingInfo().boundingBox;
     const floorMinForDbg = floorBBForDbg.minimumWorld;
-    const bsWorld = bsRow0
-      ? new Vector3(floorMinForDbg.x + bsRow0.x, this.heatmapSliceHeight, floorMinForDbg.z + bsRow0.y)
+    const floorMaxForDbg = floorBBForDbg.maximumWorld;
+    const bsResolvedDbg = bsRow0 != null
+      ? this.resolveBsWorldPosition(
+          bsRow0.x, bsRow0.y,
+          { x: floorMinForDbg.x, z: floorMinForDbg.z },
+          { x: floorMaxForDbg.x, z: floorMaxForDbg.z }
+        )
+      : null;
+    const bsWorld = bsResolvedDbg != null
+      ? new Vector3(bsResolvedDbg.worldX, this.heatmapSliceHeight, bsResolvedDbg.worldZ)
       : null;
     if (!bsWorld) return;
 
@@ -15289,6 +15605,168 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       min,
       max,
     };
+  }
+
+  // ====================================
+  // Unified world-meta resolver for backend heatmap (resolution-first).
+  // Prioritizes backend input.resolution as cell size; warns + falls back to backendWidth/colCount
+  // when they disagree, and warns when floor mesh extent differs from backend expected size.
+  // ====================================
+  private resolveBackendHeatmapWorldMeta(
+    backend: { nx: number; nz: number; cellSize: number; width: number; height: number },
+    floorMesh: AbstractMesh | null | undefined
+  ): {
+    resolution: number;
+    floorMinX: number;
+    floorMinZ: number;
+    floorWorldWidth: number;
+    floorWorldDepth: number;
+    backendWidth: number;
+    backendHeight: number;
+    colCount: number;
+    rowCount: number;
+    cellSizeX: number;
+    cellSizeZ: number;
+  } {
+    const bb = floorMesh?.getBoundingInfo().boundingBox;
+    const floorMinVec = bb?.minimumWorld ?? new Vector3(0, 0, 0);
+    const floorMaxVec = bb?.maximumWorld ?? new Vector3(backend.width || backend.nx, 0, backend.height || backend.nz);
+    const floorWorldWidth = floorMaxVec.x - floorMinVec.x;
+    const floorWorldDepth = floorMaxVec.z - floorMinVec.z;
+
+    const resolution = backend.cellSize > 0 ? backend.cellSize : 1;
+    const backendWidth = backend.width > 0 ? backend.width : backend.nx * resolution;
+    const backendHeight = backend.height > 0 ? backend.height : backend.nz * resolution;
+    const colCount = backend.nx;
+    const rowCount = backend.nz;
+
+    // Primary: use resolution as cell size
+    let cellSizeX = resolution;
+    let cellSizeZ = resolution;
+
+    // Fallback: if backendWidth/colCount disagrees with resolution, use that instead + warn
+    if (colCount > 0 && backendWidth > 0) {
+      const bwPerCell = backendWidth / colCount;
+      if (Math.abs(bwPerCell - resolution) > 0.1) {
+        console.warn('[HEATMAP_WORLD_META] cellSizeX: backendWidth/colCount differs from resolution — using backendWidth/colCount', {
+          resolution, backendWidthPerCell: +bwPerCell.toFixed(4), colCount, backendWidth,
+        });
+        cellSizeX = bwPerCell;
+      }
+    }
+    if (rowCount > 0 && backendHeight > 0) {
+      const bhPerCell = backendHeight / rowCount;
+      if (Math.abs(bhPerCell - resolution) > 0.1) {
+        console.warn('[HEATMAP_WORLD_META] cellSizeZ: backendHeight/rowCount differs from resolution — using backendHeight/rowCount', {
+          resolution, backendHeightPerCell: +bhPerCell.toFixed(4), rowCount, backendHeight,
+        });
+        cellSizeZ = bhPerCell;
+      }
+    }
+
+    // Warn if floor mesh extent differs from backend expected extent (silent misalignment guard)
+    const expectedWidth = colCount * cellSizeX;
+    const expectedDepth = rowCount * cellSizeZ;
+    if (Math.abs(floorWorldWidth - expectedWidth) > 1) {
+      console.warn('[HEATMAP_WORLD_META] floorWorldWidth vs backend expectedWidth mismatch', {
+        floorWorldWidth: +floorWorldWidth.toFixed(2), expectedWidth: +expectedWidth.toFixed(2),
+        colCount, cellSizeX,
+      });
+    }
+    if (Math.abs(floorWorldDepth - expectedDepth) > 1) {
+      console.warn('[HEATMAP_WORLD_META] floorWorldDepth vs backend expectedDepth mismatch', {
+        floorWorldDepth: +floorWorldDepth.toFixed(2), expectedDepth: +expectedDepth.toFixed(2),
+        rowCount, cellSizeZ,
+      });
+    }
+
+    if (this.DEBUG_HEATMAP) {
+      console.log('[HEATMAP_WORLD_META]', {
+        resolution,
+        rowCount, colCount,
+        floorMin: { x: +floorMinVec.x.toFixed(2), z: +floorMinVec.z.toFixed(2) },
+        floorMax: { x: +floorMaxVec.x.toFixed(2), z: +floorMaxVec.z.toFixed(2) },
+        floorWorldWidth: +floorWorldWidth.toFixed(2),
+        floorWorldDepth: +floorWorldDepth.toFixed(2),
+        backendWidth: +backendWidth.toFixed(2),
+        backendHeight: +backendHeight.toFixed(2),
+        cellSizeX: +cellSizeX.toFixed(4),
+        cellSizeZ: +cellSizeZ.toFixed(4),
+        expectedWidth: +expectedWidth.toFixed(2),
+        expectedDepth: +expectedDepth.toFixed(2),
+      });
+    }
+
+    return {
+      resolution,
+      floorMinX: floorMinVec.x,
+      floorMinZ: floorMinVec.z,
+      floorWorldWidth,
+      floorWorldDepth,
+      backendWidth,
+      backendHeight,
+      colCount,
+      rowCount,
+      cellSizeX,
+      cellSizeZ,
+    };
+  }
+
+  // ====================================
+  // Unified cell-index → world-coordinate conversion.
+  // i = X/column index, j = Z/row index.
+  // worldX = floorMinX + (i + 0.5) * cellSizeX
+  // worldZ = floorMinZ + (j + 0.5) * cellSizeZ
+  // ====================================
+  private heatmapCellToWorld(
+    i: number,
+    j: number,
+    meta: { floorMinX: number; floorMinZ: number; cellSizeX: number; cellSizeZ: number }
+  ): { worldX: number; worldZ: number } {
+    return {
+      worldX: meta.floorMinX + (i + 0.5) * meta.cellSizeX,
+      worldZ: meta.floorMinZ + (j + 0.5) * meta.cellSizeZ,
+    };
+  }
+
+  // ====================================
+  // Detect whether a store existingBs row's x/y values are already Babylon world coords
+  // or local/math offsets from floorMin (SW corner). Avoids double-offset bug.
+  //
+  // World test:  row.x in [floorMin.x - tol, floorMax.x + tol]
+  //              row.y in [floorMin.z - tol, floorMax.z + tol]
+  // Local test:  row.x in [-tol, floorWorldWidth  + tol]
+  //              row.y in [-tol, floorWorldDepth + tol]
+  // ====================================
+  private resolveBsWorldPosition(
+    rowX: number,
+    rowY: number,
+    floorMin: { x: number; z: number },
+    floorMax: { x: number; z: number }
+  ): { worldX: number; worldZ: number; detectedCoordSpace: 'world' | 'local' | 'unknown' } {
+    const floorW = floorMax.x - floorMin.x;
+    const floorD = floorMax.z - floorMin.z;
+    const tol = 50; // metres — large enough for BS placed near edge, small enough to disambiguate
+
+    const inWorldX = rowX >= floorMin.x - tol && rowX <= floorMax.x + tol;
+    const inWorldZ = rowY >= floorMin.z - tol && rowY <= floorMax.z + tol;
+    if (inWorldX && inWorldZ) {
+      return { worldX: rowX, worldZ: rowY, detectedCoordSpace: 'world' };
+    }
+
+    const inLocalX = rowX >= -tol && rowX <= floorW + tol;
+    const inLocalZ = rowY >= -tol && rowY <= floorD + tol;
+    if (inLocalX && inLocalZ) {
+      return { worldX: floorMin.x + rowX, worldZ: floorMin.z + rowY, detectedCoordSpace: 'local' };
+    }
+
+    console.warn('[BS_COORD_SOURCE][OUT_OF_RANGE]', {
+      rowX, rowY,
+      floorMin, floorMax,
+      floorW: +floorW.toFixed(2), floorD: +floorD.toFixed(2),
+      note: 'row.x/y fits neither world range nor local/math range',
+    });
+    return { worldX: rowX, worldZ: rowY, detectedCoordSpace: 'unknown' };
   }
 
   // Compatibility: legacy sinr resolution + extractBackendHeatmapMatrix.
@@ -16298,9 +16776,14 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           ? ''
           : (this.DIST_MODE_META[mode] ?? this.DIST_MODE_META.rsrp).unit;
 
-      // Always derive hover meta from floorMesh world extent — never reuse stale plotlyHoverMeta min/max
-      const displayCellSizeX = nx > 0 ? floorWidth / nx : cellSize;
-      const displayCellSizeZ = nz > 0 ? floorDepth / nz : cellSize;
+      // Always derive hover meta from floorMesh world extent + backend resolution — never reuse stale values.
+      // Resolution (cellSize) is the primary cell size; floorWidth/nx is only a fallback when they disagree.
+      const worldMeta = this.resolveBackendHeatmapWorldMeta(
+        { nx, nz, cellSize, width, height },
+        this.floorMesh
+      );
+      const displayCellSizeX = worldMeta.cellSizeX;
+      const displayCellSizeZ = worldMeta.cellSizeZ;
 
       this.plotlyHoverMeta = {
         min: floorMin.clone(),
@@ -16476,19 +16959,101 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         const floorWidthForStrongest = floorMaxForStrongest.x - floorMinForStrongest.x;
         const floorDepthForStrongest = floorMaxForStrongest.z - floorMinForStrongest.z;
         const strongestSource = this.plotlyHoverZ ?? [];
-        const displayCellSizeX = backend.nx > 0 ? floorWidthForStrongest / backend.nx : backend.cellSize;
-        const displayCellSizeZ = backend.nz > 0 ? floorDepthForStrongest / backend.nz : backend.cellSize;
+        // Use resolveBackendHeatmapWorldMeta for consistent resolution-first cell sizing
+        const wmStrongest = this.resolveBackendHeatmapWorldMeta(
+          { nx: backend.nx, nz: backend.nz, cellSize: backend.cellSize, width: backend.width, height: backend.height },
+          this.floorMesh
+        );
+        const displayCellSizeX = wmStrongest.cellSizeX;
+        const displayCellSizeZ = wmStrongest.cellSizeZ;
 
-        // [BS_COORD_SOURCE] Use store row + floorMin for same reference frame as heatmap
-        // math.x / math.y are offsets from SW corner; floorMin IS the SW corner in world space
+        // [BS_STORE_SNAPSHOT_TRACE] — snapshot all store rows at render time with coord-space detection
+        {
+          const snapRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
+          console.log('[BS_STORE_SNAPSHOT_TRACE]', {
+            timestamp: Date.now(),
+            floorMin: { x: floorMinForStrongest.x, z: floorMinForStrongest.z },
+            floorMax: { x: floorMaxForStrongest.x, z: floorMaxForStrongest.z },
+            floorSize: { w: floorWidthForStrongest, d: floorDepthForStrongest },
+            rowCount: snapRows.length,
+            rows: snapRows.map((r: any) => {
+              const res = this.resolveBsWorldPosition(
+                r.x, r.y,
+                { x: floorMinForStrongest.x, z: floorMinForStrongest.z },
+                { x: floorMaxForStrongest.x, z: floorMaxForStrongest.z }
+              );
+              const inBounds = res.worldX >= floorMinForStrongest.x - 50 && res.worldX <= floorMaxForStrongest.x + 50
+                && res.worldZ >= floorMinForStrongest.z - 50 && res.worldZ <= floorMaxForStrongest.z + 50;
+              return {
+                id: r.id, name: r.name,
+                rowX: r.x, rowY: r.y,
+                resolvedWorld: { x: res.worldX, z: res.worldZ },
+                detectedCoordSpace: res.detectedCoordSpace,
+                inBounds,
+                rowYvsFloorMaxZ: r.y - floorMaxForStrongest.z,
+                rowXvsFloorMaxX: r.x - floorMaxForStrongest.x,
+              };
+            }),
+          });
+        }
+
+        // [BS_COORD_SOURCE] Resolve BS position using coord-space detection
         const bsRows = this.fieldDomainStore.snapshot?.existingBs ?? [];
         const bsRow0 = bsRows[0] ?? null;
-        const bsRawWorldX = bsRow0 != null ? floorMinForStrongest.x + bsRow0.x : null;
-        const bsRawWorldZ = bsRow0 != null ? floorMinForStrongest.z + bsRow0.y : null;
+        const bsFloorMinForRes = { x: floorMinForStrongest.x, z: floorMinForStrongest.z };
+        const bsFloorMaxForRes = { x: floorMaxForStrongest.x, z: floorMaxForStrongest.z };
+        const bsResolved = bsRow0 != null
+          ? this.resolveBsWorldPosition(bsRow0.x, bsRow0.y, bsFloorMinForRes, bsFloorMaxForRes)
+          : null;
+        const bsRawWorldX = bsResolved?.worldX ?? null;
+        const bsRawWorldZ = bsResolved?.worldZ ?? null;
 
         const bsCellCol = bsRawWorldX != null ? Math.floor((bsRawWorldX - floorMinForStrongest.x) / displayCellSizeX) : -1;
         const bsCellRow = bsRawWorldZ != null ? Math.floor((bsRawWorldZ - floorMinForStrongest.z) / displayCellSizeZ) : -1;
-        const hasBsCell = bsCellRow >= 0 && bsCellCol >= 0;
+        // Only use bsCell for tie-breaking if it falls inside the matrix
+        const bsCellInBounds = bsCellRow >= 0 && bsCellRow < wmStrongest.rowCount
+          && bsCellCol >= 0 && bsCellCol < wmStrongest.colCount;
+        const hasBsCell = bsCellInBounds;
+
+        // [BS_MESH_STORE_COMPARE] — compare each BS mesh world position with its matched store row
+        {
+          const p2ForCmp = this.p2_collectSignalNodes(this.scene);
+          const bsMeshes: AbstractMesh[] = p2ForCmp.antennas ?? [];
+          const storeRowsForCmp = this.fieldDomainStore.snapshot?.existingBs ?? [];
+          const cmpFloorMin = { x: floorMinForStrongest.x, z: floorMinForStrongest.z };
+          const cmpFloorMax = { x: floorMaxForStrongest.x, z: floorMaxForStrongest.z };
+          const comparisons = bsMeshes.map((mesh: AbstractMesh) => {
+            const absPos = mesh.getAbsolutePosition();
+            const metaRowId = (mesh.metadata as any)?.rowId ?? (mesh.metadata as any)?.ownerId ?? null;
+            const matchedRow = metaRowId != null
+              ? storeRowsForCmp.find((r: any) => r.id === metaRowId)
+              : storeRowsForCmp.find((r: any) => r.ownerMeshId === mesh.uniqueId || r.meshId === mesh.uniqueId);
+            const rowRes = matchedRow != null
+              ? this.resolveBsWorldPosition(matchedRow.x, matchedRow.y, cmpFloorMin, cmpFloorMax)
+              : null;
+            const dist = rowRes != null
+              ? Math.sqrt((absPos.x - rowRes.worldX) ** 2 + (absPos.z - rowRes.worldZ) ** 2)
+              : null;
+            return {
+              meshName: mesh.name,
+              meshUniqueId: mesh.uniqueId,
+              meshAbsPos: { x: absPos.x, y: absPos.y, z: absPos.z },
+              metaRowId,
+              matchedRowId: matchedRow?.id ?? null,
+              matchedRowXY: matchedRow ? { x: matchedRow.x, y: matchedRow.y } : null,
+              resolvedWorld: rowRes ? { x: rowRes.worldX, z: rowRes.worldZ } : null,
+              coordSpace: rowRes?.detectedCoordSpace ?? null,
+              distMeshToRow_m: dist,
+            };
+          });
+          console.log('[BS_MESH_STORE_COMPARE]', {
+            bsMeshCount: bsMeshes.length,
+            storeRowCount: storeRowsForCmp.length,
+            floorMin: cmpFloorMin,
+            floorMax: cmpFloorMax,
+            comparisons,
+          });
+        }
 
         // Phase 1: find global maxVal
         let scMaxVal = -Infinity;
@@ -16526,14 +17091,33 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           }
         }
 
-        const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
-        const strongestWorldZ = floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+        // Use heatmapCellToWorld helper for consistent coordinate conversion
+        const wmForCell = {
+          floorMinX: floorMinForStrongest.x,
+          floorMinZ: floorMinForStrongest.z,
+          cellSizeX: displayCellSizeX,
+          cellSizeZ: displayCellSizeZ,
+        };
+        const strongestWorld = this.heatmapCellToWorld(scMaxCol, scMaxRow, wmForCell);
+        const strongestWorldX = strongestWorld.worldX;
+        const strongestWorldZ = strongestWorld.worldZ;
         const strongestWorldZReversed = floorMinForStrongest.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
 
-        const strongestCellCenterX =
-          floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
-        const strongestCellCenterZ =
-          floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+        const strongestCellCenterX = strongestWorldX;
+        const strongestCellCenterZ = strongestWorldZ;
+
+        // [HEATMAP_CELL_TO_WORLD_CHECK]
+        console.log('[HEATMAP_CELL_TO_WORLD_CHECK]', {
+          strongestCell: { i: scMaxCol, j: scMaxRow, value: Number.isFinite(scMaxVal) ? +scMaxVal.toFixed(3) : scMaxVal },
+          strongestWorld: { x: +strongestWorldX.toFixed(3), z: +strongestWorldZ.toFixed(3) },
+          formula: 'worldX = floorMinX + (i + 0.5) * cellSizeX; worldZ = floorMinZ + (j + 0.5) * cellSizeZ',
+          floorMin: { x: +floorMinForStrongest.x.toFixed(3), z: +floorMinForStrongest.z.toFixed(3) },
+          cellSizeX: +displayCellSizeX.toFixed(4),
+          cellSizeZ: +displayCellSizeZ.toFixed(4),
+          resolution: wmStrongest.resolution,
+          colCount: wmStrongest.colCount,
+          rowCount: wmStrongest.rowCount,
+        });
 
         // Place strongest marker using floor-unified world coordinates
         const _markerSkipped = scMaxRow < 0 || scMaxCol < 0;
@@ -16588,37 +17172,19 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           scTieCandidates.map(c => `[${c.ri},${c.ci}] dist2=${c.dist2}`).join('  ')
         );
 
-        const _flLogInfo = this.floorMesh?.getBoundingInfo?.().boundingBox ?? null;
-        const _flLogMin = _flLogInfo?.minimumWorld ?? null;
-        const _flLogMax = _flLogInfo?.maximumWorld ?? null;
-        const _flLogW = _flLogMin && _flLogMax ? _flLogMax.x - _flLogMin.x : null;
-        const _flLogD = _flLogMin && _flLogMax ? _flLogMax.z - _flLogMin.z : null;
-
-        console.log('[BS_FLOOR_RANGE_CHECK]',
-          '| row(x,y):', bsRow0 ? `(${bsRow0.x.toFixed(1)}, ${bsRow0.y.toFixed(1)})` : 'null',
-          '| floorMin:', _flLogMin ? `(${_flLogMin.x.toFixed(1)}, ${_flLogMin.z.toFixed(1)})` : 'null',
-          '| floorMax:', _flLogMax ? `(${_flLogMax.x.toFixed(1)}, ${_flLogMax.z.toFixed(1)})` : 'null',
-          '| floorWidthDepth:', _flLogW != null ? `${_flLogW.toFixed(1)}, ${_flLogD!.toFixed(1)}` : 'null',
-          '| rowInRange:',
-            _flLogW != null && bsRow0
-              ? `${bsRow0.x >= 0 && bsRow0.x <= _flLogW}, ${bsRow0.y >= 0 && bsRow0.y <= _flLogD!}`
-              : 'null'
-        );
-
-        console.log('[BS_COORD_SOURCE]',
-          'source: store existingBs[0]',
-          '| row.x:', bsRow0?.x, 'row.y:', bsRow0?.y,
-          '| floorMin(x,z):', `(${floorMinForStrongest.x.toFixed(1)}, ${floorMinForStrongest.z.toFixed(1)})`,
-          '| bsRawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
-          '| bsCell(row,col):', `${bsCellRow}, ${bsCellCol}`,
-          '| bsSnapped(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`
-        );
-        console.log('[BS_CONVERTED_WORLD_POS]',
-          'rawMathPos(x,y):', bsRow0 ? `(${bsRow0.x}, ${bsRow0.y})` : 'null',
-          '| rawWorld(x,z):', bsRawWorldX != null ? `(${bsRawWorldX.toFixed(1)}, ${bsRawWorldZ!.toFixed(1)})` : 'null',
-          '| snappedCellCenter(x,z):', `(${bsConvertedX.toFixed(1)}, ${bsConvertedZ.toFixed(1)})`,
-          '| formula: floorMin + mathOffset -> snap to cell center'
-        );
+        console.log('[BS_COORD_SOURCE]', {
+          source: 'store existingBs[0]',
+          rawRowXY: bsRow0 ? { x: bsRow0.x, y: bsRow0.y } : null,
+          detectedCoordSpace: bsResolved?.detectedCoordSpace ?? 'n/a',
+          floorMin: { x: +floorMinForStrongest.x.toFixed(3), z: +floorMinForStrongest.z.toFixed(3) },
+          floorMax: { x: +floorMaxForStrongest.x.toFixed(3), z: +floorMaxForStrongest.z.toFixed(3) },
+          resolvedWorld: bsRawWorldX != null
+            ? { x: +bsRawWorldX.toFixed(3), z: +bsRawWorldZ!.toFixed(3) }
+            : null,
+          bsCell: { row: bsCellRow, col: bsCellCol },
+          inBounds: bsCellInBounds,
+          bsSnapped: { x: +bsConvertedX.toFixed(3), z: +bsConvertedZ.toFixed(3) },
+        });
         if (this.DEBUG_HEATMAP) {
           console.log('[HEATMAP_BS_COMPARE]',
             'mode:', mode,
@@ -18979,6 +19545,19 @@ private analyzeCompleteCalcResult(completeRes: any): {
         bsNoiseFigure: demoPayload?.bsNoiseFigure,
       });
 
+      console.log('[BS_POLLUTION][BEFORE_POST_STORE_TASK_EXACT]', {
+        taskid: demoPayload?.taskid,
+        taskMetaTaskid: demoPayload?.task_meta?.taskid,
+        sessionid: demoPayload?.sessionid,
+        createTime: demoPayload?.createTime,
+        defaultBs: demoPayload?.defaultBs,
+        defaultBsAnt: demoPayload?.defaultBsAnt,
+        bsListDefaultBsCount: demoPayload?.bsList?.defaultBs?.length,
+        bsListDefaultBsPositions: demoPayload?.bsList?.defaultBs?.map((b: any) => b?.position),
+        txPower: demoPayload?.txPower,
+        frequency: demoPayload?.frequency,
+        bandwidth: demoPayload?.bandwidth,
+      });
       const storeTaskResp = await firstValueFrom(this.taskApiService.postStoreTask(demoPayload));
       console.log('[SIM_API_PHASE3] storeTask response status:', storeTaskResp.status);
 
