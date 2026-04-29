@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(xargs grep *)",
-      "Bash(awk -F: '{print $1}')"
+      "Bash(awk -F: '{print $1}')",
+      "Bash(grep -v \"//\\\\|snapshot\\\\|state\\\\$\\\\|getCounts\\\\|update\\\\|remove\\\\|reset\\\\|add\\\\b\\\\|addExist\\\\|addCand\\\\|addObs\\\\|addUe\\\\|addIntel\\\\|addReg\\\\|addSub\\\\|addZone\\\\|addObs\\\\|addCand\")"
     ]
   }
 }

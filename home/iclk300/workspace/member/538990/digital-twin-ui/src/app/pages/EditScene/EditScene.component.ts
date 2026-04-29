@@ -5908,31 +5908,6 @@ private __antennaPlaceableSeq = 0;
   ): void {
     const bounds = this.getWorldBoundsInfo(target);
 
-    const scenePos = {
-      x: bounds.centerX,
-      y: target.position.y,
-      z: bounds.centerZ,
-    };
-    const mathPos = this.toMathPositionFromSceneXYZ(
-      scenePos.x,
-      scenePos.y,
-      scenePos.z
-    );
-
-    this.fieldDomainStore.updateZone(row.id, {
-      x: this.roundFieldNum(mathPos.x),
-      y: this.roundFieldNum(mathPos.y),
-      length: this.roundFieldNum(bounds.sizeX),
-      width: this.roundFieldNum(bounds.sizeZ),
-      angle: this.getObstacleAngleDeg(target),
-    });
-
-    console.log('[COORD][Scene->Row][Area]', {
-      kind: 'custom-zone',
-      sceneData: scenePos,
-      mathData: { x: mathPos.x, y: mathPos.y },
-    });
-
     console.log('[FieldStore][Scene->Zone]', { rowId: row.id, seq: row.seq, reason });
   }
 
@@ -5983,13 +5958,31 @@ private __antennaPlaceableSeq = 0;
       });
     }
 
-    // [Step2A][ExistingBsSync] Scene -> Math (canonical backend-facing)
     const scenePos = {
       x: target.position.x,
       y: target.position.y,
       z: target.position.z,
     };
+
+    console.log('[BS_POLLUTION][updateExistingBsRowFromScene][beforeMath]', {
+      rowId: row?.id,
+      meshName: target?.name,
+      reason,
+      rawScenePosition: scenePos,
+      fieldSettingsState: {
+        width: this.fieldSettingsState?.width,
+        length: this.fieldSettingsState?.length,
+        height: this.fieldSettingsState?.height,
+      },
+    });
+
     const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+
+    console.log('[BS_POLLUTION][updateExistingBsRowFromScene][afterMath]', {
+      rowId: row?.id,
+      reason,
+      mathPos,
+    });
 
     this.fieldDomainStore.updateExistingBs(row.id, {
       x: mathPos.x,
@@ -6415,6 +6408,12 @@ private __antennaPlaceableSeq = 0;
     this.dbgHeatmapAxisRoot = null;
     this.dbgFloorMinAxisRoot = null;
     this.dbgHeatmapPointRoot = null;
+
+    // [BS_POLLUTION_FIX][Patch2] Safety reset: clear existingBs on component destroy
+    // so that if this component is re-created (e.g. route re-entry without full
+    // bootstrapCommittedMapIntoStageB), the store never carries stale rows.
+    console.log('[BS_POLLUTION][reset][ngOnDestroy] reset FieldDomainStore on EditScene destroy');
+    this.fieldDomainStore.reset();
   }
 
   /**
@@ -6998,6 +6997,15 @@ private __antennaPlaceableSeq = 0;
 
   private async bootstrapCommittedMapIntoStageB(): Promise<void> {
     console.log('[EditScene][DBG] bootstrap enter');
+
+    // [BS_POLLUTION_FIX][Patch1] Reset FieldDomainStore before new Stage B scene.
+    // FieldDomainStore is a root singleton; existingBs rows from previous sessions
+    // survive navigation. Reset here ensures every new committed map starts clean.
+    // Safe because: (a) called once from ngAfterViewInit before any BS placement,
+    // (b) retry path (retryBootstrapLoading) only fires after a failed load where
+    //     no BSes could have been placed.
+    console.log('[BS_POLLUTION][reset][bootstrapCommittedMapIntoStageB] reset FieldDomainStore before new Stage B scene');
+    this.fieldDomainStore.reset();
 
     let meta = this.draft.consumeProjectMeta?.() ?? null;
     let committed = this.draft.consumeCommittedMap?.() ?? null;
@@ -8322,11 +8330,39 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     owner.position.y += ((point.y ?? owner.position.y) - minY);
 
     // ===== Store Integration =====
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][beforeAdd]', {
+      ownerName: owner?.name,
+      ownerUniqueId: owner?.uniqueId,
+      rawScenePosition: {
+        x: owner?.position?.x,
+        y: owner?.position?.y,
+        z: owner?.position?.z,
+      },
+      fieldSettingsState: {
+        width: this.fieldSettingsState?.width,
+        length: this.fieldSettingsState?.length,
+        height: this.fieldSettingsState?.height,
+      },
+    });
+    
     const scenePos = {
       x: owner.position.x,
       y: owner.position.y,
       z: owner.position.z,
     };
+
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][beforeAdd]', {
+      label: 'AntennaPlacement', // 第二處可改成 'StandardAntennaPlacement'
+      ownerName: owner?.name,
+      ownerUniqueId: owner?.uniqueId,
+      rawScenePosition: scenePos,
+      fieldSettingsState: {
+        width: this.fieldSettingsState?.width,
+        length: this.fieldSettingsState?.length,
+        height: this.fieldSettingsState?.height,
+      },
+    });
+
     const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
     const antennaForBs = this.getClonedDefaultAntennaForPlacement();
     const defaults = getExistingBsFieldDefaults(antennaForBs);
@@ -8340,14 +8376,25 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
       ...defaults,
     });
 
-    console.log('[COORD][Spawn->Row]', {
-      type: 'existing-bs',
-      scenePosition: scenePos,
-      mathPosition: {
-        x: existingBsRow.x,
-        y: existingBsRow.y,
-        z: existingBsRow.z,
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][afterAdd]', {
+      label: 'AntennaPlacement', // 第二處可改成 'StandardAntennaPlacement'
+      row: {
+        id: existingBsRow?.id,
+        x: existingBsRow?.x,
+        y: existingBsRow?.y,
+        z: existingBsRow?.z,
       },
+    });
+
+    console.log('[BS_POLLUTION][snapshotAfterAdd]', {
+      existingBsCount: this.fieldDomainStore.snapshot?.existingBs?.length ?? 0,
+      rows: (this.fieldDomainStore.snapshot?.existingBs ?? []).map((r: any) => ({
+        id: r?.id,
+        x: r?.x,
+        y: r?.y,
+        z: r?.z,
+        ownerMeshId: r?.ownerMeshId,
+      })),
     });
 
     // [Step2A][ExistingBsRegistry] Register scene object for row tracking
@@ -8565,14 +8612,54 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
     owner.position.y += ((point.y ?? owner.position.y) - minY);
 
     // ===== Store Integration =====
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][beforeAdd]', {
+      ownerName: owner?.name,
+      ownerUniqueId: owner?.uniqueId,
+      rawScenePosition: {
+        x: owner?.position?.x,
+        y: owner?.position?.y,
+        z: owner?.position?.z,
+      },
+      fieldSettingsState: {
+        width: this.fieldSettingsState?.width,
+        length: this.fieldSettingsState?.length,
+        height: this.fieldSettingsState?.height,
+      },
+    });
+
     const scenePos = {
       x: owner.position.x,
       y: owner.position.y,
       z: owner.position.z,
     };
-    const mathPos = this.toMathPositionFromSceneXYZ(scenePos.x, scenePos.y, scenePos.z);
+
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][beforeAdd]', {
+      label: 'StandardAntennaPlacement',
+      ownerName: owner?.name,
+      ownerUniqueId: owner?.uniqueId,
+      rawScenePosition: scenePos,
+      fieldSettingsState: {
+        width: this.fieldSettingsState?.width,
+        length: this.fieldSettingsState?.length,
+        height: this.fieldSettingsState?.height,
+      },
+    });
+
+    const mathPos = this.toMathPositionFromSceneXYZ(
+      scenePos.x,
+      scenePos.y,
+      scenePos.z
+    );
+
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][mathPosBeforeAdd]', {
+      label: 'StandardAntennaPlacement',
+      scenePos,
+      mathPos,
+    });
+
     const antennaForBs = this.getClonedDefaultAntennaForPlacement();
     const defaults = getExistingBsFieldDefaults(antennaForBs);
+
     const existingBsRow = this.fieldDomainStore.addExistingBs({
       x: mathPos.x,
       y: mathPos.y,
@@ -8583,16 +8670,28 @@ private async ensureAntennaTemplateLoaded(): Promise<void> {
       ...defaults,
     });
 
-    console.log('[COORD][Spawn->Row]', {
-      type: 'existing-bs',
-      scenePosition: scenePos,
-      mathPosition: {
-        x: existingBsRow.x,
-        y: existingBsRow.y,
-        z: existingBsRow.z,
+    console.log('[BS_POLLUTION][STORE_WRITE_BS][afterAdd]', {
+      label: 'StandardAntennaPlacement',
+      row: {
+        id: existingBsRow?.id,
+        x: existingBsRow?.x,
+        y: existingBsRow?.y,
+        z: existingBsRow?.z,
       },
     });
 
+
+    console.log('[BS_POLLUTION][snapshotAfterAdd]', {
+      existingBsCount: this.fieldDomainStore.snapshot?.existingBs?.length ?? 0,
+      rows: (this.fieldDomainStore.snapshot?.existingBs ?? []).map((r: any) => ({
+        id: r?.id,
+        x: r?.x,
+        y: r?.y,
+        z: r?.z,
+        ownerMeshId: r?.ownerMeshId,
+      })),
+    });
+    
     // [Step2A][ExistingBsRegistry] Attach metadata and register
     this.attachFieldRowMetadata(owner, existingBsRow.id);
     if (childMeshes.length > 0) {
@@ -10333,11 +10432,7 @@ private spawnRegionBoxAt(regionType: 'observeZone' | 'customZone', point: any, p
     rowId = zoneRow.id;
     rowCategory = 'zone';
     console.log('[FieldStore][Zone][CustomZone] added row', zoneRow);
-    console.log('[COORD][Spawn->Row][Area]', {
-      kind: 'custom-zone',
-      sceneData: scenePos,
-      mathData: { x: zoneRow.x, y: zoneRow.y },
-    });
+
   } else if (regionType === 'observeZone') {
     console.log('[OBS_CREATE_CASE][observeZone][v1]');
     const observeRow = this.fieldDomainStore.addObserve({
@@ -16098,6 +16193,25 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
       const { z, nx, nz, cellSize, sliceY, min, max, width, height } = backend;
 
+      // --- Unified display extent: always use floorMesh world bounds as single source of truth ---
+      const floorBBDisplay = this.floorMesh?.getBoundingInfo().boundingBox;
+      const floorMin = floorBBDisplay?.minimumWorld?.clone() ?? new Vector3(0, 0, 0);
+      const floorMax = floorBBDisplay?.maximumWorld?.clone() ?? new Vector3(width, 0, height);
+      const floorWidth = floorMax.x - floorMin.x;
+      const floorDepth = floorMax.z - floorMin.z;
+
+      console.log('[HEATMAP_DISPLAY_EXTENT]', {
+        floorMin: { x: +floorMin.x.toFixed(2), z: +floorMin.z.toFixed(2) },
+        floorMax: { x: +floorMax.x.toFixed(2), z: +floorMax.z.toFixed(2) },
+        floorWidth: +floorWidth.toFixed(2),
+        floorDepth: +floorDepth.toFixed(2),
+        matrixRows: nz,
+        matrixCols: nx,
+        cellSize,
+        matrixWidth: +(nx * cellSize).toFixed(2),
+        matrixDepth: +(nz * cellSize).toFixed(2),
+      });
+
       if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][RAW_MATRIX]', { rows: nz, cols: nx, total: nz * nx }); }
 
       const displayDs = this.downsampleHeatmapMatrixForDisplay(
@@ -16184,34 +16298,13 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           ? ''
           : (this.DIST_MODE_META[mode] ?? this.DIST_MODE_META.rsrp).unit;
 
-      let hoverMin = this.plotlyHoverMeta?.min;
-      let hoverMax = this.plotlyHoverMeta?.max;
-      if ((!hoverMin || !hoverMax) && this.floorMesh) {
-        const floorMeta = this.buildHeatmapGridMeta(this.floorMesh, cellSize);
-        hoverMin = floorMeta.min.clone();
-        hoverMax = new Vector3(
-          hoverMin.x + width,
-          hoverMin.y,
-          hoverMin.z + height
-        );
-      }
-
-      const displayCellSizeX = nx > 0 ? width / nx : cellSize;
-      const displayCellSizeZ = nz > 0 ? height / nz : cellSize;
+      // Always derive hover meta from floorMesh world extent — never reuse stale plotlyHoverMeta min/max
+      const displayCellSizeX = nx > 0 ? floorWidth / nx : cellSize;
+      const displayCellSizeZ = nz > 0 ? floorDepth / nz : cellSize;
 
       this.plotlyHoverMeta = {
-        ...(this.plotlyHoverMeta || {
-          min: new Vector3(0, 0, 0),
-          max: new Vector3(width, 0, height),
-          nx,
-          nz,
-          cellSize,
-          cellSizeX: displayCellSizeX,
-          cellSizeZ: displayCellSizeZ,
-          sliceY,
-        }),
-        min: hoverMin ?? new Vector3(0, 0, 0),
-        max: hoverMax ?? new Vector3(width, 0, height),
+        min: floorMin.clone(),
+        max: floorMax.clone(),
         nx,
         nz,
         cellSize,
@@ -16379,9 +16472,12 @@ get bsPerfWeightedAvgDlMbps(): number | null {
       if (this.floorMesh) {
         const floorBBForStrongest = this.floorMesh.getBoundingInfo().boundingBox;
         const floorMinForStrongest = floorBBForStrongest.minimumWorld;
+        const floorMaxForStrongest = floorBBForStrongest.maximumWorld;
+        const floorWidthForStrongest = floorMaxForStrongest.x - floorMinForStrongest.x;
+        const floorDepthForStrongest = floorMaxForStrongest.z - floorMinForStrongest.z;
         const strongestSource = this.plotlyHoverZ ?? [];
-        const displayCellSizeX = backend.nx > 0 ? backend.width / backend.nx : backend.cellSize;
-        const displayCellSizeZ = backend.nz > 0 ? backend.height / backend.nz : backend.cellSize;
+        const displayCellSizeX = backend.nx > 0 ? floorWidthForStrongest / backend.nx : backend.cellSize;
+        const displayCellSizeZ = backend.nz > 0 ? floorDepthForStrongest / backend.nz : backend.cellSize;
 
         // [BS_COORD_SOURCE] Use store row + floorMin for same reference frame as heatmap
         // math.x / math.y are offsets from SW corner; floorMin IS the SW corner in world space
@@ -16430,15 +16526,48 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           }
         }
 
-        const strongestMin = this.plotlyHoverMeta?.min ?? floorMinForStrongest;
         const strongestWorldX = floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
         const strongestWorldZ = floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
-        const strongestWorldZReversed = strongestMin.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
+        const strongestWorldZReversed = floorMinForStrongest.z + ((backend.nz - 1 - scMaxRow) + 0.5) * displayCellSizeZ;
 
         const strongestCellCenterX =
           floorMinForStrongest.x + (scMaxCol + 0.5) * displayCellSizeX;
         const strongestCellCenterZ =
           floorMinForStrongest.z + (scMaxRow + 0.5) * displayCellSizeZ;
+
+        // Place strongest marker using floor-unified world coordinates
+        const _markerSkipped = scMaxRow < 0 || scMaxCol < 0;
+        const _markerSkipReason = _markerSkipped
+          ? (strongestSource.length === 0 ? 'empty-source-matrix' : 'all-values-non-finite')
+          : null;
+        if (!_markerSkipped) {
+          const dbgMarker = (window as any).__hmDbgMarker ?? true;
+          if (dbgMarker) {
+            this.upsertHeatmapStrongestMarker(new Vector3(strongestWorldX, sliceY, strongestWorldZ));
+          }
+        }
+
+        // [HEATMAP_STRONGEST_DEBUG]
+        const _srcRows = strongestSource.length;
+        const _srcCols = ((strongestSource as any[])[0] ?? []).length;
+        const _allVals = (strongestSource as any[][]).flat().filter((v: any) => v != null && Number.isFinite(v));
+        const _uniqueVals = new Set(_allVals.map((v: number) => v.toFixed(6)));
+        console.log('[HEATMAP_STRONGEST_DEBUG]', {
+          mapShape: { rows: _srcRows, cols: _srcCols },
+          totalFiniteCells: _allVals.length,
+          uniqueValueCount: _uniqueVals.size,
+          maxValue: scMaxVal,
+          maxCellCount: scCandidateCount,
+          strongestCell: { row: scMaxRow, col: scMaxCol },
+          markerPlaced: !_markerSkipped,
+          markerSkipped: _markerSkipped,
+          skippedReason: _markerSkipReason,
+          isConstantField: _uniqueVals.size <= 1,
+          constantValue: _uniqueVals.size === 1 ? Array.from(_uniqueVals)[0] : null,
+          mostCommonValueCoverage: _allVals.length > 0 ? `${((scCandidateCount / _allVals.length) * 100).toFixed(1)}%` : 'n/a',
+          bsCount: bsRows.length,
+          bsInPayload: (this as any).lastCompleteCalcResult?.input?.bsList?.defaultBs?.length ?? 'unknown',
+        });
 
         const bsCellCenterX =
           floorMinForStrongest.x + (bsCellCol + 0.5) * displayCellSizeX;
@@ -16459,21 +16588,20 @@ get bsPerfWeightedAvgDlMbps(): number | null {
           scTieCandidates.map(c => `[${c.ri},${c.ci}] dist2=${c.dist2}`).join('  ')
         );
 
-        const floorInfo = this.floorMesh?.getBoundingInfo?.().boundingBox ?? null;
-        const floorMin = floorInfo?.minimumWorld ?? null;
-        const floorMax = floorInfo?.maximumWorld ?? null;
-
-        const floorWidth = floorMin && floorMax ? floorMax.x - floorMin.x : null;
-        const floorDepth = floorMin && floorMax ? floorMax.z - floorMin.z : null;
+        const _flLogInfo = this.floorMesh?.getBoundingInfo?.().boundingBox ?? null;
+        const _flLogMin = _flLogInfo?.minimumWorld ?? null;
+        const _flLogMax = _flLogInfo?.maximumWorld ?? null;
+        const _flLogW = _flLogMin && _flLogMax ? _flLogMax.x - _flLogMin.x : null;
+        const _flLogD = _flLogMin && _flLogMax ? _flLogMax.z - _flLogMin.z : null;
 
         console.log('[BS_FLOOR_RANGE_CHECK]',
           '| row(x,y):', bsRow0 ? `(${bsRow0.x.toFixed(1)}, ${bsRow0.y.toFixed(1)})` : 'null',
-          '| floorMin:', floorMin ? `(${floorMin.x.toFixed(1)}, ${floorMin.z.toFixed(1)})` : 'null',
-          '| floorMax:', floorMax ? `(${floorMax.x.toFixed(1)}, ${floorMax.z.toFixed(1)})` : 'null',
-          '| floorWidthDepth:', floorWidth != null ? `${floorWidth.toFixed(1)}, ${floorDepth!.toFixed(1)}` : 'null',
+          '| floorMin:', _flLogMin ? `(${_flLogMin.x.toFixed(1)}, ${_flLogMin.z.toFixed(1)})` : 'null',
+          '| floorMax:', _flLogMax ? `(${_flLogMax.x.toFixed(1)}, ${_flLogMax.z.toFixed(1)})` : 'null',
+          '| floorWidthDepth:', _flLogW != null ? `${_flLogW.toFixed(1)}, ${_flLogD!.toFixed(1)}` : 'null',
           '| rowInRange:',
-            floorWidth != null && bsRow0
-              ? `${bsRow0.x >= 0 && bsRow0.x <= floorWidth}, ${bsRow0.y >= 0 && bsRow0.y <= floorDepth!}`
+            _flLogW != null && bsRow0
+              ? `${bsRow0.x >= 0 && bsRow0.x <= _flLogW}, ${bsRow0.y >= 0 && bsRow0.y <= _flLogD!}`
               : 'null'
         );
 
@@ -16582,8 +16710,8 @@ get bsPerfWeightedAvgDlMbps(): number | null {
         {
           rawNx: nx,
           rawNz: nz,
-          worldWidth: width,
-          worldDepth: height,
+          worldWidth: floorWidth,
+          worldDepth: floorDepth,
         }
       );
       if (this.DEBUG_HEATMAP) { console.log('[HEATMAP][TRACE]', traceId, 'plotly-render:done'); }
@@ -16831,6 +16959,16 @@ get bsPerfWeightedAvgDlMbps(): number | null {
 
   private collectExecutionInputs(): BaseTaskPayloadBuilderInput {
     const snapshot = this.fieldDomainStore.snapshot;
+    console.log('[BS_POLLUTION][snapshotAtCollectStart]', {
+      existingBsCount: snapshot?.existingBs?.length ?? 0,
+      rows: (snapshot?.existingBs ?? []).map((r: any) => ({
+        id: r?.id,
+        x: r?.x,
+        y: r?.y,
+        z: r?.z,
+        ownerMeshId: r?.ownerMeshId,
+      })),
+    });
     const fs = this.fieldSettingsState;
     // Phase-0 trace: payload builder input must come from row/store, not scene-only drafts.
     const sceneBuildingCount = (this.scene?.meshes ?? []).filter((m: any) => m?.metadata?.type === 'building').length;
@@ -17331,6 +17469,12 @@ get bsPerfWeightedAvgDlMbps(): number | null {
     };
     console.log('[SIM_API_PHASE1][collectExecutionInputs]', inputSummary);
 
+    // [BS_POLLUTION] Log A: existingBs snapshot at collectExecutionInputs exit
+    console.log('[BS_POLLUTION][collectExecutionInputs]', {
+      count: fieldData.existingBs.length,
+      rows: fieldData.existingBs.map((r: any) => ({ id: r?.id, name: r?.name, x: r?.x, y: r?.y, z: r?.z, source: r?.source })),
+    });
+
     return input;
   }
 
@@ -17569,6 +17713,20 @@ private analyzeCompleteCalcResult(completeRes: any): {
 
     try {
       console.log('[SIM_API_PHASE3][runSimulationApiFlow] START');
+
+      // [BS_POLLUTION] Log snapshot: raw store state before any collection
+      console.log('[BS_POLLUTION][snapshot]', {
+        existingBsCount: this.fieldDomainStore.snapshot?.existingBs?.length ?? 0,
+        rows: (this.fieldDomainStore.snapshot?.existingBs ?? []).map((r: any) => ({
+          id: r?.id,
+          x: r?.x,
+          y: r?.y,
+          z: r?.z,
+          ownerMeshId: r?.ownerMeshId ?? null,
+          antennaId: r?.antenna?.antennaID ?? null,
+          antennaName: r?.antenna?.antennaName ?? null,
+        })),
+      });
 
       // Step 1: Collect inputs
       console.log('[SIM_FLOW_STAGE]', 'before-collectInputs');
@@ -17965,6 +18123,12 @@ private analyzeCompleteCalcResult(completeRes: any): {
           ? input.basicField.existingBs
           : [];
 
+        // [BS_POLLUTION] Log B: existingBsRows after retrieval from input.basicField
+        console.log('[BS_POLLUTION][existingBsRows]', {
+          count: existingBsRows.length,
+          rows: existingBsRows.map((r: any) => ({ id: r?.id, name: r?.name, x: r?.x, y: r?.y, z: r?.z, source: r?.source })),
+        });
+
         console.log('[CHECK][payload source existingBs]', input.basicField?.existingBs);
         console.log(
           '[CHECK][payload source antenna summary]',
@@ -17991,12 +18155,53 @@ private analyzeCompleteCalcResult(completeRes: any): {
 
         const sourceRows = toBsSourceRows(existingBsRows);
 
+        console.log('[BS_POLLUTION][sourceRowsBuilt]', {
+          existingBsRows: existingBsRows.map((r: any) => ({
+            id: r?.id,
+            x: r?.x,
+            y: r?.y,
+            z: r?.z,
+            ownerMeshId: r?.ownerMeshId,
+          })),
+          sourceRows: sourceRows.map((r: any) => ({
+            id: r?.id,
+            x: r?.x,
+            y: r?.y,
+            z: r?.z,
+          })),
+        });
+
         if (sourceRows.length > 0) {
           demoPayload.defaultBs = serializeBsPositionsToLegacy(sourceRows);
           demoPayload.defaultBsAnt = serializeBsAntennaToLegacy(sourceRows);
+          console.log('[BS_POLLUTION][afterSerializeBsPositions]', {
+            sourceRowsCount: sourceRows.length,
+            sourceRows: sourceRows.map((r: any) => ({
+              id: r?.id,
+              name: r?.name,
+              x: r?.x,
+              y: r?.y,
+              z: r?.z,
+            })),
+            defaultBs: demoPayload.defaultBs,
+            defaultBsAnt: demoPayload.defaultBsAnt,
+          });
+
+          // [BS_POLLUTION] Log C: before buildBsListDefaultBsFromRows
+          console.log('[BS_POLLUTION][beforeBuildBsList]', {
+            existingBsRowsCount: existingBsRows.length,
+            sourceRowsCount: sourceRows.length,
+            existingBsRows: existingBsRows.map((r: any) => ({ id: r?.id, x: r?.x, y: r?.y, z: r?.z })),
+          });
+          const _bsListBuilt = buildBsListDefaultBsFromRows(existingBsRows);
+          // [BS_POLLUTION] Log C: after buildBsListDefaultBsFromRows
+          console.log('[BS_POLLUTION][afterBuildBsList]', {
+            builtCount: _bsListBuilt.length,
+            builtRows: _bsListBuilt.map((bs: any) => ({ ID: bs?.ID, position: bs?.position })),
+          });
           demoPayload.bsList = {
             ...(demoPayload.bsList ?? {}),
-            defaultBs: buildBsListDefaultBsFromRows(existingBsRows),
+            defaultBs: _bsListBuilt,
           };
 
           console.log('[VERIFY][bsList.defaultBs rebuilt from rows]', (demoPayload.bsList.defaultBs ?? []).map((bs: any) => ({
@@ -18134,19 +18339,19 @@ private analyzeCompleteCalcResult(completeRes: any): {
         bsNoiseFigure: (demoPayload as any).bsNoiseFigure,
       });
 
-      // ==============================
-      // [P3][ExistingBsLegacyDefaultBs] Sync legacy defaultBs / defaultBsAnt from first ExistingBsFieldRow
-      // ==============================
-      if (rows.length > 0) {
-        const firstRow: any = rows[0];
-        const firstPos = [
-          Number(firstRow.x ?? 0),
-          Number(firstRow.y ?? 0),
-          Number(firstRow.z ?? 0),
-        ];
-
-        (demoPayload as any).defaultBs = JSON.stringify(firstPos);
-      }
+      // [P3][ExistingBsLegacyDefaultBs]
+      // Disabled: defaultBs is already written correctly by serializeBsPositionsToLegacy(sourceRows).
+      // Do not overwrite it here, because this block uses firstRow only and may use stale / wrong coordinates.
+      // if (rows.length > 0) {
+      //   const firstRow: any = rows[0];
+      //   const firstPos = [
+      //     Number(firstRow.x ?? 0),
+      //     Number(firstRow.y ?? 0),
+      //     Number(firstRow.z ?? 0),
+      //   ];
+      //
+      //   (demoPayload as any).defaultBs = JSON.stringify(firstPos);
+      // }
 
       console.log('[P3][legacyDefaultBs]', {
         defaultBs: (demoPayload as any).defaultBs,
@@ -18760,6 +18965,19 @@ private analyzeCompleteCalcResult(completeRes: any): {
         actualArgIsDemo: true, // postStoreTask(demoPayload) — always demoPayload
       });
       // ===== [/PAYLOAD_SOURCE_AUDIT] =====
+
+      // [BS_POLLUTION] Log D: final payload immediately before POST /son/storeTask
+      console.log('[BS_POLLUTION][finalPayload]', {
+        bsListDefaultBsCount: (demoPayload?.bsList?.defaultBs ?? []).length,
+        bsListDefaultBsPositions: (demoPayload?.bsList?.defaultBs ?? []).map((bs: any) => bs?.position),
+        defaultBs: demoPayload?.defaultBs,
+        defaultBsAnt: demoPayload?.defaultBsAnt,
+        txPower: demoPayload?.txPower,
+        frequency: demoPayload?.frequency,
+        bandwidth: demoPayload?.bandwidth,
+        bandwidthList: demoPayload?.bandwidthList,
+        bsNoiseFigure: demoPayload?.bsNoiseFigure,
+      });
 
       const storeTaskResp = await firstValueFrom(this.taskApiService.postStoreTask(demoPayload));
       console.log('[SIM_API_PHASE3] storeTask response status:', storeTaskResp.status);

@@ -27,8 +27,13 @@ export interface BsSourceRow {
  * Format: "[x,y,z]|[x,y,z]|..."
  */
 export function serializeBsPositionsToLegacy(rows: BsSourceRow[]): string {
+  // [BS_POLLUTION] Log E: serializer input
+  console.log('[BS_POLLUTION][serializerInputRows]', {
+    count: rows?.length ?? 0,
+    rows: (rows ?? []).map((r) => ({ id: r?.id, x: r?.x, y: r?.y, z: r?.z })),
+  });
   if (!Array.isArray(rows) || rows.length === 0) return '';
-  return rows
+  const result = rows
     .map((r) => {
       const x = Number(r?.x ?? 0);
       const y = Number(r?.y ?? 0);
@@ -36,6 +41,9 @@ export function serializeBsPositionsToLegacy(rows: BsSourceRow[]): string {
       return `[${x},${y},${z}]`;
     })
     .join('|');
+  // [BS_POLLUTION] Log E: serializer output
+  console.log('[BS_POLLUTION][serializerOutputDefaultBs]', result);
+  return result;
 }
 
 /**
@@ -293,6 +301,17 @@ export function buildLegacyDefaultBsItemFromRow(
 export function buildBsListDefaultBsFromRows(
   rows: ExistingBsFieldRow[]
 ): LegacyBsListRow[] {
+  // [BS_POLLUTION] serializerInput for buildBsListDefaultBsFromRows
+  console.log('[BS_POLLUTION][serializerInput]', {
+    count: rows?.length ?? 0,
+    rows: (rows ?? []).map((r) => ({ id: r?.id, x: r?.x, y: r?.y, z: r?.z })),
+  });
   if (!Array.isArray(rows) || rows.length === 0) return [];
-  return rows.map((row, index) => buildLegacyDefaultBsItemFromRow(row, index));
+  const result = rows.map((row, index) => buildLegacyDefaultBsItemFromRow(row, index));
+  // [BS_POLLUTION] serializerOutput for buildBsListDefaultBsFromRows
+  console.log('[BS_POLLUTION][serializerOutput]', {
+    count: result.length,
+    rows: result.map((bs) => ({ ID: bs?.ID, position: bs?.position })),
+  });
+  return result;
 }
