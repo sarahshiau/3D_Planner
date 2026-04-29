@@ -33,6 +33,17 @@ export class TaskApiService {
       bodyIsString: typeof body === 'string'
     });
 
+    console.log('[BS_POLLUTION][TASK_API_SERVICE_POST_STORE_TASK_ARG]', {
+      taskid: (payload as any)?.taskid,
+      taskMetaTaskid: (payload as any)?.task_meta?.taskid,
+      sessionid: (payload as any)?.sessionid,
+      createTime: (payload as any)?.createTime,
+      defaultBs: (payload as any)?.defaultBs,
+      defaultBsAnt: (payload as any)?.defaultBsAnt,
+      bsListDefaultBsCount: (payload as any)?.bsList?.defaultBs?.length,
+      bsListDefaultBsPositions: (payload as any)?.bsList?.defaultBs?.map((b: any) => b?.position),
+    });
+    
     return this.http.post(url, body, {
       headers: headers,
       observe: 'response',
